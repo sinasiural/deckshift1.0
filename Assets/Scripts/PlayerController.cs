@@ -372,7 +372,15 @@ public class PlayerController : MonoBehaviour
 
     // What the NEXT Stagger will cost. The card face and its hover text both read this, so the
     // player is never surprised by the price — see CardUI.
-    public float NextStaggerCost => staggerHealthStep * (staggerCount + 1);
+    //
+    // Iron Lung shallows the climb to 6 per step instead of 8. Read through here rather than
+    // written into staggerHealthStep, for the same reason HandCapacity is read rather than
+    // mirrored: selling the relic must restore the real price instantly, with no stale copy left
+    // on the player. The card face reads this property, so the drawn cost follows automatically.
+    public float StaggerStep =>
+        (RelicManager.instance != null && RelicManager.instance.HasRelic("IronLung")) ? 6f : staggerHealthStep;
+
+    public float NextStaggerCost => StaggerStep * (staggerCount + 1);
 
     // Gravity reversal state
     internal bool isGravityReversed = false;

@@ -209,6 +209,12 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         // Spawned before OnDied/Destroy because the shards must outlive this GameObject
         // (SpawnBurst builds free-standing objects, so they do).
         int scrap = scrapDropOverride >= 0 ? scrapDropOverride : ScrapEconomy.ScrapForEnemy(maxHealth);
+
+        // Magpie: +1 scrap per kill. Added AFTER the override so an elite that hand-sets its drop
+        // still benefits — the override says what the enemy is worth, not what the player earns.
+        // Applied only when something actually drops, so it can't make a zero-value enemy pay.
+        if (scrap > 0 && RelicManager.instance != null && RelicManager.instance.HasRelic("Magpie")) scrap += 1;
+
         if (scrap > 0) ScrapPickup.SpawnBurst(transform.position, scrap);
 
         // Notify listeners (e.g. the boss) before the object is destroyed.

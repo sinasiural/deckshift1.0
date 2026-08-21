@@ -105,6 +105,15 @@ public class PlayerHealth : MonoBehaviour
             return;
         }
 
+        // Relic scaling on damage TAKEN (Paper Skin, Odd Socket).
+        //
+        // ⚠️ HERE, NOT IN ApplyDamage. PayHealthCost also routes through ApplyDamage, and that is
+        // Stagger's bill — a price the player CHOSE to pay, not a hit. Scaling it there would make
+        // Paper Skin quietly raise the cost of Stagger by 50%, which is not what it says it does.
+        // Sitting after the invincibility and parry returns also means a hit that deals nothing
+        // stays nothing.
+        if (RelicManager.instance != null) damage = RelicManager.instance.ModifyIncomingDamage(damage);
+
         ApplyDamage(damage);
     }
 

@@ -25,6 +25,18 @@ public class RelicManager : MonoBehaviour
     public int SellValueFor(RelicData relic)
     {
         if (relic == null) return 0;
+        // Pawnbroker doubles it. Applied HERE rather than in SellRelic so every surface that quotes
+        // a price — the tooltip, the manage panel, the swap screen, a declined chest's payout —
+        // quotes the one the player will actually be paid.
+        //
+        // It doubles its OWN sale too, since the value is read while it is still worn. That is the
+        // honest reading and it is a fine last move: cash out the pawnbroker last.
+        int mult = HasRelic("Pawnbroker") ? 2 : 1;
+        return BaseSellValue(relic) * mult;
+    }
+
+    private int BaseSellValue(RelicData relic)
+    {
         switch (relic.rarity)
         {
             // A boss relic is still sellable, or a full loadout would make one unclaimable — the
@@ -72,6 +84,10 @@ public class RelicManager : MonoBehaviour
         // Flux Regulator: the first card played this room is free.
         if (HasRelic("FluxRegulator") && DeckManager.instance != null)
             DeckManager.instance.isNextCardFree = true;
+
+        // Second Wind: sustain that can't be farmed. Per-kill healing rewards clearing rooms you
+        // could have walked past; this pays the same whether you fight or not.
+        if (player != null && HasRelic("SecondWind")) player.Heal(8);
     }
 
     // --- Stat passives -------------------------------------------------------
@@ -88,6 +104,7 @@ public class RelicManager : MonoBehaviour
 
         float flat = 0f;
         if (HasRelic("ReinforcedPlating")) flat += 15f;
+        if (HasRelic("MatchedSet")) flat += 8f * MatchedPairs();
 
         float mult = 1f;
         if (HasRelic("GlassHeart")) mult *= 0.5f;
@@ -114,8 +131,31 @@ public class RelicManager : MonoBehaviour
         if (HasRelic("MidasRecoil") && GameManager.instance != null && GameManager.instance.player != null)
             dmg += GameManager.instance.player.currentGold / 25;
 
+        // Sharp Practice: a flat bonus on every hit. Deliberately unlike Whetstone, which pays once
+        // per enemy — this one scales with how OFTEN you hit rather than how many enemies exist.
+        if (HasRelic("SharpPractice")) dmg += 2f;
+
+        // Running on Fumes: +1 per 2 Shift you are MISSING, so the emptier you are the harder you
+        // hit. Reads from max, which the player can raise (Nest Egg, quests), so the ceiling grows.
+        if (HasRelic("RunningOnFumes") && GameManager.instance != null && GameManager.instance.player != null)
+        {
+            PlayerController p = GameManager.instance.player;
+            dmg += Mathf.Max(0, p.maxShift - p.GetCurrentShift()) / 2;
+        }
+
+        // Matched Set: +2 per pair of relics sharing a rarity.
+        if (HasRelic("MatchedSet")) dmg += 2f * MatchedPairs();
+
+        // --- multipliers below this line ---
+
         // Glass Heart: double damage (paid for with half max HP).
         if (HasRelic("GlassHeart")) dmg *= 2f;
+
+        // Odd Socket: every slot you DON'T fill makes what you do carry hit harder.
+        if (HasRelic("OddSocket")) dmg *= 1f + 0.15f * EmptySlots();
+
+        // Weight Class: heavier, so it lands harder. The jump/fall half lives on PlayerController.
+        if (HasRelic("WeightClass")) dmg *= 1.4f;
 
         // Blompo's damage-time blessings. They live at this chokepoint rather than at the seven
         // damage call sites for the same reason the relics do — a damage source added later cannot
@@ -125,6 +165,49 @@ public class RelicManager : MonoBehaviour
             dmg = CardEnhancements.ModifyDamage(DeckManager.instance.AttributedCard, dmg, target);
 
         return dmg;
+    }
+
+    // --- Incoming player damage ----------------------------------------------
+    // The mirror of ModifyPlayerDamage, and it exists for the same reason: one chokepoint, so a
+    // damage source added later cannot forget to honour a relic.
+    //
+    // ⚠️ CALLED FROM TakeDamage, NOT ApplyDamage. PayHealthCost routes through ApplyDamage too, and
+    // that is Stagger's bill — a price the player CHOSE to pay, not a hit taken. Scaling there
+    // would make Paper Skin quietly raise Stagger's cost by 50%, which its text does not say.
+    public float ModifyIncomingDamage(float damage)
+    {
+        float dmg = damage;
+
+        // Paper Skin: charges bought with fragility.
+        if (HasRelic("PaperSkin")) dmg *= 1.5f;
+
+        // Odd Socket: an empty slot protects as well as it strikes.
+        if (HasRelic("OddSocket")) dmg *= Mathf.Max(0f, 1f - 0.15f * EmptySlots());
+
+        return dmg;
+    }
+
+    /// <summary>Slots left unfilled. Odd Socket reads this, so it changes the moment you sell.</summary>
+    public int EmptySlots()
+    {
+        return Mathf.Max(0, MaxSlots - ownedRelics.Count);
+    }
+
+    /// <summary>
+    /// How many PAIRS of owned relics share a rarity — three Commons is one pair, four is two.
+    /// Counts Matched Set itself, which is intended: it needs a partner to do anything at all.
+    /// </summary>
+    public int MatchedPairs()
+    {
+        var byRarity = new Dictionary<Rarity, int>();
+        foreach (RelicData r in ownedRelics)
+        {
+            if (r == null) continue;
+            byRarity[r.rarity] = (byRarity.ContainsKey(r.rarity) ? byRarity[r.rarity] : 0) + 1;
+        }
+        int pairs = 0;
+        foreach (var kv in byRarity) pairs += kv.Value / 2;
+        return pairs;
     }
 
     // --- Phoenix Cog ---------------------------------------------------------
@@ -262,6 +345,13 @@ public class RelicManager : MonoBehaviour
                 Debug.Log("⚡ Kinetic Capacitor: +2 Shift kazanıldı!");
             }
         }
+
+        // Quick Hands: a kill draws a card. This is the ONLY source of cards outside Recall, which
+        // is the point — it makes fighting the way you refill your hand instead of paying Shift for
+        // it. DrawCard is a no-op on a full hand and reshuffles the discard when the draw pile runs
+        // out, so it needs no guard of its own.
+        if (HasRelic("QuickHands") && DeckManager.instance != null)
+            DeckManager.instance.DrawCard();
     }
 
     // 2. Oyuncu hasar aldığında bu fonksiyon çağrılacak
