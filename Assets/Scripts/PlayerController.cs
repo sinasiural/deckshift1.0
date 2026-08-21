@@ -566,6 +566,12 @@ public class PlayerController : MonoBehaviour
             // that could not be paid for (0 Shift) simply expires instead of firing later.
             if (jumpBufferTimer > 0f && HandleJumpInput()) jumpBufferTimer = 0f;
 
+            // --- BOSS RELIC INPUTS ------------------------------------------------------------
+            // ⚠️ THE ONLY RELICS ALLOWED TO ADD A KEYBIND (designer, 2026-08-21). Everything below
+            // boss tier reuses an existing input or is passive, which is why Crowbar breaks walls
+            // by walking into them and Air Brake is a fall multiplier rather than a hold.
+            HandleBossRelicInput();
+
             if (currentState == PlayerState.Idle || currentState == PlayerState.Running || currentState == PlayerState.Jumping)
                 moveInput = Input.GetAxisRaw("Horizontal");
             else
@@ -1148,6 +1154,9 @@ public class PlayerController : MonoBehaviour
         // Nest Egg watches how much Shift this room costs. Reset here for the same reason.
         shiftSpentThisRoom = 0;
 
+        // Stopgap is once per ROOM, not once per run.
+        stopgapUsedThisRoom = false;
+
         // The portal object itself carries TemporaryObject and is destroyed with the room, but the
         // reference would survive as a Unity fake-null. Clearing it explicitly also takes the range
         // ring down and keeps the "pending portal" state a per-room thing by construction.
@@ -1170,6 +1179,164 @@ public class PlayerController : MonoBehaviour
     // Clears Meteor Greaves fall tracking so a teleport (fall-respawn, room spawn) isn't
     // read as an enormous drop on the next landing. Called from PlayerHealth.FallAndRespawn.
     public void ResetFallTracking() => trackingFall = false;
+
+    // ============================================================================================
+    // BOSS RELICS — the only tier that may add an input.
+    // ============================================================================================
+
+    [Header("Boss Relics")]
+    public float deadDropSpeed = 34f;
+    public float grapnelRange = 12f;
+    public int grapnelShiftCost = 2;
+    public float grapnelPullSpeed = 26f;
+    public float stopgapDuration = 1.5f;
+
+    [System.NonSerialized] public bool stopgapUsedThisRoom = false;
+    private bool grapnelBusy = false;
+
+    private void HandleBossRelicInput()
+    {
+        if (RelicManager.instance == null) return;
+        // There is no PlayerState.Dead — death is tracked on PlayerHealth. Also gated while
+        // cannoned or dashing, where a second movement verb would fight the one already running.
+        if (playerHealth != null && playerHealth.IsDead) return;
+        if (currentState == PlayerState.InCannon || currentState == PlayerState.Dashing) return;
+
+        // DEAD DROP — S / Down in mid-air slams you straight down. Feeds Meteor Greaves (which
+        // needs a 6.5-unit fall) and Freefall Blade (which doubles its damage while falling); both
+        // of those previously only triggered by accident.
+        if (RelicManager.instance.HasRelic("DeadDrop")
+            && !isGrounded && !isSwimming
+            && (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow)))
+        {
+            float dir = isGravityReversed ? 1f : -1f;
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x * 0.4f, deadDropSpeed * dir);
+            if (CameraShake.instance != null) CameraShake.instance.Shake(0.06f, 0.15f);
+        }
+
+        // STOPGAP — Q freezes the room for a moment. Once per room, so it is a panic button and not
+        // a playstyle: the game charges nothing for TIME, and an unlimited freeze would let a player
+        // simply wait out every encounter.
+        if (RelicManager.instance.HasRelic("Stopgap")
+            && !stopgapUsedThisRoom
+            && Input.GetKeyDown(KeyCode.Q))
+        {
+            stopgapUsedThisRoom = true;
+            StartCoroutine(StopgapRoutine());
+        }
+
+        // GRAPNEL — F fires a hook at whatever the cursor is pointing at and reels you in.
+        if (RelicManager.instance.HasRelic("Grapnel")
+            && !grapnelBusy
+            && Input.GetKeyDown(KeyCode.F))
+        {
+            TryGrapnel();
+        }
+    }
+
+    // Freezes every enemy and projectile in the room without touching Time.timeScale — the global
+    // scale is HitStop's and the pause counter's, and borrowing it here would stop the PLAYER too,
+    // which is the opposite of what a panic button is for.
+    private IEnumerator StopgapRoutine()
+    {
+        var frozen = new List<Rigidbody2D>();
+        var vel = new List<Vector2>();
+        var behaviours = new List<MonoBehaviour>();
+
+        foreach (EnemyHealth eh in FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None))
+        {
+            if (eh == null) continue;
+            foreach (MonoBehaviour mb in eh.GetComponentsInChildren<MonoBehaviour>())
+            {
+                // Freeze the AI, never the health component — a frozen EnemyHealth could not take
+                // damage, which would make the panic button also a damage immunity for the enemy.
+                if (mb == null || mb is EnemyHealth || !mb.enabled) continue;
+                // Matched by TYPE NAME rather than by type, because MonsterController lives in the
+                // Cainos.PixelArtMonster_Dungeon namespace and there are three unrelated Projectile
+                // types in this project — naming them directly is how ambiguous references start.
+                string tn = mb.GetType().Name;
+                if (tn.EndsWith("AI") || tn == "MonsterController" || tn == "Turret")
+                {
+                    mb.enabled = false;
+                    behaviours.Add(mb);
+                }
+            }
+            Rigidbody2D erb = eh.GetComponent<Rigidbody2D>();
+            if (erb != null) { frozen.Add(erb); vel.Add(erb.linearVelocity); erb.linearVelocity = Vector2.zero; }
+        }
+
+        foreach (Projectile p in FindObjectsByType<Projectile>(FindObjectsSortMode.None))
+        {
+            if (p == null) continue;
+            Rigidbody2D prb = p.GetComponent<Rigidbody2D>();
+            if (prb != null) { frozen.Add(prb); vel.Add(prb.linearVelocity); prb.linearVelocity = Vector2.zero; }
+            p.enabled = false;
+            behaviours.Add(p);
+        }
+
+        if (CameraShake.instance != null) CameraShake.instance.Shake(0.2f, 0.35f);
+
+        yield return new WaitForSeconds(stopgapDuration);
+
+        // Everything is null-checked on the way back: an enemy can die to a spike, or the room can
+        // change, while the freeze is running.
+        for (int i = 0; i < frozen.Count; i++)
+            if (frozen[i] != null) frozen[i].linearVelocity = vel[i];
+        foreach (MonoBehaviour mb in behaviours)
+            if (mb != null) mb.enabled = true;
+    }
+
+    private void TryGrapnel()
+    {
+        if (currentShift < grapnelShiftCost
+            && (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        Vector3 mouse = cam.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 origin = (Vector2)transform.position + Vector2.up * 0.85f;   // chest, not feet
+        Vector2 dir = ((Vector2)mouse - origin).normalized;
+        if (dir.sqrMagnitude < 0.01f) return;
+
+        // Ground only. Hooking an enemy is a different relic; hooking a trigger would let the player
+        // reel themselves into a pickup volume.
+        RaycastHit2D hit = Physics2D.Raycast(origin, dir, grapnelRange, terrainLayer);
+        if (hit.collider == null) return;
+
+        if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
+            SpendShift(grapnelShiftCost);
+
+        StartCoroutine(GrapnelRoutine(hit.point));
+    }
+
+    private IEnumerator GrapnelRoutine(Vector2 anchor)
+    {
+        grapnelBusy = true;
+        GrapnelVFX fx = GrapnelVFX.Play(transform, anchor);
+
+        float cachedGravity = rb.gravityScale;
+        rb.gravityScale = 0f;
+
+        // Stop just short of the surface, or the capsule ends up embedded in it.
+        const float stopDistance = 0.9f;
+        float timeout = Time.time + 1.4f;   // never strand the player if something moves or blocks
+
+        while (Time.time < timeout
+               && Vector2.Distance(transform.position, anchor) > stopDistance)
+        {
+            Vector2 toAnchor = (anchor - (Vector2)transform.position).normalized;
+            rb.linearVelocity = toAnchor * grapnelPullSpeed;
+            yield return new WaitForFixedUpdate();
+        }
+
+        rb.gravityScale = cachedGravity;
+        // Keep a little of the momentum so the arrival flows into a jump rather than dead-stopping.
+        rb.linearVelocity *= 0.25f;
+
+        if (fx != null) fx.Finish();
+        grapnelBusy = false;
+    }
 
     // Meteor Greaves: landing after a fall of at least meteorMinFall stomps a shockwave whose
     // radius and damage scale with how far you dropped (capped at meteorMaxFall). Damage routes

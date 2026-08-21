@@ -119,7 +119,8 @@ public class RelicManager : MonoBehaviour
 
         // Second Wind: sustain that can't be farmed. Per-kill healing rewards clearing rooms you
         // could have walked past; this pays the same whether you fight or not.
-        if (player != null && HasRelic("SecondWind")) player.Heal(8);
+        int wind = 8 * Stacks("SecondWind");
+        if (player != null && wind > 0) player.Heal(wind);
     }
 
     // --- Stat passives -------------------------------------------------------
@@ -136,7 +137,7 @@ public class RelicManager : MonoBehaviour
 
         float flat = 0f;
         if (HasRelic("ReinforcedPlating")) flat += 15f;
-        if (HasRelic("MatchedSet")) flat += 8f * MatchedPairs();
+        flat += 8f * MatchedPairs() * Stacks("MatchedSet");
 
         float mult = 1f;
         if (HasRelic("GlassHeart")) mult *= 0.5f;
@@ -165,18 +166,19 @@ public class RelicManager : MonoBehaviour
 
         // Sharp Practice: a flat bonus on every hit. Deliberately unlike Whetstone, which pays once
         // per enemy — this one scales with how OFTEN you hit rather than how many enemies exist.
-        if (HasRelic("SharpPractice")) dmg += 2f;
+        // Every numeric relic below multiplies by Stacks(), which is what lets Stand-In copy it.
+        dmg += 2f * Stacks("SharpPractice");
 
         // Running on Fumes: +1 per 2 Shift you are MISSING, so the emptier you are the harder you
         // hit. Reads from max, which the player can raise (Nest Egg, quests), so the ceiling grows.
         if (HasRelic("RunningOnFumes") && GameManager.instance != null && GameManager.instance.player != null)
         {
             PlayerController p = GameManager.instance.player;
-            dmg += Mathf.Max(0, p.maxShift - p.GetCurrentShift()) / 2;
+            dmg += (Mathf.Max(0, p.maxShift - p.GetCurrentShift()) / 2) * Stacks("RunningOnFumes");
         }
 
         // Matched Set: +2 per pair of relics sharing a rarity.
-        if (HasRelic("MatchedSet")) dmg += 2f * MatchedPairs();
+        dmg += 2f * MatchedPairs() * Stacks("MatchedSet");
 
         // --- multipliers below this line ---
 
@@ -184,10 +186,11 @@ public class RelicManager : MonoBehaviour
         if (HasRelic("GlassHeart")) dmg *= 2f;
 
         // Odd Socket: every slot you DON'T fill makes what you do carry hit harder.
-        if (HasRelic("OddSocket")) dmg *= 1f + 0.15f * EmptySlots();
+        if (HasRelic("OddSocket")) dmg *= 1f + 0.15f * EmptySlots() * Stacks("OddSocket");
 
         // Weight Class: heavier, so it lands harder. The jump/fall half lives on PlayerController.
-        if (HasRelic("WeightClass")) dmg *= 1.4f;
+        // Applied once per stack so a copied Weight Class compounds rather than being ignored.
+        for (int i = 0; i < Stacks("WeightClass"); i++) dmg *= 1.4f;
 
         // Blompo's damage-time blessings. They live at this chokepoint rather than at the seven
         // damage call sites for the same reason the relics do — a damage source added later cannot
@@ -210,13 +213,51 @@ public class RelicManager : MonoBehaviour
     {
         float dmg = damage;
 
-        // Paper Skin: charges bought with fragility.
+        // Paper Skin: charges bought with fragility. NOT multiplied by Stacks — a copied Paper Skin
+        // would make you take 2.25x, which is a downside Stand-In should not be able to inflict on
+        // a player who parked it there for the charges.
         if (HasRelic("PaperSkin")) dmg *= 1.5f;
 
         // Odd Socket: an empty slot protects as well as it strikes.
-        if (HasRelic("OddSocket")) dmg *= Mathf.Max(0f, 1f - 0.15f * EmptySlots());
+        if (HasRelic("OddSocket"))
+            dmg *= Mathf.Max(0f, 1f - 0.15f * EmptySlots() * Stacks("OddSocket"));
 
         return dmg;
+    }
+
+    /// <summary>
+    /// How many times a relic's effect should apply: 0 if not owned, 1 normally, 2 while Stand-In
+    /// sits immediately to its right.
+    ///
+    /// ⚠️ THIS IS WHAT MAKES STAND-IN REAL. "Copies the relic to its left" cannot work through
+    /// HasRelic, because HasRelic is a yes/no — a second yes changes nothing. Numeric relics
+    /// multiply by this instead.
+    ///
+    /// ⚠️ AND IT ONLY MEANS ANYTHING ON NUMERIC RELICS. Doubling Crowbar or Air Brake does nothing,
+    /// because there is no number to double. That is the honest limit of the mechanic, and it is
+    /// why the slot ORDER matters: the player must be able to park Stand-In beside something worth
+    /// copying. Relic reordering is still unbuilt, so today the left-hand neighbour is whatever you
+    /// happened to pick up first — the relic works, but the player cannot yet aim it.
+    /// </summary>
+    public int Stacks(string relicID)
+    {
+        if (!HasRelic(relicID)) return 0;
+        if (relicID == "StandIn") return 1;          // never copies itself
+
+        int idx = ownedRelics.FindIndex(r => r != null && r.relicID == "StandIn");
+        if (idx > 0 && ownedRelics[idx - 1] != null && ownedRelics[idx - 1].relicID == relicID)
+            return 2;
+        return 1;
+    }
+
+    /// <summary>The relic Stand-In is currently copying, or null. For its live readout.</summary>
+    public RelicData StandInTarget
+    {
+        get
+        {
+            int idx = ownedRelics.FindIndex(r => r != null && r.relicID == "StandIn");
+            return (idx > 0) ? ownedRelics[idx - 1] : null;
+        }
     }
 
     /// <summary>Slots left unfilled. Odd Socket reads this, so it changes the moment you sell.</summary>
