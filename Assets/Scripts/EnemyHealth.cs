@@ -217,6 +217,11 @@ public class EnemyHealth : MonoBehaviour, IDamageable
 
         if (scrap > 0) ScrapPickup.SpawnBurst(transform.position, scrap);
 
+        // Bounce House: the corpse leaves a pad. Spawned here alongside the scrap and for the same
+        // reason — it must outlive this GameObject, and BouncePad.Spawn builds a free-standing one.
+        // The relic check lives inside Spawn so this stays one line.
+        BouncePad.Spawn(transform.position);
+
         // Notify listeners (e.g. the boss) before the object is destroyed.
         OnDied?.Invoke();
 

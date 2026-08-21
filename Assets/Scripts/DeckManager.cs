@@ -42,16 +42,32 @@ public class DeckManager : MonoBehaviour
     {
         get
         {
+            // Tunnel Vision REPLACES the hand size rather than adjusting it — one card, whatever
+            // else you are carrying. Checked first so it wins over every other modifier, which is
+            // the point of a rule change: nothing negotiates with it.
+            if (RelicManager.instance != null && RelicManager.instance.HasRelic("TunnelVision")) return 1;
+
             int bonus = (player != null && player.character != null)
                 ? player.character.handCapacityBonus : 0;
+
+            // Long Fuse buys its exhaust rescue with a hand slot — the Ninja's currency.
+            if (RelicManager.instance != null && RelicManager.instance.HasRelic("LongFuse")) bonus -= 1;
+
             return Mathf.Max(1, handCapacity + bonus);
         }
     }
 
     // Character trait hook. Like HandCapacity, it is read rather than mirrored into a field, so it
     // can never fall out of step with the character actually being played.
+    //
+    // Tunnel Vision locks it too: a one-card hand means constant Recalls, so an escalating price
+    // would make the relic unplayable within a single room rather than merely different.
     public bool RecallCostIsLocked =>
-        player != null && player.character != null && player.character.recallCostNeverRises;
+        (player != null && player.character != null && player.character.recallCostNeverRises)
+        || (RelicManager.instance != null && RelicManager.instance.HasRelic("TunnelVision"));
+
+    // Second Nature: the first Recall of each room is free. Reset by OnNewRoom, like the Clamp.
+    private bool freeRecallUsedThisRoom = false;
 
     private int selectedIndex = -1;
     private bool isReloading = false;
@@ -282,6 +298,18 @@ public class DeckManager : MonoBehaviour
                 playedCard.currentUses = 1;
                 hand.Add(playedCard);
             }
+            // Long Fuse: a burnt-out card goes back into the DRAW pile with a single charge instead
+            // of the exhaust pile. Checked last of the rescues on purpose — Last Call is once per
+            // run and Reclaimer's Clamp once per room, so the narrower ones spend first and this
+            // unlimited one catches whatever is left.
+            //
+            // It softens exhaust rather than deleting it: one charge at a time still burns down,
+            // and it costs a hand slot (see HandCapacity). No scrap rebate — the card did not die.
+            else if (RelicManager.instance != null && RelicManager.instance.HasRelic("LongFuse"))
+            {
+                playedCard.currentUses = 1;
+                drawPile.Add(playedCard);
+            }
             else
             {
                 exhaustPile.Add(playedCard);
@@ -398,6 +426,7 @@ public class DeckManager : MonoBehaviour
     public void ResetRoomRelicState()
     {
         clampUsedThisRoom = false;
+        freeRecallUsedThisRoom = false;   // Second Nature
     }
 
     // Glass Parry's mastery refund: gives one charge back to a card that was already
@@ -407,7 +436,7 @@ public class DeckManager : MonoBehaviour
     {
         if (card == null) return;
         if (!card.isInfinite)
-            card.currentUses = Mathf.Min(card.currentUses + 1, card.cardData.maxUses);
+            card.currentUses = Mathf.Min(card.currentUses + 1, card.MaxUses);
         if (exhaustPile.Remove(card))
             discardPile.Add(card);
         OnHandChanged?.Invoke(false);
@@ -430,7 +459,7 @@ public class DeckManager : MonoBehaviour
         int cost = ScrapEconomy.RechargeCost(card);
         if (!player.TrySpendScrap(cost)) return false;
 
-        card.currentUses = card.cardData.maxUses;
+        card.currentUses = card.MaxUses;
         OnHandChanged?.Invoke(false);
         return true;
     }
@@ -492,8 +521,20 @@ public class DeckManager : MonoBehaviour
         foreach (RuntimeCard card in hand)
             if (IsStagger(card)) return;   // already holding one — never stack them
 
+        // Ace Up the Sleeve: once per run, running dry pays out instead of billing you. Checked
+        // BEFORE the card is conjured, so the player never sees the Stagger at all — a card that
+        // appeared and then vanished would read as a glitch rather than as a rescue.
+        if (RelicManager.instance != null && RelicManager.instance.TryConsumeAceUpTheSleeve())
+        {
+            player.AddShift(AceUpTheSleeveShift);
+            Debug.Log($"🃏 Ace Up the Sleeve: +{AceUpTheSleeveShift} Shift instead of a Stagger. Once per run.");
+            return;
+        }
+
         AddStaggerCardToHand();
     }
+
+    public const int AceUpTheSleeveShift = 20;
 
     private void AddStaggerCardToHand()
     {
@@ -529,8 +570,20 @@ public class DeckManager : MonoBehaviour
         }
         else
         {
+            // Tunnel Vision pays nothing, ever. Second Nature waives only the first of each room.
+            // Both are resolved BEFORE the affordability check, or a player at 0 Shift would be
+            // refused a Recall they were never going to be charged for.
+            bool relicFree = RelicManager.instance != null
+                             && RelicManager.instance.HasRelic("TunnelVision");
+            if (!relicFree && !freeRecallUsedThisRoom && RelicManager.instance != null
+                && RelicManager.instance.HasRelic("SecondNature"))
+            {
+                relicFree = true;
+                if (!inHub) freeRecallUsedThisRoom = true;   // the hub must not burn the freebie
+            }
+
             // 2. Maliyet kontrolü
-            if (player.GetCurrentShift() < currentRecallCost)
+            if (!relicFree && player.GetCurrentShift() < currentRecallCost)
             {
                 Debug.Log("Yetersiz Shift! Recall yapılamıyor.");
                 // Buraya "Yetersiz Enerji" sesi veya görseli eklenebilir
@@ -538,7 +591,7 @@ public class DeckManager : MonoBehaviour
             }
 
             // 3. Shift Harca + 4. Maliyeti Artır (Level bitene kadar)
-            if (!inHub)
+            if (!inHub && !relicFree)
             {
                 player.SpendShift(currentRecallCost);
                 // The Ninja's "Fast Hands": the price never climbs, so cycling the hand is a real
@@ -547,6 +600,30 @@ public class DeckManager : MonoBehaviour
                 if (!RecallCostIsLocked) currentRecallCost++;
                 OnRecallCostChanged?.Invoke(currentRecallCost);
             }
+        }
+
+        // Flywheel: the refresh detonates, and it hits harder the deeper into the room you are —
+        // the escalating price becomes the payoff instead of a tax.
+        //
+        // ⚠️ 10x the cost, not the cost. At 1x this dealt 1-4 damage against enemies with 12-40 HP,
+        // which is indistinguishable from nothing (designer, 2026-08-21).
+        //
+        // Read AFTER the block above, so it uses the price actually standing at this moment. Routed
+        // through ModifyPlayerDamage like every other player damage source, so relics and blessings
+        // apply and a future source cannot forget them.
+        if (RelicManager.instance != null && RelicManager.instance.HasRelic("Flywheel"))
+        {
+            float blast = currentRecallCost * 10f;
+            // Dedup by component: an enemy with several colliders would otherwise be hit once per
+            // collider. Same guard MeteorGreaves uses.
+            HashSet<EnemyHealth> struck = new HashSet<EnemyHealth>();
+            foreach (Collider2D hit in Physics2D.OverlapCircleAll(player.transform.position, 4.5f))
+            {
+                EnemyHealth eh = hit.GetComponentInParent<EnemyHealth>();
+                if (eh == null || !struck.Add(eh)) continue;
+                eh.TakeDamage(RelicManager.instance.ModifyPlayerDamage(blast, eh));
+            }
+            if (CameraShake.instance != null) CameraShake.instance.Shake(0.15f, 0.3f);
         }
 
         // Oath tracking, placed after every early-return above so a REFUSED recall (not enough

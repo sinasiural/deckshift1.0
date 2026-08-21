@@ -88,7 +88,10 @@ public static class RelicSlateBuilder
                 "+1 damage for every 2 Shift you are missing.", "Empty Bottle"),
         new Def("TunnelVision",   "TunnelVision",   "Tunnel Vision",    Rarity.Epic,
                 "Your hand is one card. Recall costs nothing and never escalates.", "Lantern"),
-        new Def("Understudy",     "Understudy",     "Understudy",       Rarity.Epic,
+        // ⚠️ NOT "Understudy" — CardEnhancements already has a blessing by that name, with its own
+        // understudyPartner field on RuntimeCard. Two systems sharing a name is how a bug report
+        // becomes unreadable.
+        new Def("StandIn",        "StandIn",        "Stand-In",         Rarity.Epic,
                 "Copies the relic in the slot to its left.", "Book 2"),
         new Def("WeightClass",    "WeightClass",    "Weight Class",     Rarity.Epic,
                 "You fall faster and hit 40% harder. You jump 25% lower.", "Obsidian"),

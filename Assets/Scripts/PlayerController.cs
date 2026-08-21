@@ -377,6 +377,9 @@ public class PlayerController : MonoBehaviour
     // written into staggerHealthStep, for the same reason HandCapacity is read rather than
     // mirrored: selling the relic must restore the real price instantly, with no stale copy left
     // on the player. The card face reads this property, so the drawn cost follows automatically.
+    // Debt Collector's exchange rate: gold charged per point of health Stagger would have cost.
+    public const float DebtCollectorGoldPerHealth = 20f;
+
     public float StaggerStep =>
         (RelicManager.instance != null && RelicManager.instance.HasRelic("IronLung")) ? 6f : staggerHealthStep;
 
@@ -582,7 +585,19 @@ public class PlayerController : MonoBehaviour
             float gravitySign = isGravityReversed ? -1f : 1f;
             if (rb.linearVelocity.y * gravitySign < 0)
             {
-                rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime * gravitySign;
+                // Air Brake and Weight Class both live on the FALL multiplier, in opposite
+                // directions, so owning both is a wash rather than a stack — which is the honest
+                // outcome for "you fall slower" plus "you fall faster".
+                //
+                // Scaling the multiplier (not gravity itself) keeps this out of the way of gravity
+                // reversal and of Phase/swim, which cache and restore gravityScale.
+                float fall = fallMultiplier;
+                if (RelicManager.instance != null)
+                {
+                    if (RelicManager.instance.HasRelic("AirBrake")) fall /= 1.5f;
+                    if (RelicManager.instance.HasRelic("WeightClass")) fall *= 1.5f;
+                }
+                rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fall - 1) * Time.deltaTime * gravitySign;
             }
             else if (rb.linearVelocity.y * gravitySign > 0 && !Input.GetKey(KeyCode.Space))
             {
@@ -996,9 +1011,20 @@ public class PlayerController : MonoBehaviour
 
     // Returns true if the jump actually fired. The bool matters: at 0 Shift this refuses, and the
     // jump buffer must not treat a refusal as a jump or the press is silently swallowed.
+    // Ghost Step's remaining free jumps this room. Reset in OnNewRoomEnter.
+    [System.NonSerialized] public int freeJumpsLeft = 0;
+    public const int GhostStepJumpsPerRoom = 3;
+
     private bool PerformJump(float jumpForce)
     {
-        if (currentShift > 0)
+        // Ghost Step: a few jumps each room cost no Shift. Resolved BEFORE the affordability gate,
+        // so a free jump is still available at 0 Shift — otherwise the relic would switch off at
+        // exactly the moment it is worth having.
+        bool ghostFree = freeJumpsLeft > 0
+                         && RelicManager.instance != null
+                         && RelicManager.instance.HasRelic("GhostStep");
+
+        if (currentShift > 0 || ghostFree)
         {
             if (audioSource != null && jumpSound != null)
             {
@@ -1013,9 +1039,19 @@ public class PlayerController : MonoBehaviour
             // hangs off SpendShift — so the Featherweight oath ("spend 8 Shift or less in a room")
             // was silently not counting jumps at all.
             if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
-                SpendShift(1);
+            {
+                // A Ghost Step jump spends the charge instead of the Shift. Consumed here rather
+                // than at the check above so a jump that never happens cannot burn one.
+                if (ghostFree) freeJumpsLeft--;
+                else SpendShift(1);
+            }
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
             float jumpDir = isGravityReversed ? -1f : 1f;
+
+            // Weight Class: heavier, so it does not go as high. Applied to the impulse rather than
+            // to defaultJumpForce, which is serialized and would keep a stale value after a sell.
+            if (RelicManager.instance != null && RelicManager.instance.HasRelic("WeightClass"))
+                jumpForce *= 0.75f;
 
             // ⚠️ PURELY VERTICAL, AND THE HORIZONTAL TERM WAS REMOVED ON PURPOSE (2026-08-14).
             //
@@ -1103,6 +1139,14 @@ public class PlayerController : MonoBehaviour
     {
         tookDamageThisRoom = false;
         ResetFallTracking();
+
+        // Ghost Step's free jumps refill. Topped up unconditionally rather than only when the relic
+        // is held, so picking it up mid-room grants the full allowance immediately instead of
+        // silently doing nothing until the next door.
+        freeJumpsLeft = GhostStepJumpsPerRoom;
+
+        // Nest Egg watches how much Shift this room costs. Reset here for the same reason.
+        shiftSpentThisRoom = 0;
 
         // The portal object itself carries TemporaryObject and is destroyed with the room, but the
         // reference would survive as a Unity fake-null. Clearing it explicitly also takes the range
@@ -1476,7 +1520,35 @@ public class PlayerController : MonoBehaviour
         // the Featherweight oath gets a complete per-room total from one hook. Callers already gate
         // this on the hub rule, so sandbox spending is never counted.
         if (QuestSystem.instance != null) QuestSystem.instance.NoteShiftSpent(amount);
+
+        // Nest Egg reads the same total, for the same reason: one funnel, so no Shift cost added
+        // later can forget to be counted.
+        shiftSpentThisRoom += amount;
     }
+
+    // How much Shift this room has cost so far. Nest Egg is scored against it when the room is
+    // LEFT (see ExitDoor), never mid-room — a frugal room is only frugal once it's over.
+    [System.NonSerialized] public int shiftSpentThisRoom = 0;
+    public const int NestEggShiftCeiling = 5;
+    public const int NestEggReward = 2;
+
+    /// <summary>
+    /// Scored on leaving a room. Nest Egg pays permanent max Shift for a room crossed cheaply,
+    /// which is the Featherweight oath's shape as a relic.
+    /// </summary>
+    public void ScoreRoomRelics()
+    {
+        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub()) return;
+        if (RelicManager.instance == null || !RelicManager.instance.HasRelic("NestEgg")) return;
+        if (shiftSpentThisRoom > NestEggShiftCeiling) return;
+
+        IncreaseMaxShift(NestEggReward);
+        nestEggRoomsBanked++;
+        Debug.Log($"🥚 Nest Egg: room crossed on {shiftSpentThisRoom} Shift. +{NestEggReward} max Shift (now {maxShift}).");
+    }
+
+    // Purely for the relic's live readout — how many rooms Nest Egg has actually paid out on.
+    [System.NonSerialized] public int nestEggRoomsBanked = 0;
 
     // Would the player's capsule fit standing with its FEET at `feetPos`? Shared by every card that
     // puts the player somewhere: a portal and a return anchor are both places you ARRIVE at, so the
@@ -2335,9 +2407,33 @@ public class PlayerController : MonoBehaviour
         // Pay out BEFORE charging: PayHealthCost can kill, and a lethal Stagger that silently
         // skipped its own payout would make the last one in a run behave differently from the rest.
         AddShift(staggerShiftGain);
-        playerHealth.PayHealthCost(cost);
 
-        Debug.Log($"STAGGER #{staggerCount}: +{staggerShiftGain} Shift for {cost} HP. Next one costs {NextStaggerCost}.");
+        // Debt Collector: the bill goes on the tab instead of into your ribs — 20 gold per point of
+        // health it would have cost. It converts the run's death clock into an economy problem, so
+        // being rich and reckless and being broke and careful are both real ways to play.
+        //
+        // ⚠️ IT IS NOT A GET-OUT. Short of gold, you pay what you cannot cover in health, so the
+        // clock still runs — it just runs on a resource you can go and earn. Silently skipping the
+        // cost when broke would delete the only pressure in the run.
+        bool onTheTab = RelicManager.instance != null && RelicManager.instance.HasRelic("DebtCollector");
+        if (onTheTab)
+        {
+            int owed = Mathf.RoundToInt(cost * DebtCollectorGoldPerHealth);
+            int paid = Mathf.Min(owed, currentGold);
+            currentGold -= paid;
+            OnGoldChanged?.Invoke(currentGold);
+
+            float shortfallHealth = (owed - paid) / DebtCollectorGoldPerHealth;
+            if (shortfallHealth > 0f) playerHealth.PayHealthCost(shortfallHealth);
+
+            Debug.Log($"STAGGER #{staggerCount}: billed {paid} gold" +
+                      (shortfallHealth > 0f ? $" and {shortfallHealth:0.#} HP (short)" : "") + ".");
+        }
+        else
+        {
+            playerHealth.PayHealthCost(cost);
+            Debug.Log($"STAGGER #{staggerCount}: +{staggerShiftGain} Shift for {cost} HP. Next one costs {NextStaggerCost}.");
+        }
     }
 
     private void CheckInteraction()

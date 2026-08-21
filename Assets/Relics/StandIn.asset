@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71417128076b2fb429c3677f2e47bf2d, type: 3}
   m_Name: Understudy
   m_EditorClassIdentifier: 
-  relicID: Understudy
-  relicName: Understudy
+  relicID: StandIn
+  relicName: Stand-In
   description: Copies the relic in the slot to its left.
   relicArt: {fileID: 21300000, guid: 1c82fa18a9230df4f9a0aa981fe3a341, type: 3}
   rarity: 2

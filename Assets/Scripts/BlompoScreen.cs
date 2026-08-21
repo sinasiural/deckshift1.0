@@ -559,7 +559,7 @@ public class BlompoScreen : MonoBehaviour
     {
         if (chip == null || card == null) return;
 
-        int maxUses = card.cardData != null ? card.cardData.maxUses : 0;
+        int maxUses = card.cardData != null ? card.MaxUses : 0;
         SetChipText(chip, "Uses", card.isInfinite ? "∞" : $"{card.currentUses}/{maxUses}");
 
         int cost = card.cardData != null ? card.cardData.shiftCost : 0;

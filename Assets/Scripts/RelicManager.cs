@@ -7,8 +7,25 @@ public class RelicManager : MonoBehaviour
 
     // --- Slot-constrained loadout (see RelicRedesign.md) ---
     // The player owns at most MaxSlots relics; list index == slot index.
-    public const int MaxSlots = 5;
+    public const int BaseSlots = 5;
+
+    // ⚠️ WAS A const, NOW A PROPERTY — Estate Sale can earn a sixth slot. Kept STATIC and under the
+    // same name so all five existing `RelicManager.MaxSlots` call sites (the HUD, the manage panel,
+    // the swap screen, the pause readout) pick the change up untouched. A const would have been
+    // inlined into each of them at compile time and none would ever have grown.
+    public static int MaxSlots => BaseSlots + (instance != null ? instance.bonusSlots : 0);
+
     public bool IsFull => ownedRelics.Count >= MaxSlots;
+
+    // --- Estate Sale ---------------------------------------------------------
+    // Sell five relics in one run and keep a sixth slot for the rest of it.
+    public const int EstateSaleTarget = 5;
+    [System.NonSerialized] public int relicsSoldThisRun = 0;
+    private int bonusSlots = 0;
+
+    /// <summary>Progress toward Estate Sale's sixth slot, for its live readout.</summary>
+    public int EstateSaleProgress => Mathf.Min(relicsSoldThisRun, EstateSaleTarget);
+    public bool EstateSaleClaimed => bonusSlots > 0;
 
     // Oyuncunun şu anda sahip olduğu tüm pasif eşyaların (Relic) listesi
     private List<RelicData> ownedRelics = new List<RelicData>();
@@ -60,6 +77,21 @@ public class RelicManager : MonoBehaviour
 
         if (GameManager.instance != null && GameManager.instance.player != null)
             GameManager.instance.player.AddGold(value);
+
+        // Estate Sale: five sales in a run buys a sixth slot.
+        //
+        // ⚠️ COUNTED ON EVERY SALE, not only while Estate Sale is worn — otherwise picking it up
+        // late would start you at zero and the contract would be unwinnable in practice. The relic
+        // is what CLAIMS the slot; the count is just the run's history.
+        //
+        // ⚠️ And the slot, once earned, is kept even if Estate Sale is sold. The description says
+        // "permanently", and a sixth slot that vanished would strand the relic sitting in it.
+        relicsSoldThisRun++;
+        if (bonusSlots == 0 && relicsSoldThisRun >= EstateSaleTarget && HasRelic("EstateSale"))
+        {
+            bonusSlots = 1;
+            Debug.Log($"🗝️ Estate Sale: {relicsSoldThisRun} relics sold — a sixth slot is yours for the run.");
+        }
 
         Debug.Log($"Relic sold: {relic.relicName} (+{value} gold)");
         OnRelicRemoved?.Invoke(relic);
@@ -223,6 +255,19 @@ public class RelicManager : MonoBehaviour
     {
         if (phoenixUsed || !HasRelic("PhoenixCog")) return false;
         phoenixUsed = true;
+        return true;
+    }
+
+    // --- Ace Up the Sleeve ---------------------------------------------------
+    // Phoenix Cog for the OTHER death clock: the game has more than one way to lose and only
+    // running out of health had a miracle. Same once-per-run shape, same consume-on-use pattern.
+    private bool aceUsed = false;
+    public bool AceUpTheSleeveReady => !aceUsed && HasRelic("AceUpTheSleeve");
+
+    public bool TryConsumeAceUpTheSleeve()
+    {
+        if (aceUsed || !HasRelic("AceUpTheSleeve")) return false;
+        aceUsed = true;
         return true;
     }
 

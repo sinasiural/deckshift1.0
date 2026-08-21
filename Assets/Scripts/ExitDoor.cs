@@ -79,6 +79,11 @@ public class ExitDoor : MonoBehaviour
             // check is: nothing is spent in the sandbox, so every oath would pass there for free.
             if (!isHub && QuestSystem.instance != null) QuestSystem.instance.EndRoom();
 
+            // Per-room relic payouts (Nest Egg). Placed beside the oath scoring and for exactly the
+            // same reasons: outside the flawless-clear block, and hub-excluded.
+            if (GameManager.instance != null && GameManager.instance.player != null)
+                GameManager.instance.player.ScoreRoomRelics();
+
             // Straight to the map. No card reward screen — see LevelManager.AdvanceToNextRoom.
             if (LevelManager.instance != null)
             {

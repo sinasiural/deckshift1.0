@@ -609,12 +609,17 @@ public class ShopScreenUI : MonoBehaviour
         {
             foreach (ShopSlotData d in shop.myInventory)
             {
+                // Haggler is applied HERE, once, as the tile is built — so the number on the plaque
+                // is the number the player is charged. `slot.price` stays the sticker so selling the
+                // relic mid-shop cannot leave a discounted price quoted from a stale copy.
                 if (d.itemType == ShopItemType.Card && d.cardReference != null)
                     offers.Add(new Offer { type = ShopItemType.Card, card = d.cardReference, slot = d,
-                        name = d.cardReference.cardName, desc = d.cardReference.description, price = d.price });
+                        name = d.cardReference.cardName, desc = d.cardReference.description,
+                        price = ShopPricing.Effective(d.price) });
                 else if (d.itemType == ShopItemType.Relic && d.relicReference != null)
                     offers.Add(new Offer { type = ShopItemType.Relic, relic = d.relicReference, slot = d,
-                        name = d.relicReference.relicName, desc = d.relicReference.description, price = d.price });
+                        name = d.relicReference.relicName, desc = d.relicReference.description,
+                        price = ShopPricing.Effective(d.price) });
             }
         }
         ShopManager sm = ShopManager.instance;
@@ -823,21 +828,51 @@ public class ShopScreenUI : MonoBehaviour
     }
 
     // ---- buying ----
+    // Blank Cheque's bark. The relic has no UI of its own, so the shopkeeper saying it out loud is
+    // how the player learns the free item was spent — diegetic, and it costs no screen furniture.
+    private static readonly string[] ChequeBarks =
+    {
+        "That one's on the house. The rest aren't.",
+        "Cheque cleared. Don't push it.",
+        "Free of charge. Once.",
+    };
+
+    // Marks this shop's free item as taken.
+    private void SpendBlankCheque()
+    {
+        if (shop == null) return;
+        shop.blankChequeUsed = true;
+        Say(ChequeBarks, Mood.Nod);
+    }
+
     private void TryBuy(Tile tile)
     {
         Offer o = tile.offer;
         if (o.Sold) { Say(AlreadySold, Mood.Slump); return; }
         PlayerController player = GameManager.instance != null ? GameManager.instance.player : null;
         if (player == null) return;
-        if (player.currentGold < o.price) { Say(TooPoor, Mood.Slump); StartCoroutine(DenyShake(tile)); return; }
+
+        // Blank Cheque: the first thing you take at each shop is free. Resolved before the
+        // affordability gate, or a broke player would be refused the item they weren't paying for.
+        //
+        // ⚠️ The flag is only consumed once the purchase actually COMPLETES. A relic buy can still
+        // be declined at the swap screen, and burning the cheque on a decline would silently cost
+        // the player their free item for nothing.
+        bool freeGoing = shop != null && !shop.blankChequeUsed
+                         && RelicManager.instance != null
+                         && RelicManager.instance.HasRelic("BlankCheque");
+        int due = freeGoing ? 0 : o.price;
+
+        if (player.currentGold < due) { Say(TooPoor, Mood.Slump); StartCoroutine(DenyShake(tile)); return; }
 
         switch (o.type)
         {
             case ShopItemType.Card:
-                if (player.TrySpendGold(o.price))
+                if (player.TrySpendGold(due))
                 {
                     DeckManager.instance.AddCardToDeck(o.card);
                     o.slot.isSold = true;
+                    if (freeGoing) SpendBlankCheque();
                     OnBought(tile);
                 }
                 break;
@@ -845,12 +880,16 @@ public class ShopScreenUI : MonoBehaviour
             case ShopItemType.Relic:
                 RelicManager.instance.TryGrantRelic(o.relic, () =>
                 {
-                    player.TrySpendGold(o.price);
+                    player.TrySpendGold(due);
                     o.slot.isSold = true;
+                    if (freeGoing) SpendBlankCheque();
                     OnBought(tile);
                 });
                 break;
 
+            // ⚠️ Services deliberately do NOT accept the cheque. It buys an ITEM — a card or a
+            // relic — and letting it cover a heal would make the strongest use of a Legendary-tier
+            // perk "get 75 gold of Shift", which is a poor trade dressed up as flexibility.
             case ShopItemType.Service:
                 if (player.TrySpendGold(o.price))
                 {

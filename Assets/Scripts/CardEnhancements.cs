@@ -583,7 +583,7 @@ public static class CardEnhancements
             return false;
 
         card.lastCallUsed = true;
-        card.currentUses = Mathf.Max(1, card.cardData.maxUses);
+        card.currentUses = Mathf.Max(1, card.MaxUses);
         return true;
     }
 

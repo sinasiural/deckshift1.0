@@ -67,7 +67,7 @@ public static class ScrapEconomy
     public static int MissingCharges(RuntimeCard card)
     {
         if (card == null || card.cardData == null || card.isInfinite) return 0;
-        return Mathf.Max(0, card.cardData.maxUses - card.currentUses);
+        return Mathf.Max(0, card.MaxUses - card.currentUses);
     }
 
     // Charges a salvaged card comes back with: half its maximum, rounded up, and always at
@@ -75,7 +75,7 @@ public static class ScrapEconomy
     public static int SalvageCharges(RuntimeCard card)
     {
         if (card == null || card.cardData == null) return 1;
-        return Mathf.Max(1, Mathf.CeilToInt(card.cardData.maxUses * 0.5f));
+        return Mathf.Max(1, Mathf.CeilToInt(card.MaxUses * 0.5f));
     }
 
     // House colour for anything scrap-flavoured (HUD, pickups, forge UI) so the currency reads as

@@ -648,7 +648,7 @@ public class ScrapForgeScreen : MonoBehaviour
         int cost = selectedMode == Mode.Repair ? ScrapEconomy.RechargeCost(selected) : ScrapEconomy.SALVAGE_COST;
         bool canAfford = scrap >= cost;
 
-        int maxUses = selected.cardData != null ? selected.cardData.maxUses : 0;
+        int maxUses = selected.cardData != null ? selected.MaxUses : 0;
         if (selectedMode == Mode.Repair)
             confirmLabel.text = $"REPAIR {cardName} TO {maxUses}/{maxUses}   ·   {cost} SCRAP";
         else

@@ -37,6 +37,26 @@ public class RuntimeCard
     // binding to one of your two Fireballs does not summon the other.
     public RuntimeCard understudyPartner;
 
+    /// <summary>
+    /// ⚠️ THE ONE PLACE A CARD'S MAXIMUM CHARGE COUNT IS DECIDED. Every read — the card face, the
+    /// forge's repair maths, Blompo's picker, the shop tile — goes through here, for the same
+    /// reason CardEnhancements.EffectiveCost exists: the eleven sites that used to read
+    /// cardData.maxUses directly would each have needed their own copy of the Paper Skin rule.
+    ///
+    /// Computed rather than written into the card, so selling Paper Skin reverses exactly and
+    /// cannot leave a stale +1 behind. Same principle as HandCapacity and StaggerStep.
+    /// </summary>
+    public int MaxUses
+    {
+        get
+        {
+            if (cardData == null) return 0;
+            int max = cardData.maxUses;
+            if (RelicManager.instance != null && RelicManager.instance.HasRelic("PaperSkin")) max += 1;
+            return max;
+        }
+    }
+
     public RuntimeCard(CardData data)
     {
         cardData = data;
