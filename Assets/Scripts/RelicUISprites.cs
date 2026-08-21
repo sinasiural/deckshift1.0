@@ -38,6 +38,7 @@ public static class RelicUISprites
     {
         switch (r)
         {
+            case Rarity.Boss:      return new Color(1f, 0.29f, 0.56f);
             case Rarity.Legendary: return new Color(1f, 0.80f, 0.25f);
             case Rarity.Epic:      return new Color(0.72f, 0.38f, 1f);
             case Rarity.Rare:      return new Color(0.35f, 0.62f, 1f);
@@ -50,6 +51,7 @@ public static class RelicUISprites
     {
         switch (r)
         {
+            case Rarity.Boss:      return new Color(1f, 0.22f, 0.50f);    // garnet — nothing else uses it
             case Rarity.Legendary: return new Color(1f, 0.62f, 0.14f);   // amber
             case Rarity.Epic:      return new Color(0.66f, 0.30f, 0.98f); // amethyst
             case Rarity.Rare:      return new Color(0.28f, 0.55f, 1f);    // sapphire

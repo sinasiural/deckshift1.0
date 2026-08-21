@@ -56,5 +56,14 @@ public enum Rarity
     Common,
     Rare,
     Epic,
-    Legendary
+    Legendary,
+
+    // ⚠️ BOSS IS NOT A HIGHER LEGENDARY — it is a separate ACQUISITION CHANNEL, and it is the only
+    // tier allowed to add a new keybind (designer, 2026-08-21: "the only relics that will be able
+    // to do that will be the boss relics, which are really hard to get").
+    //
+    // ⚠️ IT MUST NEVER APPEAR IN A CHEST OR A SHOP. RelicPool.Offerable filters it out; the
+    // rarity-fallback loop in PickOfferable already stops at Legendary, so it cannot be reached by
+    // stepping up either. Added LAST so no existing serialized rarity shifts value.
+    Boss
 }

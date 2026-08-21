@@ -937,6 +937,9 @@ public static class FlatUI
     {
         switch (r)
         {
+            // Boss sits OUTSIDE the ascending ladder on purpose — it is a different acquisition
+            // channel, not a higher Legendary, so it takes the one hue nothing else uses.
+            case Rarity.Boss: return new Color(1.000f, 0.290f, 0.560f, 1f);        // crimson-magenta
             case Rarity.Legendary: return new Color(1.000f, 0.780f, 0.290f, 1f);   // amber, brightest
             case Rarity.Epic: return new Color(0.760f, 0.420f, 1.000f, 1f);        // violet, pushed off blue
             case Rarity.Rare: return new Color(0.290f, 0.850f, 0.520f, 1f);        // green — far from both
@@ -960,7 +963,9 @@ public static class FlatUI
     // it rather than as unrelated symbols.
     public static Sprite RaritySigil(Rarity r)
     {
-        if (r == Rarity.Legendary) return ArcaneSigil();
+        // ⚠️ Boss shares Legendary's sigil AND must be caught before the array index below — the
+        // cache is sized to the tiers that generate a sigil, and Boss's enum value sits past it.
+        if (r == Rarity.Legendary || r == Rarity.Boss) return ArcaneSigil();
 
         int idx = (int)r;
         if (raritySigils == null) raritySigils = new Sprite[4];

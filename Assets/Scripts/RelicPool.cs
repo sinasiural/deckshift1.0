@@ -60,6 +60,12 @@ public static class RelicPool
         foreach (RelicData r in source)
         {
             if (r == null) continue;
+            // ⚠️ BOSS RELICS ARE NEVER OFFERED BY THE ORDINARY CHANNELS. They are the reward for
+            // killing a boss and nothing else, so a chest or a shop must not be able to hand one
+            // over. Asking for Rarity.Boss explicitly is the ONE way through — that is the boss
+            // reward's own call, not a stray draw. Guarded here rather than at each call site
+            // because the whole point of this class is that no caller keeps its own list.
+            if (r.rarity == Rarity.Boss && (!rarity.HasValue || rarity.Value != Rarity.Boss)) continue;
             if (rarity.HasValue && r.rarity != rarity.Value) continue;
             if (IsOwned(r)) continue;
             // Guard against a pool listing the same relic twice, which would skew the draw.

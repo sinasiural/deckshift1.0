@@ -27,6 +27,9 @@ public class RelicManager : MonoBehaviour
         if (relic == null) return 0;
         switch (relic.rarity)
         {
+            // A boss relic is still sellable, or a full loadout would make one unclaimable — the
+            // swap screen needs something to offer. Priced above Legendary because it cost a boss.
+            case Rarity.Boss:      return 200;
             case Rarity.Legendary: return 150;
             case Rarity.Epic:      return 90;
             case Rarity.Rare:      return 50;
