@@ -17,13 +17,15 @@ public class RunMapSettings
     // ⚠️ WAS 8, WHICH WAS ONE ACT. Acts are gone (designer, 2026-08-21) and the whole run is now a
     // single map, so the depth has to cover a whole run rather than a third of one.
     //
-    // 15 is set by the boss maths, not picked: optional bosses start at floor 3 and need 2 floors
-    // between them, so the placeable slots are 3, 5, 7, 9, 11, 13 — six of them, which is the
-    // headroom needed for a 2–5 boss range without the generator running out of legal spots. At
-    // roughly 3 minutes a floor it also lands on the stated 45–50 minute target.
-    [Tooltip("Total rows INCLUDING the hub row and the final boss row. 15 = hub + 13 combat floors " +
-             "+ the final boss.")]
-    public int floors = 15;
+    // 20 (designer's call, 2026-08-21 — 15 "does not sit very well"). The map screen scrolls now, so
+    // depth is no longer bounded by what fits on one sheet.
+    //
+    // It also widens the boss maths comfortably: optional bosses start at floor 3 and need 2 floors
+    // between them, so the placeable slots run 3, 5, 7 … 18 — nine of them, against a 2–5 range, so
+    // the generator has spare legal spots even after avoidability rejections.
+    [Tooltip("Total rows INCLUDING the hub row and the final boss row. 20 = hub + 18 combat floors " +
+             "+ the final boss. The map screen scrolls, so this is not limited by screen height.")]
+    public int floors = 20;
 
     [Tooltip("Widest the act can get, in columns.")]
     public int width = 5;
