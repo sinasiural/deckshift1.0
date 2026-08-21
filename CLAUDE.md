@@ -1195,6 +1195,26 @@ The `CardTemplate` prefab has fundamental scale corruption: root scale is non-un
 - ✅ Assigned `warningSoundClip` (breaker-switch SFX, designer may swap) — the gravity-reversal warning had become fully silent.
 - ✅ AudioSource `playOnAwake` disabled; prefab root transform reset to identity; 17 stale skeleton-receiver overrides cleaned from the scene instance.
 
+### Started but not finished (2026-08-21) — read before picking a thread
+
+- **Live relic readouts.** The designer asked for a "currently +14 damage" line on every relic that
+  has a moving number. The DATA exists (`EstateSaleProgress`, `StandInTarget`, `nestEggRoomsBanked`,
+  `AceUpTheSleeveReady`, `Stacks`, `MatchedPairs`); nothing renders it yet. ⚠️ It must be a SECOND
+  LINE, never a `+{X}` hole in the description — `RelicSwapScreen`, chests and the shop all show
+  relics the player does not own, where there is no value to substitute.
+- **Cards cannot be priced by rarity** because `CardData` has no rarity field — it exists only as
+  paint on the artwork. `ShopPricing.ForCard` prices off charges and Shift cost meanwhile. Adding
+  the field also unblocks icon-only card faces (below).
+- **The card-art unblock (designer's constraint, 2026-08-21):** new card art is stalled on an
+  unavailable artist, and that is blocking card DESIGN, which does not need art. The intended fix is
+  a systematic icon-only face using the Cainos RPG icon pack on the canonical Freefall Blade frame
+  (whose name plate is already drawn in code), so cards can be built and balanced now and
+  illustrated later, one field each.
+- **Relic reordering is unbuilt**, so Stand-In works but the player cannot aim it.
+- **`Known Issues / Deferred Work` carries ~10-15KB of RESOLVED entries** with no transferable
+  lesson. Deleting those is worth doing, but per-entry: several resolved items carry the most
+  expensive ⚠️ in the file (the `Physics2D.autoSyncTransforms` one especially). Keep every trap.
+
 ### Content (TODO)
 
 - Scale to 60+ cards (currently **18 assets in `Assets/Cards/`, 16 genuinely playable** — `Stagger` is the fail-state card, `AnaKartVeritabanı` is the database asset). **This is the single biggest content gap and it gates both the map system and card enhancements.** The two archetypes the GDD names are the thinnest lines in the deck: **Glass has 2 cards** (Glass Wail, Glass Parry) and **Vampiric has 1** (Vampiric Bite), against 6 movement / 4 attack / 3 utility.
