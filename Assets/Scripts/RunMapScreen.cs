@@ -693,15 +693,25 @@ public class RunMapScreen : MonoBehaviour
         float h = Mathf.Max(viewH, needed);
 
         chart.sizeDelta = new Vector2(area.rect.width, h);
-        scrollMax = Mathf.Max(0f, h - viewH);
-        scrollY = Mathf.Clamp(scrollY, 0f, scrollMax);
-        scrollTarget = Mathf.Clamp(scrollTarget, 0f, scrollMax);
+
+        // ⚠️ THE TRAVEL IS SYMMETRIC ABOUT ZERO, NOT [0 .. h - viewH]. The chart's pivot is its
+        // CENTRE, so scrollY 0 shows the MIDDLE of the map — negative scrolls toward the finale,
+        // positive back toward the hub. Clamping to a non-negative range therefore locked the view
+        // at the middle and the top of the map was unreachable: measured, floors 6.4 to 12.6 were
+        // the only ones that could ever be seen on a 20-floor chart, which is exactly what the
+        // designer reported ("i can only go to floor 12, and cant see the top ever").
+        //
+        // At +halfRange the chart's bottom edge meets the viewport's bottom; at -halfRange its top
+        // edge meets the top. Anything outside that is blank paper.
+        scrollMax = Mathf.Max(0f, (h - viewH) * 0.5f);
+        scrollY = Mathf.Clamp(scrollY, -scrollMax, scrollMax);
+        scrollTarget = Mathf.Clamp(scrollTarget, -scrollMax, scrollMax);
     }
 
     /// <summary>Nudge the view. Positive scrolls UP the map (toward the finale).</summary>
     public void Scroll(float delta)
     {
-        scrollTarget = Mathf.Clamp(scrollTarget + delta, 0f, scrollMax);
+        scrollTarget = Mathf.Clamp(scrollTarget + delta, -scrollMax, scrollMax);
     }
 
     /// <summary>Jump the view so a floor sits in the middle of the viewport. No easing.</summary>
@@ -712,8 +722,8 @@ public class RunMapScreen : MonoBehaviour
         float step = (h - CHART_PAD * 2f) / (map.floors - 1);
         float yInChart = -h * 0.5f + CHART_PAD + step * floor;
 
-        // Chart y offset that puts yInChart at the viewport's centre.
-        scrollTarget = Mathf.Clamp(-yInChart, 0f, scrollMax);
+        // Chart y offset that puts yInChart at the viewport's centre, clamped to the real travel.
+        scrollTarget = Mathf.Clamp(-yInChart, -scrollMax, scrollMax);
         scrollY = scrollTarget;
         ApplyScroll();
     }
