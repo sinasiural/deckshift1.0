@@ -4438,7 +4438,9 @@ MonoBehaviour:
   - {fileID: 7885545514874065103, guid: b38242d8924c52e4fbc2971123149c83, type: 3}
   - {fileID: 4674032656203174002, guid: 3a793e96338c7a3458d46902cc35817c, type: 3}
   - {fileID: 7246367665097476663, guid: 22013b5d339ad5c4094097d62d2c2d52, type: 3}
-  bossRoomPrefab: {fileID: 5541417418447933751, guid: ff595fd158fe26a43874b0d5a704a9c9, type: 3}
+  bossRoomPrefabs:
+  - {fileID: 5541417418447933751, guid: ff595fd158fe26a43874b0d5a704a9c9, type: 3}
+  finalBossRoomPrefab: {fileID: 5541417418447933751, guid: ff595fd158fe26a43874b0d5a704a9c9, type: 3}
   foundryRoomPrefab: {fileID: 0}
   marketRoomPrefab: {fileID: 0}
   wellRoomPrefab: {fileID: 0}

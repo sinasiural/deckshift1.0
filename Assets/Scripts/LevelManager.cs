@@ -13,8 +13,16 @@ public class LevelManager : MonoBehaviour
     [Tooltip("Element 0 must be the hub. The rest are the run's combat levels. Add a RoomTier " +
              "component to a room prefab to bind it to one map tier; untagged rooms serve any tier.")]
     public List<GameObject> roomPrefabs;
-    [Tooltip("Boss room — spawned when the map reaches its top floor. Leave empty to just loop back to the hub.")]
-    public GameObject bossRoomPrefab;
+    // ⚠️ WAS A SINGLE `bossRoomPrefab` FOR "the act finale". Acts are gone: a run now carries
+    // several OPTIONAL bosses the player routes into or around, plus one unique finale.
+    [Tooltip("The optional bosses a run can offer. The map places 2-5 of these as nodes you may " +
+             "route into or avoid; each is drawn without repeating one already fought this run. " +
+             "One entry is fine — it will simply repeat once the pool is exhausted.")]
+    public List<GameObject> bossRoomPrefabs = new List<GameObject>();
+
+    [Tooltip("The run's terminus, always fought, never drawn from the pool above. Empty falls back " +
+             "to a pool boss so a run can still be finished.")]
+    public GameObject finalBossRoomPrefab;
 
     [Header("Recharge rooms (map attachments)")]
     [Tooltip("Scrap: repair and salvage cards, Blompo. LEAVE EMPTY AND NO FOUNDRY IS EVER DRAWN ON " +
@@ -38,6 +46,41 @@ public class LevelManager : MonoBehaviour
     // State for the pre-map room order, kept only as the fallback below.
     private List<int> availableRoomIndices = new List<int>();
     private bool bossSpawned = false;
+
+    // Optional bosses already met this run, so a five-boss route fights five different ones rather
+    // than the same arena repeatedly. Cleared with the rest of the run state.
+    private readonly List<GameObject> usedBossPrefabs = new List<GameObject>();
+
+    /// <summary>
+    /// The next optional boss. Draws without repeating until the pool is exhausted, then resets —
+    /// so a project with one authored boss still works, it just repeats, rather than failing.
+    /// </summary>
+    private GameObject PickBossRoom()
+    {
+        if (bossRoomPrefabs == null || bossRoomPrefabs.Count == 0)
+        {
+            // No boss authored at all. Falling back to a normal room is far better than spawning
+            // nothing: an empty node would strand the run with no exit door.
+            Debug.LogWarning("[LevelManager] a Boss node was reached but bossRoomPrefabs is empty — " +
+                             "spawning an ordinary room instead.");
+            return PickRoomForTier(MapNodeType.Elite);
+        }
+
+        List<GameObject> fresh = new List<GameObject>();
+        foreach (GameObject g in bossRoomPrefabs)
+            if (g != null && !usedBossPrefabs.Contains(g)) fresh.Add(g);
+
+        if (fresh.Count == 0)
+        {
+            usedBossPrefabs.Clear();
+            foreach (GameObject g in bossRoomPrefabs) if (g != null) fresh.Add(g);
+        }
+        if (fresh.Count == 0) return roomPrefabs != null && roomPrefabs.Count > 0 ? roomPrefabs[0] : null;
+
+        GameObject pick = fresh[Random.Range(0, fresh.Count)];
+        usedBossPrefabs.Add(pick);
+        return pick;
+    }
 
     private void Awake()
     {
@@ -107,8 +150,15 @@ public class LevelManager : MonoBehaviour
             return PickNextRoomPrefab();
         }
 
+        // An OPTIONAL boss the player routed into. Drawn from the boss pool without repeating one
+        // already fought this run, so a five-boss route meets five different bosses.
         if (node.type == MapNodeType.Boss)
-            return bossRoomPrefab != null ? bossRoomPrefab : roomPrefabs[0];
+            return PickBossRoom();
+
+        // The run's terminus. Deliberately its own prefab slot and never drawn from the pool — the
+        // designer's stated intent is that the final fight is unique.
+        if (node.type == MapNodeType.FinalBoss)
+            return finalBossRoomPrefab != null ? finalBossRoomPrefab : PickBossRoom();
 
         pendingRecharge = node.recharge;
         return PickRoomForTier(node.type);
@@ -258,10 +308,10 @@ public class LevelManager : MonoBehaviour
             return roomPrefabs[idx];
         }
 
-        if (!bossSpawned && bossRoomPrefab != null)
+        if (!bossSpawned)
         {
-            bossSpawned = true;
-            return bossRoomPrefab;
+            GameObject finale = finalBossRoomPrefab != null ? finalBossRoomPrefab : PickBossRoom();
+            if (finale != null) { bossSpawned = true; return finale; }
         }
 
         hasSpawnedFirstRoom = false;

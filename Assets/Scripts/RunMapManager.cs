@@ -173,8 +173,18 @@ public class RunMapManager : MonoBehaviour
         return map.Current;
     }
 
-    // True once the player has reached the boss node — the act is complete.
-    public bool IsActFinished => map != null && map.IsFinished;
+    // True once the player has reached the FINAL boss — the run is over.
+    //
+    // ⚠️ Acts no longer exist (designer, 2026-08-21), and this used to be true at any Boss node
+    // because Boss meant "the act finale". A run now passes THROUGH optional bosses; only the
+    // terminus ends it.
+    public bool IsRunFinished => map != null && map.IsFinished;
+
+    /// <summary>How many optional bosses this run has taken on. Zero is a legitimate run.</summary>
+    public int BossesDefeated => map != null ? map.BossesDefeated : 0;
+
+    /// <summary>How many optional bosses this map is offering in total.</summary>
+    public int BossesOffered => map != null ? map.BossNodes.Count : 0;
 
     public void ClearMap()
     {

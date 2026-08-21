@@ -14,8 +14,16 @@ using UnityEngine;
 [System.Serializable]
 public class RunMapSettings
 {
-    [Tooltip("Total rows INCLUDING the hub row and the boss row. 8 = hub + 6 combat floors + boss.")]
-    public int floors = 8;
+    // ⚠️ WAS 8, WHICH WAS ONE ACT. Acts are gone (designer, 2026-08-21) and the whole run is now a
+    // single map, so the depth has to cover a whole run rather than a third of one.
+    //
+    // 15 is set by the boss maths, not picked: optional bosses start at floor 3 and need 2 floors
+    // between them, so the placeable slots are 3, 5, 7, 9, 11, 13 — six of them, which is the
+    // headroom needed for a 2–5 boss range without the generator running out of legal spots. At
+    // roughly 3 minutes a floor it also lands on the stated 45–50 minute target.
+    [Tooltip("Total rows INCLUDING the hub row and the final boss row. 15 = hub + 13 combat floors " +
+             "+ the final boss.")]
+    public int floors = 15;
 
     [Tooltip("Widest the act can get, in columns.")]
     public int width = 5;
@@ -35,6 +43,24 @@ public class RunMapSettings
     [Tooltip("Guarantee at least one Foundry and one Market exist somewhere in the act. Note this " +
              "guarantees they EXIST, not that any single route reaches them — that tension is the point.")]
     public bool guaranteeCoreRecharges = true;
+
+    // ---- optional bosses ------------------------------------------------------------------------
+    // ⚠️ These place bosses ON the map, not at the end of it. The FinalBoss is separate and always
+    // exists; these are the ones the player chooses whether to fight.
+
+    [Tooltip("How many OPTIONAL boss nodes to place. The player still chooses how many to actually " +
+             "fight — this is how many are on offer. Fewer are placed if the map cannot fit them " +
+             "while keeping every one avoidable.")]
+    public int bossesMin = 2;
+    public int bossesMax = 5;
+
+    [Tooltip("Earliest floor an optional boss may appear on. Floor 1 is the run's first room and is " +
+             "far too early — the player has four cards and no relics.")]
+    public int bossEarliestFloor = 3;
+
+    [Tooltip("Minimum floors between two optional bosses. Back-to-back bosses are not a route " +
+             "choice, they are a wall: there is no chance to recover between them.")]
+    public int bossFloorSpacing = 2;
 
     // Which recharge types this run is allowed to place. RunMapManager narrows this to the ones
     // LevelManager actually has a room prefab for.
@@ -76,7 +102,7 @@ public static class RunMapGenerator
 
         int mid = width / 2;
         MapNode start = NewNode(map, slot, 0, mid, MapNodeType.Start);
-        MapNode boss = NewNode(map, slot, floors - 1, mid, MapNodeType.Boss);
+        MapNode boss = NewNode(map, slot, floors - 1, mid, MapNodeType.FinalBoss);
 
         // Edges already carved between each pair of floors, used for the anti-crossing rule.
         List<Edge>[] carved = new List<Edge>[floors];
@@ -108,9 +134,133 @@ public static class RunMapGenerator
         foreach (MapNode n in map.NodesOnFloor(topCombatFloor)) Link(n, boss);
 
         AssignCombatTypes(map, rng, topCombatFloor);
+
+        // ⚠️ BOSSES BEFORE RECHARGE ROOMS, deliberately. Promoting a node to Boss strips any
+        // recharge it carries (a boss may not carry one — see MapNode.CanCarryRecharge), so doing
+        // this after would silently delete a guaranteed Foundry and leave the map short of one.
+        PlaceOptionalBosses(map, rng, s, topCombatFloor);
+
         AttachRechargeRooms(map, rng, s, topCombatFloor);
 
         return map;
+    }
+
+    /// <summary>
+    /// Promotes some combat nodes to optional Boss nodes.
+    ///
+    /// ⚠️ EVERY PLACEMENT IS TESTED FOR AVOIDABILITY BEFORE IT IS KEPT, and reverted if it fails.
+    /// The obvious cheap rule — "only promote on a floor with more than one node" — is not
+    /// sufficient: the other nodes on that floor can all funnel back through this one further up,
+    /// and then the boss is mandatory while looking optional on the map. RunMap.IsAvoidable runs the
+    /// real reachability search, so this asks it rather than guessing.
+    ///
+    /// ⚠️ IT ALSO NEVER PROMOTES A NODE THAT IS THE ONLY WAY ONWARD FROM ITS PREDECESSOR. That is
+    /// avoidable by the global test (the player could have gone a different way three floors back),
+    /// but it reads as a trap: you commit to a branch and the boss appears with no way out.
+    /// </summary>
+    private static void PlaceOptionalBosses(RunMap map, System.Random rng, RunMapSettings s, int topCombatFloor)
+    {
+        int want = rng.Next(Mathf.Max(0, s.bossesMin), Mathf.Max(0, s.bossesMax) + 1);
+        if (want <= 0) return;
+
+        int earliest = Mathf.Max(1, s.bossEarliestFloor);
+        int spacing = Mathf.Max(1, s.bossFloorSpacing);
+
+        // Candidates: every combat node from `earliest` up to the top combat floor. The top combat
+        // floor is allowed — a boss immediately before the finale is a real and interesting choice.
+        List<MapNode> candidates = new List<MapNode>();
+        foreach (MapNode n in map.nodes)
+            if (n.IsCombat && n.floor >= earliest && n.floor <= topCombatFloor)
+                candidates.Add(n);
+
+        // Which floors will host a boss: spaced, ascending, chosen from the eligible set.
+        List<int> eligibleFloors = new List<int>();
+        for (int f = earliest; f <= topCombatFloor; f++)
+            if (map.NodesOnFloor(f).Count > 0) eligibleFloors.Add(f);
+
+        List<int> bossFloors = new List<int>();
+        for (int i = eligibleFloors.Count - 1; i > 0; i--)   // shuffle, then take spaced ones
+        {
+            int j = rng.Next(i + 1);
+            int t = eligibleFloors[i]; eligibleFloors[i] = eligibleFloors[j]; eligibleFloors[j] = t;
+        }
+        // ⚠️ TAKE MORE SPACED FLOORS THAN NEEDED — SPARES, NOT EXACTLY `want`.
+        //
+        // A chosen floor can turn out to host no legal boss at all: every node on it may be some
+        // predecessor's only exit, or promoting any of them would make the boss unavoidable. With
+        // exactly `want` floors selected, each such failure silently costs a boss — measured, that
+        // left 3.9% of maps with NO optional boss and 19.8% with only one, against a stated range
+        // of 2–5. Every floor here is already mutually spaced, so placing on any subset is safe.
+        foreach (int f in eligibleFloors)
+        {
+            if (bossFloors.Count >= want + 3) break;
+            bool tooClose = false;
+            foreach (int g in bossFloors) if (Mathf.Abs(g - f) < spacing) { tooClose = true; break; }
+            if (!tooClose) bossFloors.Add(f);
+        }
+        bossFloors.Sort();
+
+        // ⚠️ EACH BOSS IS PLACED WITHIN REACH OF THE ONE BELOW IT, AND THAT IS THE WHOLE POINT.
+        //
+        // Measured before this rule existed: bosses landed in independent random columns, so
+        // whether a single route could chain them all was decided by the SEED — only 46% of maps
+        // allowed it, and 6% let a boss-hungry player reach just one no matter how well they
+        // routed. The designer's brief is the opposite: "they will have to navigate the way pretty
+        // good to be able to" — the player's routing should decide, not the roll.
+        //
+        // A route steps at most one column per floor, so from column `c` at floor `f` the columns
+        // in reach at floor `g` are within (g - f). Preferring candidates inside that window makes
+        // the full chain a HARD ROUTE rather than a lucky map. It stays a preference, not a
+        // requirement: when no reachable column has a legal node the boss still gets placed, which
+        // is what keeps maps varied instead of every boss sitting in one drifting line.
+        int prevFloor = -1, prevCol = -1;
+        int placed = 0;
+
+        foreach (int f in bossFloors)
+        {
+            List<MapNode> row = map.NodesOnFloor(f);
+
+            // Order this floor's nodes by how reachable they are from the previous boss.
+            row.Sort((a, b) =>
+            {
+                if (prevCol < 0) return rng.Next(3) - 1;                    // first boss: free choice
+                int reach = Mathf.Max(1, f - prevFloor);
+                int da = Mathf.Max(0, Mathf.Abs(a.column - prevCol) - reach);
+                int db = Mathf.Max(0, Mathf.Abs(b.column - prevCol) - reach);
+                return da != db ? da.CompareTo(db) : rng.Next(3) - 1;
+            });
+
+            foreach (MapNode c in row)
+            {
+                if (!c.IsCombat) continue;
+
+                // Never the sole exit from any predecessor — see the header.
+                bool soleExit = false;
+                foreach (int pid in c.prev)
+                {
+                    MapNode p = map.Get(pid);
+                    if (p != null && p.next.Count <= 1) { soleExit = true; break; }
+                }
+                if (soleExit) continue;
+
+                MapNodeType was = c.type;
+                RechargeType hadRecharge = c.recharge;
+                c.type = MapNodeType.Boss;
+                c.recharge = RechargeType.None;
+
+                if (map.IsAvoidable(c.id))
+                {
+                    prevFloor = f; prevCol = c.column;
+                    placed++;
+                    break;                       // one boss per floor
+                }
+
+                c.type = was;                    // put it back exactly as it was
+                c.recharge = hadRecharge;
+            }
+
+            if (placed >= want) break;
+        }
     }
 
     // A route steps at most one column sideways per floor. The candidate is rejected if it would

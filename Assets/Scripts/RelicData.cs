@@ -1,16 +1,31 @@
 using UnityEngine;
 
-// Bu, Create menüsüne "Deckshift/Relic Data" adında yeni bir seçenek ekler
+// Bu, Create menï¿½sï¿½ne "Deckshift/Relic Data" adï¿½nda yeni bir seï¿½enek ekler
 [CreateAssetMenu(fileName = "New Relic", menuName = "Deckshift/Relic Data")]
 public class RelicData : ScriptableObject
 {
     [Header("Info")]
-    public string relicID; // Eşyayı kodda tanımak için benzersiz bir kimlik (örn: "LavaBoots")
+    public string relicID; // Eï¿½yayï¿½ kodda tanï¿½mak iï¿½in benzersiz bir kimlik (ï¿½rn: "LavaBoots")
     public string relicName;
     [TextArea]
     public string description;
     public Sprite relicArt;
     public Rarity rarity;
 
-    // TODO: Nadirlik (Rarity) gibi şeyler de buraya eklenebilir (Common, Epic, Legendary)
+    [Header("Art (boss relics only)")]
+    [Tooltip("This relic adds a KEY the player has to press. Only boss relics may set this, and you " +
+             "can only ever hold one at a time â€” see the warning in RelicPool.")]
+    public bool isArt;
+
+    /// <summary>
+    /// âš ï¸ RARITY.BOSS DOES NOT MEAN "HAS A KEYBIND". That separation is the whole answer to the
+    /// problem the designer raised (2026-08-21): with ~10 bosses in a run, if every boss relic added
+    /// an input the player would be asked to remember ten keys, which is not a build, it is homework.
+    ///
+    /// So most boss relics are PASSIVES at boss power, and only a couple are Arts â€” a verb on a key.
+    /// `RelicPool` refuses to offer a second Art while you hold one, which caps the whole game at
+    /// exactly ONE extra key no matter how many bosses you kill, and does it without ever leaving a
+    /// dead relic sitting in a slot.
+    /// </summary>
+    public bool IsArt => isArt && rarity == Rarity.Boss;
 }

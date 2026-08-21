@@ -567,9 +567,14 @@ public class RunMapScreen : MonoBehaviour
         Dictionary<int, Vector2> pos = new Dictionary<int, Vector2>();
         foreach (MapNode n in map.nodes)
         {
-            // The act's spine. Start and Boss are single nodes and belong dead centre; letting them
-            // take a lattice slot makes the whole chart look tipped over.
-            float x = (n.type == MapNodeType.Start || n.type == MapNodeType.Boss || maxCol == 0)
+            // The run's spine. Start and the FINAL boss are single nodes and belong dead centre;
+            // letting them take a lattice slot makes the whole chart look tipped over.
+            //
+            // ⚠️ MID-MAP BOSSES ARE NOT CENTRED, AND MUST NOT BE. They stand in a column like every
+            // other node — that is the entire point of them being optional. Centring them (which
+            // the old `type == Boss` test would now do) would draw every boss on the spine and make
+            // them look mandatory.
+            float x = (n.type == MapNodeType.Start || n.type == MapNodeType.FinalBoss || maxCol == 0)
                     ? 0f
                     : -halfW + colStep * (n.column + 0.5f);
 
