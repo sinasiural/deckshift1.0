@@ -5,6 +5,13 @@ description: Deckshift's rooms — the seven Level Design Laws, the ASCII level 
 
 # Deckshift Levels
 
+> ⚠️ **ACTS ARE GONE (designer, 2026-08-21). This file still says "act" in ~40 places and every one
+> of them now means RUN.** A run is one map of 20 floors with 2-5 OPTIONAL boss nodes the player
+> routes into or around, plus one unique FinalBoss at the top. `MapNodeType.Boss` is a mid-map node
+> in a real column, NOT the finale; `MapNodeType.FinalBoss` is. Every optional boss is proven
+> avoidable. The map SCROLLS now (fixed floor pitch, RectMask2D viewport) rather than dividing the
+> visible height by the floor count. Read the run-map section below with that substitution in mind.
+
 Split out of CLAUDE.md 2026-08-20. Everything here was paid for with a real mistake in
 this project — the rules carry their reasons, so do not strip them.
 

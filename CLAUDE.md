@@ -1696,9 +1696,15 @@ The `CardTemplate` prefab has fundamental scale corruption: root scale is non-un
 - Scale to 60+ cards (currently **18 assets in `Assets/Cards/`, 16 genuinely playable** — `Stagger` is the fail-state card, `AnaKartVeritabanı` is the database asset). **This is the single biggest content gap and it gates both the map system and card enhancements.** The two archetypes the GDD names are the thinnest lines in the deck: **Glass has 2 cards** (Glass Wail, Glass Parry) and **Vampiric has 1** (Vampiric Bite), against 6 movement / 4 attack / 3 utility.
 - Glass archetype: cards exist in theory, not implemented.
 - Expand Vampiric archetype.
-- Three-act structure: Act 1 prototype exists; Acts 2-3 not started.
+- ⚠️ **ACTS ARE GONE (designer, 2026-08-21). Do not plan around them.** A run is now ONE map of
+  **20 floors** with **2–5 OPTIONAL boss nodes** the player routes into or around, ending at a
+  single unique **FinalBoss**. `MapNodeType.Boss` is a mid-map node standing in a column like any
+  other; `MapNodeType.FinalBoss` is the terminus. Every optional boss is *proven* avoidable
+  (`RunMap.IsAvoidable`, enforced in `Validate`). A boss REPLACES a floor rather than adding one, so
+  run length stays put while intensity and reward vary. **Content gap: 1 boss room exists of ~10
+  wanted, and the unique finale is not built.**
 - ~~**Run map system**~~ — **BUILT 2026-08-06, working end to end.** See "Run Map — BUILT AND WORKING END TO END" under Level System for the implementation and its traps. What remains is CONTENT and TUNING, not engineering: the three recharge room prefabs (Foundry / Market / Well) don't exist, so no recharge rooms appear yet; rooms are untagged so every room still serves every tier; and the shift-infused / buffed-enemy half of Elite tiers is not built. The settled design, kept for reference:
-  - **Shape: a Slay-the-Spire branching graph, whole act visible**, so the player plans a route rather than picking one door at a time. **Opened with the `M` key** — meaning it's also viewable in the hub, for quest planning.
+  - **Shape: a Slay-the-Spire branching graph, the whole RUN visible**, so the player plans a route rather than picking one door at a time. **Opened with the `M` key** — meaning it's also viewable in the hub, for quest planning. ⚠️ At 20 floors the chart no longer fits the sheet: it has a fixed floor pitch and **scrolls** inside a `RectMask2D` viewport (wheel / drag / held W-S), opening centred on the player.
   - **Difficulty IS the node type, not a second axis on top of it.** Three combat nodes — **Skirmish / Fight / Elite** — ascending cost and reward. Layering easy/med/hard *onto* Fight/Shop/Event would give ~15 icon combinations and an unreadable map; one node = one icon = one promise.
   - **Per-tier content rules (designer-specified):**
     - **Skirmish** — simple layouts, low-HP enemies, thin loot. At most 1 chest. **No shop, no Blompo, no NPCs at all.** Gold and Shift crystals scaled to how much the layout drains.
@@ -1713,7 +1719,17 @@ The `CardTemplate` prefab has fundamental scale corruption: root scale is non-un
 
 - **Quest banking — designed 2026-08-03, not built.** Quest rewards should stop paying out instantly and instead **accumulate**, to be collected at a quest board **at the start of the next act** (post-boss). Quests are taken at run start, so they act as *route-shaping objectives* — "kill 3 elites" pushes you onto dangerous paths, "collect 500 gold" into exploration detours. The existing run loop already does this shape (`LevelManager` goes hub → levels → boss → back to hub, and the hub already has the board), so the structural work is small. **The board does NOT need its own map node yet** — only four quest assets exist (one pays zero), which is too thin to carry a node; put it inside the Market or Well for now. When the map exists, show it *while* the player picks quests, so quest selection isn't a blind bet.
 - ~~Card enhancements via "Blompo"~~ — **BUILT. 24 blessings as of 2026-08-14** (see Card System → Card Enhancements). This entry described it as "NOT started" for weeks after it shipped with seven; do not plan from that.
-- Boss encounters per act (3 bosses per act, randomly selected from pool). **Act 1's Moss Knight is a playable encounter** (moveset, gated fight start, awaken cinematic, SFX, boss health bar, and a death celebration that drops real collectible gold + shift crystals). It's the run finale (`LevelManager.bossRoomPrefab`). Full doc: `BossDesign_MossKnight.md`. Still open there: the acid arena (flank pools + platforms) and an optional post-kill RewardManager card/relic screen. The other Act-1 bosses and the pool/random-select aren't built.
+- **Bosses: ~10 wanted, 1 built.** The Moss Knight is a complete encounter (moveset, gated fight
+  start, awaken cinematic, SFX, boss health bar, a death celebration dropping real collectible gold
+  and shift crystals, and now the reward banner). Full doc: `BossDesign_MossKnight.md`; still open
+  there is the acid arena.
+  - ⚠️ **`LevelManager.bossRoomPrefab` NO LONGER EXISTS.** It is `bossRoomPrefabs` (a List, drawn
+    without repeating within a run) plus a separate `finalBossRoomPrefab`.
+  - ⚠️ **A boss relic does NOT imply a keybind.** `Rarity.Boss` is an acquisition channel;
+    `RelicData.isArt` marks the few that bind a key, and `RelicPool` refuses to offer a second Art
+    while one is held — so the game is capped at ONE extra key however many bosses are killed. With
+    ~10 bosses that means roughly **seven of the ten relics must be passives at boss power**, which
+    is a different design job from the three verb-shaped ones already built.
 - Chunk-based level system (currently hand-crafted levels).
 - **Starting relic system** + **Fireball relic** for the wizard identity (auto-fires fireball every 10s). Deferred when the broader relic redesign was prioritized — may be revisited as a small early demo polish.
 
