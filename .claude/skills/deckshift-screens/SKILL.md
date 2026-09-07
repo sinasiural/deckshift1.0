@@ -438,7 +438,7 @@ This is a live constraint, not a preference: `CardUI`'s blessing mark originally
 
 ⚠️ **`CardHoverFlip` IS THE ONE IMPLEMENTATION — never hand-roll a second.** The hand (`CardUI`), the Scrap Forge's repair chips and Blompo's card picker all attach it. It exists as a component because the mechanism has three non-obvious requirements that have each already caused a shipped bug: the back must be **pre-rotated 180°** or it renders mirrored; the hit target must **counter-rotate** or the card flaps edge-on under the cursor; and showing the front must **restore only what it hid** or deliberately-inactive children get resurrected. `CardBack.BindStandard(card)` fills the normal SHIFT/CHARGES footer (CardUI overrides it only for Stagger), so every screen reads identically.
 
-⚠️ **`CardHoverFlip.Attach` takes a GEOMETRY SOURCE.** Pass `cardArtImage` for a hand card — its root is rewritten to 200×100 by the hand's layout group. Pass nothing for the forge and Blompo, whose chips are built at the size the player sees; `CardBack.MatchTo` detects "the source is my parent" and fills it.
+⚠️ **`CardHoverFlip.Attach` takes a GEOMETRY SOURCE.** Pass `cardArtImage` for a card whose root is rewritten by a layout group — the deck view's and the card chest's grids still do this (the HAND no longer does; see "The hand" below). Pass nothing for the forge and Blompo, whose chips are built at the size the player sees; `CardBack.MatchTo` detects "the source is my parent" and fills it.
 
 
 The old hover was a flat grey rectangle laid over the card, the art faded to 12% behind it, and a **140×50** text box that every real description overflowed. It read as a tooltip that had landed on the card. The designer asked for something nicer and suggested the card's back — so the card now flips.
@@ -451,7 +451,7 @@ The old hover was a flat grey rectangle laid over the card, the art faded to 12%
 
 ⚠️ **`CardBack` is pre-rotated 180° on Y.** Past 90° every child of the rotating root renders MIRRORED, text included; the pre-rotation cancels it exactly when the back is the face you're looking at.
 
-⚠️ **The back is SIZED OFF `cardArtImage`, never off the card root.** The root carries a `LayoutElement` inside the hand's layout group, which overwrites its RectTransform at runtime — it measures **200×100**, not the 200×300 the prefab shows. Stretching to it produced a back a third of the card's height over its bottom edge. Same reason the blessing mark anchors to the art. The back still *parents* to the root (that's what turns it) and copies the art's geometry instead.
+⚠️ **The back is SIZED OFF `cardArtImage`, never off the card root.** The root carries a `LayoutElement`, and inside a layout group that overwrites its RectTransform at runtime it measures **200×100**, not the 200×300 the prefab shows. (True of the deck view and the card chest; the hand stopped using a layout group on 2026-09-07 and restores the prefab's geometry itself.) Stretching to it produced a back a third of the card's height over its bottom edge. Same reason the blessing mark anchors to the art. The back still *parents* to the root (that's what turns it) and copies the art's geometry instead.
 
 ⚠️ **The front is "every child that isn't the back", re-read on each face change — never a list cached in `Awake`.** Other systems parent things onto a card afterwards: `RewardScreenFX` hangs a "+1 SHIFT" bonus badge on the offered card, and an `Awake` snapshot left it showing straight through the flip, rendered mirrored as "+1 TFIHS".
 
@@ -582,15 +582,35 @@ Known cosmetic nit at 21:9: `GameOverScene`'s background art doesn't reach the e
 
 When a UI element needs to be bigger or smaller, **change Width and Height in the RectTransform, not Scale.** Scaling a UI container cascades to children and fights with Layout Groups, producing wildly incorrect sizes (twice during the last session we hit this — once with the RelicHUD container scaled 5.44× on Y, once nearly happened with the QuestBoardOverlay). The honest fix is always Width/Height, sometimes anchor/pivot. Leave Scale at (1, 1, 1) on UI elements.
 
-### HandUIDrawer
+### The hand — `HandUI` (the fan) + `HandUIDrawer` (the rail)
 
-The hand drawer at the bottom of the screen auto-slides up on hover and down when idle.
+⚠️ **IT IS NO LONGER A HOVER DRAWER AND NO LONGER A LAYOUT GROUP.** Two rebuilds, and every doc written before them is wrong about this screen:
 
-**Critical raycast behavior:** The drawer's `Image` component has `raycastTarget` enabled to detect hover (`IPointerEnterHandler`). This means it absorbs clicks in its rect. The `SetLocked(bool)` method:
+- **2026-08-22 — it stopped hiding.** It used to slide out of sight and rise only when the pointer entered a 1000×200 zone. Aimed cards fly at the CURSOR, so reading your hand and aiming a shot were the same input, fighting each other mid-fight; and the raised panel covered the character. `SetLocked` is now the only thing that hides it (a full-screen panel is up and the hand is unplayable anyway), and the drawer's Image has `raycastTarget` **permanently off** — an input-eating rectangle across the bottom of the play area was the thing being removed.
+- **2026-09-07 — the cards became a fan.** Designer: *"i dislike the placement, the way cards are seperated in our hand, the draw animation"*. All three traced to one `HorizontalLayoutGroup`.
 
-- Sets `isLocked` (stops slide animation)
-- Sets `isHovered = false`
-- **Toggles `raycastTarget` on the Image component** so the drawer stops absorbing clicks when locked.
+**What the layout group was actually doing**, measured before it was deleted, because each of these looked like a separate bug:
+
+| symptom | cause |
+|---|---|
+| `[1]`/`[2]` key hints floating in space above the cards | the group rewrote each card's rect to **200×100** and moved its anchors to top-left, while the art drew 200×300 centred — so the root was nothing like the card you saw, and every child authored against the real card drifted |
+| cards unreadably small | the container carried **`localScale` 0.55**, the one move the rules forbid outright. Cards came out 110×165 on a 1080 canvas |
+| cards read as loose tiles, not a hand | spacing 50 × 0.55 = a **27px GAP**. Any gap at all reads as separate objects; a hand needs overlap |
+| a 4-card recall took ~1.4s to become readable | the deal was **sequential** — each card waited for its own flying ghost plus a delay, sitting at alpha 0 until then — on **scaled** time, instantiating a second full copy of the card prefab per card to throw away |
+
+⚠️ **A LAYOUT GROUP COULD NEVER HAVE OWNED THIS ANYWAY** — it relays rotated children as axis-aligned list items. Same rule that already cost the quest board its slips. `HandUI.SlotFor(i, n)` is now a pure function returning position + tilt, pushed to each card via `CardUI.SetSlot`.
+
+⚠️ **CARDS PIVOT AT THEIR BOTTOM EDGE (0.5, 0), AND THAT IS LOAD-BEARING.** Tilt swings each card about the point a real hand would hold it, and the hover zoom grows the card **upward out of the rail** instead of pushing it through the screen edge. Cards anchor to the rail's own pivot, which makes `anchoredPosition` and the rail's local space the same coordinates — so the draw-pile conversion needs no correction term.
+
+⚠️ **THE STACKING DIRECTION IS DECIDED BY THE ARTWORK.** The canonical frame puts charges top-**left** and the Shift crystal top-**right**, and an overlapping fan always eats one of them. Right-over-left (the obvious order, and what it did first) buried the **Shift cost** — the number deciding whether a card is playable at all, in a game whose whole subject is Shift. `HandUI.Depth` stacks **left over right**; charges are a planning number and survive being covered.
+
+⚠️ **THE SINK MUST CLEAR THE NAME PLATE, NOT LAND IN IT.** The plate occupies 3.2%–11% of a card's height from the bottom — a band 8–28px above the bottom edge at hand size. A cut inside that band slices the title in half and reads as a rendering fault; `baselineY` clears it outright, so titles are gone at rest and read on the card's back instead. Art, cost and charges are all in the top half.
+
+⚠️ **ONE WRITER FOR ROTATION.** `CardHoverFlip` writes `localRotation` every frame for the turn, so the fan's lean goes through its `ExtraRoll` field rather than being written by `CardUI` — two components writing one transform would be settled by script execution order, which Unity does not define. The hover target counter-rotates the **Y** only; a Z roll is inherited deliberately (a rolled rect still covers its own area, whereas the Y turn narrows it to nothing and drops the pointer off the card). Verified by raycast at 49° and 150° through the turn.
+
+⚠️ **THE HAND IS RECONCILED, NOT REBUILT.** `UpdateHandDisplay` used to Destroy and re-Instantiate everything for any event at all, *including merely selecting a card*. That hid a bug nobody had named: **a freshly built card under a stationary cursor never receives `OnPointerEnter`**, so after playing a card the card now under your mouse would not open until you jiggled the mouse. Only the difference is created or destroyed now, and the card you played is **detached and animated off** rather than duplicated as a ghost.
+
+⚠️ **`CardUI.hasSlot` is what keeps the other screens working.** `DeckViewUI` and `CardChestScreen` use the same prefab and lay their own cards out; they never call `SetSlot` and stay on `LegacyMotion`. Their cards ARE still crushed by their own grid, so the "root measures 200×100" warnings elsewhere in this file remain true **for them** — just not for the hand.
 
 **When opening any full-screen UI panel, call `HandUIDrawer.instance.SetLocked(true)`** and `SetLocked(false)` when closing. ShopManager, QuestBoardScreen and DeckViewUI already do this.
 
