@@ -42,11 +42,11 @@ public class HandUI : MonoBehaviour
     public Transform handContainer;
 
     [Header("Fan")]
-    [Tooltip("Size of a card relative to the prefab's authored 200x300. 0.85 = 170x255 on the 1080 canvas.")]
-    public float cardScale = 0.85f;
+    [Tooltip("Size of a card relative to the prefab's authored 200x300. 0.8 = 160x240 on the 1080 canvas.")]
+    public float cardScale = 0.8f;
     [Tooltip("Centre-to-centre distance between neighbouring cards, measured at the card's BOTTOM. " +
              "Must be well under the card width or the cards stop overlapping and read as loose tiles.")]
-    public float cardPitch = 108f;
+    public float cardPitch = 100f;
     [Tooltip("The fan never grows wider than this; pitch tightens instead. Keeps a full hand inside " +
              "the narrowest canvas (1440 at 4:3).")]
     public float maxSpread = 860f;
@@ -55,19 +55,23 @@ public class HandUI : MonoBehaviour
     public float maxTilt = 14f;
     [Tooltip("How far each step from the centre dips the card, so the fan curves. Cards rotate about " +
              "their BOTTOM edge (the prefab's pivot), so most of the fan shape already comes from tilt.")]
-    public float arcDrop = 3.5f;
+    public float arcDrop = 2f;
 
     [Header("Yükseklik")]
     [Tooltip("Height of the centre card's BOTTOM edge above the rail. Negative sinks the hand into the " +
-             "screen edge so it stops floating in the arena.\n\n" +
-             "⚠️ The card's name plate lives in its bottom 3%-11%, which at this size is a band 8-28px " +
-             "above the card's bottom edge. Land the cut INSIDE that band and the title is sliced in " +
-             "half, which reads as a rendering fault rather than as a deliberate tuck — so this value " +
-             "clears it outright. Art, Shift cost and charges all live in the top half and survive.")]
-    public float baselineY = -46f;
-    [Tooltip("How far a card rises while you hover it. Must exceed the sink above, or the back's " +
-             "footer stays cut off by the screen edge.")]
-    public float hoverLift = 95f;
+             "screen edge.\n\n" +
+             "⚠️ THIS IS A PLATFORMER, AND THE BOTTOM OF THE SCREEN IS WHERE THE FLOOR IS (designer, " +
+             "2026-09-13: the hand 'uses up too much space in the game'). Everything a card tells you " +
+             "at a glance — art, Shift cost, charges, key — is in its TOP HALF; the bottom half is name " +
+             "plate and frame, which the hover already shows on the back. So the hand shows only the " +
+             "top half at rest, and hover does the reveal. At -120 the hand occupies the bottom ~14% " +
+             "of the screen instead of ~22%, and sits entirely below the floor line of most rooms.\n\n" +
+             "Do not land the cut in the card's bottom 3%-11% (the name plate): a title sliced in half " +
+             "reads as a rendering fault. Either clear it or, as now, go well past it.")]
+    public float baselineY = -120f;
+    [Tooltip("How far a card rises while you hover it. Must exceed the sink above by enough to bring " +
+             "the back's footer (SHIFT / CHARGES, in its lowest 12%) onto the screen.")]
+    public float hoverLift = 145f;
 
     [Header("Animasyon Ayarları")]
     public Transform drawPilePosition;
