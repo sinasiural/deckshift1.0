@@ -4,7 +4,11 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// The hand: a fan of cards held at the bottom edge of the screen.
+/// The hand: a row of cards sunk into the bottom edge of the screen, showing their top halves.
+///
+/// ⚠️ IT WAS A FAN FOR SIX DAYS. Built 2026-09-07, rejected 2026-09-13 because an overlapping fan
+/// covers one top corner of every card but the front one, and on this card frame both top corners
+/// carry a number the player needs (charges left, Shift cost right). Do not rebuild the overlap.
 ///
 /// ⚠️ THIS USED TO BE A HorizontalLayoutGroup, AND ALMOST EVERY COMPLAINT ABOUT THE HAND TRACED BACK
 /// TO THAT ONE COMPONENT. Designer, 2026-09-07: "i dislike the placement, the way cards are seperated
@@ -41,21 +45,28 @@ public class HandUI : MonoBehaviour
     public GameObject cardUIPrefab;
     public Transform handContainer;
 
-    [Header("Fan")]
+    [Header("Row")]
+    // ⚠️ THE OVERLAPPING FAN WAS BUILT AND REJECTED (designer, 2026-09-13: "it covers up the charge
+    // of the cards"). The reason is the ARTWORK, and it will not change with tuning: the frame puts
+    // charges top-left and the Shift crystal top-right, so any overlap hides one of the two on every
+    // card but the top one. Stacking right-over-left hid the cost; left-over-right hid the charges;
+    // there is no third order. The tilt and arc knobs below still work, but the defaults are a flat
+    // row with a hairline gap — every corner of every card visible, always.
     [Tooltip("Size of a card relative to the prefab's authored 200x300. 0.8 = 160x240 on the 1080 canvas.")]
     public float cardScale = 0.8f;
-    [Tooltip("Centre-to-centre distance between neighbouring cards, measured at the card's BOTTOM. " +
-             "Must be well under the card width or the cards stop overlapping and read as loose tiles.")]
-    public float cardPitch = 100f;
-    [Tooltip("The fan never grows wider than this; pitch tightens instead. Keeps a full hand inside " +
+    [Tooltip("Centre-to-centre distance between neighbouring cards. Card width + a small gap keeps the " +
+             "frames from fusing. Below the card width the cards overlap and cover each other's " +
+             "medallions — see the note above.")]
+    public float cardPitch = 166f;
+    [Tooltip("The row never grows wider than this; pitch tightens instead. Keeps a full hand inside " +
              "the narrowest canvas (1440 at 4:3).")]
-    public float maxSpread = 860f;
-    [Tooltip("Degrees of lean added per card away from the centre of the fan.")]
-    public float tiltStep = 8f;
+    public float maxSpread = 1000f;
+    [Tooltip("Degrees of lean added per card away from the centre. 0 = upright. Cards rotate about " +
+             "their BOTTOM edge (the prefab's pivot).")]
+    public float tiltStep = 0f;
     public float maxTilt = 14f;
-    [Tooltip("How far each step from the centre dips the card, so the fan curves. Cards rotate about " +
-             "their BOTTOM edge (the prefab's pivot), so most of the fan shape already comes from tilt.")]
-    public float arcDrop = 2f;
+    [Tooltip("How far each step from the centre dips the card, so the row curves. 0 = flat.")]
+    public float arcDrop = 0f;
 
     [Header("Yükseklik")]
     [Tooltip("Height of the centre card's BOTTOM edge above the rail. Negative sinks the hand into the " +
@@ -321,15 +332,11 @@ public class HandUI : MonoBehaviour
     // --- Depth ----------------------------------------------------------------------------------
 
     /// <summary>
-    /// Sibling index for card <paramref name="i"/>. Later siblings draw on top, and the fan is stacked
-    /// LEFT OVER RIGHT so each card covers its right-hand neighbour's LEFT edge.
-    ///
-    /// ⚠️ THE DIRECTION IS DECIDED BY THE ARTWORK, NOT BY TASTE. On the canonical card frame the
-    /// charge ball sits top-left and the Shift crystal top-RIGHT, and an overlapping fan always eats
-    /// one of the two. Stacking right-over-left (the obvious order, and what this did first) buried
-    /// the Shift cost — the number that decides whether a card is playable at all, in a game whose
-    /// whole subject is Shift. Charges are a planning number and survive being covered; a cost you
-    /// cannot see is a card you cannot evaluate.
+    /// Sibling index for card <paramref name="i"/>. Later siblings draw on top. With the default flat
+    /// row nothing overlaps and this only matters for the hovered card (promoted in LateUpdate); it is
+    /// kept left-over-right so that if anyone re-enables overlap, the Shift cost (top-right) stays
+    /// visible rather than the charges — though the designer rejected overlap in either direction,
+    /// see the note on the Row settings.
     /// </summary>
     private static int Depth(int i, int n) => n - 1 - i;
 

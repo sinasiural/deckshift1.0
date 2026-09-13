@@ -582,7 +582,23 @@ Known cosmetic nit at 21:9: `GameOverScene`'s background art doesn't reach the e
 
 When a UI element needs to be bigger or smaller, **change Width and Height in the RectTransform, not Scale.** Scaling a UI container cascades to children and fights with Layout Groups, producing wildly incorrect sizes (twice during the last session we hit this — once with the RelicHUD container scaled 5.44× on Y, once nearly happened with the QuestBoardOverlay). The honest fix is always Width/Height, sometimes anchor/pivot. Leave Scale at (1, 1, 1) on UI elements.
 
-### The hand — `HandUI` (the fan) + `HandUIDrawer` (the rail)
+### The hand — `HandUI` (the row) + `HandUIDrawer` (the rail)
+
+⚠️ **THE OVERLAPPING FAN WAS BUILT (2026-09-07) AND REJECTED (2026-09-13). DO NOT REBUILD IT.**
+Designer: *"it covers up the charge of the cards"*. The reason is the artwork and no tuning fixes
+it: the canonical frame puts charges top-left and the Shift crystal top-right, so overlap hides one
+corner on every card but the front one. Right-over-left hid the cost, left-over-right hid the
+charges; there is no third order. What shipped instead: **a flat row, card width + 6px pitch, no
+tilt, sunk so only the top half shows** (`baselineY` −120), hover lifts the card clear. Both
+medallions visible on every card, always. The fan machinery (`tiltStep`, `arcDrop`, `Depth`) is
+still in the file at zero — it is the overlap that is forbidden, not the code.
+
+⚠️ **AND IT IS SUNK TO ITS TOP HALF BECAUSE THIS IS A PLATFORMER.** Designer, 2026-09-13: the hand
+"uses up too much space in the game". Everything a card says at a glance — art, cost, charges,
+key — is in its top half; the bottom half is name plate and frame, which the hover already shows on
+the back. Measured: bottom ~14% of the screen instead of ~22%, entirely below the hub's floor line.
+**New card art must keep its identifying silhouette in the upper half of the card**, or it is a
+black strip at rest.
 
 ⚠️ **IT IS NO LONGER A HOVER DRAWER AND NO LONGER A LAYOUT GROUP.** Two rebuilds, and every doc written before them is wrong about this screen:
 
@@ -602,9 +618,7 @@ When a UI element needs to be bigger or smaller, **change Width and Height in th
 
 ⚠️ **CARDS PIVOT AT THEIR BOTTOM EDGE (0.5, 0), AND THAT IS LOAD-BEARING.** Tilt swings each card about the point a real hand would hold it, and the hover zoom grows the card **upward out of the rail** instead of pushing it through the screen edge. Cards anchor to the rail's own pivot, which makes `anchoredPosition` and the rail's local space the same coordinates — so the draw-pile conversion needs no correction term.
 
-⚠️ **THE STACKING DIRECTION IS DECIDED BY THE ARTWORK.** The canonical frame puts charges top-**left** and the Shift crystal top-**right**, and an overlapping fan always eats one of them. Right-over-left (the obvious order, and what it did first) buried the **Shift cost** — the number deciding whether a card is playable at all, in a game whose whole subject is Shift. `HandUI.Depth` stacks **left over right**; charges are a planning number and survive being covered.
-
-⚠️ **THE SINK MUST CLEAR THE NAME PLATE, NOT LAND IN IT.** The plate occupies 3.2%–11% of a card's height from the bottom — a band 8–28px above the bottom edge at hand size. A cut inside that band slices the title in half and reads as a rendering fault; `baselineY` clears it outright, so titles are gone at rest and read on the card's back instead. Art, cost and charges are all in the top half.
+⚠️ **THE SINK MUST NOT LAND IN THE NAME PLATE.** The plate occupies 3.2%–11% of a card's height from the bottom — a band 8–28px above the bottom edge at hand size. A cut inside that band slices the title in half and reads as a rendering fault. The current sink goes well past it; titles read on the card's back.
 
 ⚠️ **ONE WRITER FOR ROTATION.** `CardHoverFlip` writes `localRotation` every frame for the turn, so the fan's lean goes through its `ExtraRoll` field rather than being written by `CardUI` — two components writing one transform would be settled by script execution order, which Unity does not define. The hover target counter-rotates the **Y** only; a Z roll is inherited deliberately (a rolled rect still covers its own area, whereas the Y turn narrows it to nothing and drops the pointer off the card). Verified by raycast at 49° and 150° through the turn.
 
