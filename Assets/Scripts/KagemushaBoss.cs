@@ -3,35 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Kagemusha — the Samurai's body double. A floor boss, and the Samurai character's mirror finale.
-/// Design doc: BossDesign_Samurai.md. Written standalone (designer 2026-09-17: "a new and clean
-/// boss script… they are not really correlated" with the Ninja).
-///
-/// THE ONE IDEA: he makes hollow copies of himself. Run into a copy before it swings and it bursts,
-/// which hurts HIM and drops a Shift crystal. Everything else is arranged around that (§4).
-///
-/// ⚠️ HE NEVER TELEPORTS. Teleport-to-marker is the Ninja's identity. When this boss is suddenly
-/// somewhere else it is because he and a double CHANGED PLACES, in view — the body-double trick,
-/// performed on you. That is the only "blink" in this file and it is a swap.
-///
-/// Four attacks (§5): DRAW (a telegraphed lane cut), OVERHEAD (a leap onto you with a floor
-/// shockwave — the Shift tax), SPLIT (doubles fan out and all cut together — the Shift income), and
-/// SHEATHE (a counter-stance: hurt him while the blade is low and he swaps with a double and cuts).
-///
-/// He animates on the Cainos *Customizable Pixel Character* rig, so the animator handles are the
-/// player's: `AttackAction` (INT), `IsAttacking`, `IsCrouching`, `IsDashing`, `MoveBlendX`.
-///
-/// Generic lessons kept from the two bosses before him, each paid for with a real bug:
-///   - gravity is captured ONCE in Awake and every restore uses that value (a move that begins
-///     while gravity is already 0 would otherwise "restore" it to 0 and he floats forever);
-///   - every latch (gravity, player collision, animator bools) is released in a `finally` AND in
-///     OnBossDied AND in OnDestroy;
-///   - positions derive from transform + collider offset, never `collider.bounds` (autoSyncTransforms
-///     is off, so bounds lag a physics step — fatal for anything that moves in a single frame);
-///   - a stuck watchdog with NO mid-move exemption flag (a flag is a latch);
-///   - the exit is sealed on Start and unsealed from OnDestroy as well as death — fail passable.
-/// </summary>
-/// <summary>
 /// A boss that is some character's mirror. LevelManager calls SetFinale(true) on it when its room
 /// is spawned as the played character's OWN finale, so the same prefab can be a lesser mid-map cut
 /// of itself for everyone else.
@@ -41,13 +12,48 @@ public interface IMirrorBoss
     void SetFinale(bool isFinale);
 }
 
+/// <summary>
+/// Kagemusha — the Samurai's body double. A floor boss, and the Samurai character's mirror finale.
+/// Design doc: BossDesign_Samurai.md. Written standalone (designer 2026-09-17: "a new and clean
+/// boss script… they are not really correlated" with the Ninja).
+///
+/// KIT v2 (rewritten with the designer 2026-09-17 — the first kit was "not cool enough"):
+///
+///   THE CROSSING   he blurs straight THROUGH you and stops on the far side with his back turned,
+///                  leaving a SHADOW of himself standing where he started. Nothing happens… until
+///                  he sheathes. Break the shadow before the click and the cut is cancelled — HE
+///                  takes it, and a Shift crystal drops. Don't, and you take it. This is the
+///                  card-free damage route, the Shift income and the dodge-or-punish decision in
+///                  one mechanic. It is also Through and Through further gone: your card leaves
+///                  afterimages, his leaves bodies.
+///   HUNDRED CUTS   he sheathes, the room dims, and cut-lines flash into existence one by one
+///                  across the whole hall, hanging there like cracks in glass. Then a click, and
+///                  they all land at once. There is always a gap — and always one ON THE FLOOR, so
+///                  a player at 0 Shift who cannot jump still has an answer. Reaches every ledge,
+///                  so no tier is a refuge.
+///   THE REVEAL     finale only, at 40% health: his shadows stop fading — a Crossing leaves a SOLID
+///                  him behind, marked like the real one — and Hundred Cuts fires twice. He
+///                  doesn't pay Shift.
+///
+/// ⚠️ HE NEVER TELEPORTS. Teleport-to-marker is the Ninja's identity. The Crossing is a dash you
+/// can watch; the shadow is where he WAS.
+///
+/// He animates on the Cainos *Customizable Pixel Character* rig, so the animator handles are the
+/// player's: `AttackAction` (INT), `IsAttacking`, `IsCrouching`, `IsDashing`, `MoveBlendX`.
+///
+/// Generic lessons kept from the two bosses before him, each paid for with a real bug: gravity
+/// captured ONCE in Awake and every restore uses that value; every latch (gravity, player
+/// collision, animator bools) released in a `finally` AND in OnBossDied AND in OnDestroy; positions
+/// from transform + collider offset, never `collider.bounds`; a stuck watchdog with NO mid-move
+/// exemption flag; the exit sealed on Start and unsealed from OnDestroy as well as death.
+/// </summary>
 [RequireComponent(typeof(EnemyHealth))]
 public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
 {
     public void SetFinale(bool isFinale) => finale = isFinale;
 
-    // Read out of AC Character's own transitions: 1=Swipe, 2=Stab, 11=Point, 12=Summon, 13=Throw,
-    // 14=Cast. Swipe plays on BOTH the Arm and Body layers and reads as a committed slash.
+    // Read out of AC Character's own transitions: 1=Swipe, 2=Stab, 13=Throw, 14=Cast. Swipe plays
+    // on BOTH the Arm and Body layers and reads as a committed slash.
     public const int SWIPE_ACTION = 1;
 
     [Header("Fight Start")]
@@ -62,110 +68,79 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     [Header("Rig")]
     [Tooltip("The visual child that gets flipped for facing. Empty = the first child.")]
     public Transform visualModel;
-    [Tooltip("PF Weapon - Katana. Equipped at runtime through the pack's AddWeapon.")]
+    [Tooltip("Left EMPTY on purpose — the Samurai preset already holds PF Weapon - Katana.")]
     public GameObject weaponPrefab;
 
     [Header("The doubles")]
     [Tooltip("The stripped copies of his rig that ship as children of this prefab. Two is the finale count.")]
     public ShadowDouble[] doubles;
-    [Tooltip("How see-through a double is. ⚠️ The rig cannot be tinted, only faded — see ShadowDouble.")]
+    [Tooltip("How see-through a shadow is. ⚠️ The rig cannot be tinted, only faded — see ShadowDouble.")]
     [Range(0f, 1f)] public float doubleAlpha = 0.5f;
-    [Tooltip("TRUE when this arena is the Samurai's own finale. Two doubles instead of one, and the " +
-             "40% twist. LevelManager sets this when the room is spawned as the finale.")]
+    [Tooltip("TRUE when this arena is the Samurai's own finale. LevelManager sets it when the room is " +
+             "spawned as the finale; the test menu can force it.")]
     public bool finale = false;
-    public int doublesMidMap = 1;
-    public int doublesFinale = 2;
-    [Tooltip("Finale only: below this health fraction the doubles turn SOLID and gain his contact " +
-             "mark, so nobody in the room can tell which is real. Costs one number.")]
+    [Tooltip("Finale only: below this health fraction the Reveal happens — shadows turn SOLID and " +
+             "marked, Hundred Cuts fires twice, the Crossing chains three.")]
     [Range(0f, 1f)] public float twistAtFraction = 0.4f;
-    [Tooltip("The warm mark under the real one's feet. Doubles carry none — a shadow casts no shadow.")]
+    [Tooltip("How long a shadow stands around after the click before fading.")]
+    public float doubleLifetime = 7f;
+    [Tooltip("The warm mark under the real one's feet. Shadows carry none — until the Reveal.")]
     public Color markColour = new Color(0.980f, 0.706f, 0.365f, 1f);   // Salvage.Torch
 
     [Header("Between attacks (TUNE BY EYE)")]
-    public float betweenAttacks = 1.0f;
+    public float betweenAttacks = 1.1f;
     public float walkSpeed = 4.5f;
     public float preferredRange = 6f;
     public float repositionJitter = 2.5f;
 
-    [Header("Draw — the lane cut (TUNE BY EYE)")]
-    [Tooltip("Beyond this horizontal distance he will not Draw; he closes with Overhead instead.")]
-    public float drawRange = 13f;
-    [Tooltip("How long he stands still with his hand on the hilt. The lane is drawn for this whole time.")]
-    public float drawWindup = 0.7f;
-    [Tooltip("A beat of complete stillness at full load, before he goes.")]
-    public float drawHold = 0.12f;
-    public float drawSpeed = 28f;
-    [Tooltip("How far PAST the player he commits to. Small — he ends beside you, not across the room.")]
-    public float drawOvershoot = 3f;
-    public float drawMaxLength = 12f;
-    public float drawDamage = 16f;
-    public float drawKnockback = 7f;
-    [Tooltip("Height of the hit box. ~2 covers a standing player; a jump clears it.")]
-    public float drawHeight = 2f;
-    [Tooltip("Recovery after a clean Draw — the player's damage window.")]
-    public float drawRecovery = 0.6f;
-    [Tooltip("Recovery after ending against a wall. Longer: overshooting is the mistake the player baits.")]
-    public float drawWallRecovery = 1.1f;
-    // ⚠️ NOT the Ninja's red, and no premonition ghost. His telegraph is the same lane structure in
-    // TORCH GOLD — lit steel — and his travel leaves the line the edge took (CutStreak) rather than
-    // afterimages of his body. Body ghosts are the Ninja's vocabulary; the samurai's is the cut.
-    public Color laneColor = new Color(0.980f, 0.706f, 0.365f, 1f);
-    [Tooltip("The streak he and his doubles leave when they cut. Cold steel against the player's warm gold.")]
-    public Color streakColour = new Color(0.78f, 0.86f, 1f, 1f);
-
-    [Header("Overhead — the leap and the shockwave (TUNE BY EYE)")]
-    public float overheadCooldown = 7f;
-    [Tooltip("Seconds in the air. He lands exactly where you were standing when he jumped.")]
-    public float overheadFlightTime = 0.9f;
-    [Tooltip("Gravity multiplier for the leap only. At base gravity a 0.9s flight peaks under a " +
-             "unit — a hop, not a leap. Heavier gravity buys height for the same flight time, and " +
-             "the arc is solved against it so he still lands on the mark.")]
-    public float overheadGravityMul = 2.5f;
-    public float overheadDamage = 18f;
-    public float overheadRadius = 1.6f;
-    public float overheadKnockback = 8f;
-    [Tooltip("The wave runs along the floor BOTH ways from the landing. Jump it — that costs Shift, " +
-             "which is the point: the Split pays it back.")]
-    public float shockwaveSpeed = 14f;
-    public float shockwaveLength = 6f;
-    public float shockwaveDamage = 12f;
-    [Tooltip("Low on purpose. A standing player is hit; a jumping one clears it.")]
-    public float shockwaveHeight = 1.1f;
-    public float overheadRecovery = 0.8f;
-    public Color shockwaveColour = new Color(0.95f, 0.85f, 0.65f, 1f);
-
-    [Header("Split — the doubles (TUNE BY EYE)")]
-    [Tooltip("⚠️ SECONDS BETWEEN GUARANTEED SPLITS — the fight's economy. The doubles are how a " +
-             "cardless player hurts him and how everyone earns Shift. It has first refusal in the " +
-             "loop, on a timer, precisely so a range check can never starve it (the Ninja's volley " +
-             "fired ZERO times in 2000 attacks for exactly that reason).")]
-    public float splitInterval = 9f;
-    [Tooltip("How long all of them stand armed before the unison cut. THIS IS THE WINDOW to run into " +
-             "a double and break it.")]
-    public float splitWindup = 0.9f;
-    [Tooltip("How far to each side the doubles peel off.")]
-    public float splitSpread = 3.5f;
-    [Tooltip("How long a double stands around after the unison cut before fading.")]
-    public float doubleLifetime = 8f;
-    [Tooltip("Damage HE takes when a double is broken. ⚠️ 12 is 12 — a body-check worth a little " +
-             "less than a Fireball, never a secret boss-only multiplier.")]
+    [Header("The Crossing (TUNE BY EYE)")]
+    [Tooltip("How long he stands still, hand on the hilt, before he goes. The lane is drawn for all of it.")]
+    public float crossWindup = 0.55f;
+    public float crossSpeed = 34f;
+    [Tooltip("How far PAST the player he stops. He ends with his back to you.")]
+    public float crossOvershoot = 3.2f;
+    public float crossMaxLength = 14f;
+    [Tooltip("⚠️ THE WINDOW. After he crosses, this long passes before the click. It is the time you " +
+             "have to reach the shadow he left and break it — or to accept the cut. It is the fight.")]
+    public float crossSheatheDelay = 1.1f;
+    public float crossDamage = 20f;
+    public float crossKnockback = 8f;
+    [Tooltip("Height of the pass-through hit box. ~2 covers a standing player; a jump clears it.")]
+    public float crossHeight = 2f;
+    [Tooltip("Recovery after the click — the punish window.")]
+    public float crossRecovery = 0.7f;
+    [Tooltip("Damage HE takes when a shadow is broken. ⚠️ 12 is 12 — worth a little less than a " +
+             "Fireball, never a secret boss-only multiplier.")]
     public float shatterDamage = 12f;
-    [Tooltip("Assign Prefabs/ShiftCrystal. One per broken double is the single most sensitive number " +
+    [Tooltip("Assign Prefabs/ShiftCrystal. One per broken shadow is the single most sensitive number " +
              "in the encounter — keep it ONE tunable.")]
     public GameObject shiftCrystalPrefab;
     public int crystalsPerShatter = 1;
+    public Color laneColor = new Color(0.980f, 0.706f, 0.365f, 1f);       // Torch gold, not the Ninja's red
+    [Tooltip("The streak he leaves when he crosses. Cold steel against the player's warm gold.")]
+    public Color streakColour = new Color(0.78f, 0.86f, 1f, 1f);
 
-    [Header("Sheathe — the counter-stance (TUNE BY EYE)")]
-    public float sheatheCooldown = 8f;
-    [Tooltip("How long the blade stays low. ⚠️ Keep it longer than a Fireball's flight across the " +
-             "arena — a shot fired BEFORE the stance that lands DURING it triggers the counter, and " +
-             "that is only fair because the stance is long and loud.")]
-    public float sheatheDuration = 1.6f;
-    public float counterDamage = 18f;
-    public float counterRadius = 2.4f;
-    public float counterKnockback = 9f;
-    [Tooltip("Recovery after the counter — the punish window for a player who baited it on purpose.")]
-    public float counterRecovery = 0.7f;
+    [Header("Hundred Cuts (TUNE BY EYE)")]
+    [Tooltip("Seconds between Hundred Cuts. It has first refusal in the loop, on a timer.")]
+    public float cutsInterval = 11f;
+    public int cutsCount = 12;
+    [Tooltip("Seconds between one line appearing and the next. The whole pattern takes count x this.")]
+    public float cutsLineInterval = 0.09f;
+    [Tooltip("How long the finished pattern hangs before the click. This is the READ time.")]
+    public float cutsHang = 0.55f;
+    [Tooltip("Half-width of a line's hit. A line is a blade; the player is hit if their body is within this of it.")]
+    public float cutsHalfWidth = 0.5f;
+    [Tooltip("How far every line must stay from a safe pocket. Bigger = easier to read, easier to stand in.")]
+    public float cutsSafeRadius = 1.6f;
+    [Tooltip("How many safe pockets the pattern guarantees. ⚠️ ONE OF THEM IS ALWAYS ON THE FLOOR.")]
+    public int cutsSafePockets = 3;
+    public float cutsDamage = 24f;
+    public float cutsKnockback = 6f;
+    [Tooltip("How dark the room goes. World-space quad behind the actors, so figures and lines stay bright.")]
+    [Range(0f, 1f)] public float cutsDim = 0.55f;
+    [Tooltip("Recovery after the cuts land, blade still out. THE punish window of the fight.")]
+    public float cutsRecovery = 1.2f;
+    public Color cutsColour = new Color(0.980f, 0.706f, 0.365f, 1f);
 
     [Header("Death")]
     public bool playDeathEffect = true;
@@ -175,32 +150,30 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     public GameObject deathShiftCrystalPrefab;
     public int deathGoldCount = 14;
     public int deathCrystalCount = 5;
-    [Tooltip("He comes apart into steel-grey — the doubles' colour, not the Ninja's blue or the " +
-             "Moss Knight's green.")]
+    [Tooltip("He comes apart into steel-grey — the shadows' colour.")]
     public Color deathBurstColor = new Color(0.80f, 0.84f, 0.90f);
     public bool offerBossRelic = true;
     [Range(1, 4)] public int bossRelicChoices = 2;
     public float rewardDelay = 2.6f;
 
     // ⚠️ EVERY SLOT HERE IS AN OVERRIDE. Every sound plays procedurally whether or not a clip is
-    // dragged in, because an empty AudioClip field is a silent no-op and that is where this
-    // project's silence has always lived. The procedural defaults are BORROWED from other families
-    // for now — a SAMURAI family (the ring axis, doc §8) is the follow-up.
+    // dragged in — an empty AudioClip field is a silent no-op, and that is where this project's
+    // silence has always lived. The defaults are BORROWED clips; a SAMURAI family is the follow-up.
     [Header("Audio (leave empty — procedural by default)")]
     public AudioClip drawSound;
     public AudioClip sheatheSound;
-    public AudioClip counterSound;
-    public AudioClip splitSound;
-    public AudioClip shatterSound;
+    public AudioClip lineSound;
     public AudioClip landSound;
+    public AudioClip shatterSound;
+    public AudioClip splitSound;
     [Range(0f, 2f)] public float sfxVolume = 1f;
 
     private AudioClip DrawClip    => drawSound    != null ? drawSound    : ProcSfx.FreefallBlade;
-    private AudioClip SheatheClip => sheatheSound != null ? sheatheSound : ProcSfx.GateSeat;
-    private AudioClip CounterClip => counterSound != null ? counterSound : ProcSfx.KatanaPlant;
-    private AudioClip SplitClip   => splitSound   != null ? splitSound   : ProcSfx.NinjaBlink;
-    private AudioClip ShatterClip => shatterSound != null ? shatterSound : ProcSfx.WallBreak;
+    private AudioClip SheatheClip => sheatheSound != null ? sheatheSound : ProcSfx.KatanaPlant;
+    private AudioClip LineClip    => lineSound    != null ? lineSound    : ProcSfx.ShurikenStick;
     private AudioClip LandClip    => landSound    != null ? landSound    : ProcSfx.MeteorImpact;
+    private AudioClip ShatterClip => shatterSound != null ? shatterSound : ProcSfx.WallBreak;
+    private AudioClip SplitClip   => splitSound   != null ? splitSound   : ProcSfx.NinjaBlink;
 
     // ---- runtime ---------------------------------------------------------------------------------
     private EnemyHealth health;
@@ -216,10 +189,13 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     private bool facingRight = true;
     private float visualScaleX = 1f;
     private float baseGravityScale = 1f;
-    private bool sheathed, counterTriggered;
     private bool twisted;
-    private float nextSplit, nextOverhead, nextSheathe, doublesExpire, nextStuckCheck;
-    private readonly List<ShadowDouble> live = new List<ShadowDouble>();
+    private float nextCuts, doublesExpire, nextStuckCheck;
+    private int nextShadow;
+
+    // The Crossing's pending cut. The shadow that can cancel it is `crossingShadow`.
+    private ShadowDouble crossingShadow;
+    private bool crossingCancelled;
 
     private void RestoreGravity() { if (rb != null) rb.gravityScale = baseGravityScale; }
 
@@ -247,8 +223,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         BuildMark();
     }
 
-    // ⚠️ Through the pack's own AddWeapon, never hand-parented — it syncs the weapon to the rig
-    // bone and pushes sorting/alpha onto the new renderers. Wrapped so a cosmetic failure inside
+    // ⚠️ Through the pack's own AddWeapon, never hand-parented. Wrapped so a cosmetic failure inside
     // Awake can never disable the whole boss (Unity disables a MonoBehaviour whose Awake throws).
     private void EquipWeapon()
     {
@@ -277,11 +252,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         if (GameManager.instance != null && GameManager.instance.player != null)
             player = GameManager.instance.player.transform;
 
-        if (health != null)
-        {
-            health.OnDamaged += OnDamaged;
-            health.OnDied += OnBossDied;
-        }
+        if (health != null) health.OnDied += OnBossDied;
 
         // Sealed from the moment the room exists — a door that seals in front of you is worse than
         // one that was always shut.
@@ -293,21 +264,18 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
 
     private void OnDestroy()
     {
-        if (health != null)
-        {
-            health.OnDamaged -= OnDamaged;
-            health.OnDied -= OnBossDied;
-        }
+        if (health != null) health.OnDied -= OnBossDied;
         ClearAnimatorState();
         RestoreGravity();
         SetPlayerCollision(true);
+        if (dim != null) Destroy(dim.gameObject);
         // ⚠️ FAIL TOWARD PASSABLE. However he leaves the world, the exit must not stay sealed.
         if (exit != null) exit.SetLocked(false);
     }
 
     // ---- the opening beat --------------------------------------------------------------------------
     // Three of him kneel at the far end, identical and solid. Cross the line and two dissolve; the one
-    // left stands and draws. He shows you the trick before he uses it (§10).
+    // left stands. He shows you the trick before he uses it.
     private void Kneel()
     {
         if (animator != null) animator.SetBool("IsCrouching", true);
@@ -343,7 +311,6 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
 
     private IEnumerator AwakenThenFight()
     {
-        // The two fakes go first, then he rises. A beat between so it reads as a sequence.
         SfxManager.PlayOn(sfx, SplitClip, sfxVolume);
         if (doubles != null)
             foreach (var d in doubles)
@@ -356,57 +323,38 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         SfxManager.PlayOn(sfx, DrawClip, sfxVolume);
         yield return new WaitForSeconds(0.6f);
 
-        nextSplit = Time.time + 3f;          // first split comes early: teach the loop
-        nextOverhead = Time.time + 4f;
-        nextSheathe = Time.time + 6f;
+        nextCuts = Time.time + 7f;      // the first thing he does is cross you — teach the shadow first
         StartCoroutine(FightLoop());
     }
 
     // ---- the loop ----------------------------------------------------------------------------------
+    // Two attacks. Hundred Cuts has first refusal on its timer; otherwise he crosses. That is the
+    // rhythm: cross, cross, the room goes dark, cross, cross…
     private IEnumerator FightLoop()
     {
         while (health != null && health.CurrentHealth > 0f)
         {
-            // Resolved lazily: a reference captured once goes stale on respawn.
             if (player == null && GameManager.instance != null && GameManager.instance.player != null)
                 player = GameManager.instance.player.transform;
             if (player == null) { yield return null; continue; }
 
-            float dx = Mathf.Abs(player.position.x - transform.position.x);
-            float dy = player.position.y - transform.position.y;
-            bool level = Mathf.Abs(dy) < 2.5f;
-            bool playerAbove = dy > 2.5f;
-
-            if (Time.time >= nextSplit && IsGrounded())
+            if (Time.time >= nextCuts && IsGrounded())
             {
-                nextSplit = Time.time + splitInterval;
-                yield return StartCoroutine(SplitRoutine());
+                nextCuts = Time.time + cutsInterval;
+                yield return StartCoroutine(HundredCutsRoutine());
+                if (twisted) yield return StartCoroutine(HundredCutsRoutine());   // the Reveal: twice
             }
-            else if (Time.time >= nextSheathe && dx < 10f && level && IsGrounded())
+            else if (IsGrounded())
             {
-                nextSheathe = Time.time + sheatheCooldown;
-                yield return StartCoroutine(SheatheRoutine());
-            }
-            else if (Time.time >= nextOverhead && IsGrounded() && (playerAbove || dx > drawRange))
-            {
-                nextOverhead = Time.time + overheadCooldown;
-                yield return StartCoroutine(OverheadRoutine());
-            }
-            else if (level && dx <= drawRange && IsGrounded())
-            {
-                yield return StartCoroutine(DrawRoutine());
-            }
-            else if (IsGrounded() && Time.time >= nextOverhead)
-            {
-                nextOverhead = Time.time + overheadCooldown;
-                yield return StartCoroutine(OverheadRoutine());
+                int chain = twisted ? 3 : (finale ? 2 : 1);
+                yield return StartCoroutine(CrossingRoutine(chain));
             }
 
             yield return StartCoroutine(RepositionRoutine(betweenAttacks));
         }
     }
 
-    // He walks — the pack's run blend — to a jittered preferred distance. Never a statue.
+    // He walks — the pack's walk blend — to a jittered preferred distance. Never a statue.
     private IEnumerator RepositionRoutine(float duration)
     {
         if (player == null || rb == null) { yield return new WaitForSeconds(duration); yield break; }
@@ -428,7 +376,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
             if (animator != null)
             {
                 animator.SetBool("IsMoving", moving);
-                animator.SetFloat("MoveBlendX", moving ? 1f : 0f);   // walk pose — a samurai does not sprint
+                animator.SetFloat("MoveBlendX", moving ? 1f : 0f);
                 animator.SetFloat("MoveSpeedMul", 1f);
             }
             yield return null;
@@ -438,228 +386,181 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         FaceTowardPlayer();
     }
 
-    // ---- DRAW ---------------------------------------------------------------------------------------
-    private IEnumerator DrawRoutine()
+    // ================================================================================================
+    // THE CROSSING
+    // ================================================================================================
+    // Windup (lane drawn, hand on hilt) → the blur through you, leaving a shadow where he stood →
+    // he stands on the far side, back turned, for crossSheatheDelay → the click.
+    //
+    // `chain` crossings run back to back, each leaving its own shadow, ONE click at the end for all
+    // of them. Breaking ANY shadow he left in the chain cancels the whole cut — the finale's three
+    // crossings are three chances, not three sentences.
+    private IEnumerator CrossingRoutine(int chain)
     {
-        FaceTowardPlayer();
-        float dir = facingRight ? 1f : -1f;
-        Vector2 terminus = ChestPoint + new Vector2(dir * MeasureLane(dir), 0f);
+        crossingCancelled = false;
+        bool crossedPlayer = false;
+        var shadows = new List<ShadowDouble>();
 
-        LaneTelegraph tel = LaneTelegraph.Build(ChestPoint, terminus, drawHeight, LaneTelegraph.Style.Default(laneColor));
-        yield return StartCoroutine(DrawWindup(terminus, tel, drawWindup));
-        yield return StartCoroutine(DrawTravel(dir, terminus));
-    }
-
-    // The stillness IS the telegraph, alongside the lane. Gravity is off for the whole move so the
-    // line he was shown is the line he travels — the telegraph is the contract.
-    private IEnumerator DrawWindup(Vector2 terminus, LaneTelegraph tel, float windup)
-    {
-        if (rb != null) { rb.gravityScale = 0f; rb.linearVelocity = Vector2.zero; }
-        if (animator != null) animator.SetBool("IsCrouching", true);
-
-        float t = 0f, w = Mathf.Max(0.01f, windup);
-        while (t < w)
+        for (int c = 0; c < Mathf.Max(1, chain); c++)
         {
-            t += Time.deltaTime;
-            if (tel != null) { tel.Place(ChestPoint, terminus, drawHeight); tel.SetIntensity(Mathf.Clamp01(t / w)); }
+            FaceTowardPlayer();
+            float dir = facingRight ? 1f : -1f;
+            float lane = MeasureLane(dir);
+            Vector2 terminus = ChestPoint + new Vector2(dir * lane, 0f);
+
+            // ---- windup: the lane, and the stillness -------------------------------------------
+            var tel = LaneTelegraph.Build(ChestPoint, terminus, crossHeight, LaneTelegraph.Style.Default(laneColor));
+            if (rb != null) { rb.gravityScale = 0f; rb.linearVelocity = Vector2.zero; }
+            if (animator != null) animator.SetBool("IsCrouching", true);
+            float windup = c == 0 ? crossWindup : crossWindup * 0.5f;   // later links load faster
+            float t = 0f;
+            while (t < windup)
+            {
+                t += Time.deltaTime;
+                tel.Place(ChestPoint, terminus, crossHeight);
+                tel.SetIntensity(Mathf.Clamp01(t / windup));
+                yield return null;
+            }
+            tel.Clear();
+
+            // ---- the shadow: him, as he was, where he was ----------------------------------------
+            ShadowDouble shadow = NextShadow();
+            if (shadow != null)
+            {
+                shadow.Appear(transform.position, facingRight, twisted ? 1f : doubleAlpha);
+                shadow.SetState(ShadowDouble.State.Armed);
+                shadow.ShowMark(twisted, markColour);
+                shadow.Pose(true, false, 0, false);          // crouched, hand on hilt — as he was
+                shadows.Add(shadow);
+                crossingShadow = shadow;
+            }
+
+            // ---- the blur ------------------------------------------------------------------------
+            if (animator != null)
+            {
+                animator.SetBool("IsCrouching", false);
+                animator.SetBool("IsDashing", true);
+                animator.SetInteger("AttackAction", SWIPE_ACTION);
+                animator.SetBool("IsAttacking", true);
+            }
+            SfxManager.PlayOn(sfx, DrawClip, sfxVolume);
+            Puff(ChestPoint - new Vector2(dir * 0.3f, 0.9f), 7, 1f, -dir);
+            SetPlayerCollision(false);
+            CutStreak streak = CutStreak.Begin(ChestPoint, streakColour, 0.12f);
+            try
+            {
+                float elapsed = 0f, stalled = 0f, lastX = transform.position.x;
+                while ((terminus.x - transform.position.x) * dir > 0.05f)
+                {
+                    elapsed += Time.fixedDeltaTime;
+                    if (elapsed > TRAVEL_TIMEOUT) break;
+                    float moved = Mathf.Abs(transform.position.x - lastX);
+                    lastX = transform.position.x;
+                    stalled = moved < 0.01f ? stalled + Time.fixedDeltaTime : 0f;
+                    if (stalled > TRAVEL_STALL) break;
+
+                    rb.linearVelocity = new Vector2(dir * crossSpeed, 0f);
+                    streak.SetEnd(ChestPoint);
+
+                    // Crossed, not cut. A spark says "that counted"; the damage waits for the click.
+                    if (!crossedPlayer && PlayerInBox(ChestPoint, new Vector2(1.2f, crossHeight)))
+                    {
+                        crossedPlayer = true;
+                        if (player != null) Puff((Vector2)player.position + Vector2.up * 0.9f, 6, 1.2f, dir);
+                        if (HitStop.instance != null) HitStop.instance.Stop(0.03f);
+                    }
+
+                    if (WallAhead(dir)) break;
+                    yield return new WaitForFixedUpdate();
+                }
+            }
+            finally
+            {
+                SetPlayerCollision(true);
+                RestoreGravity();
+                if (streak != null) streak.Release(0.45f);
+            }
+
+            rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            if (animator != null) { animator.SetBool("IsDashing", false); animator.SetBool("IsAttacking", false); }
+            Puff(ChestPoint - new Vector2(0f, 0.9f), 6, 0.9f, -dir);
+            // He does NOT turn round. Back to you, blade out. That is the tell that the cut is
+            // still in the air.
+        }
+
+        // ---- the window -------------------------------------------------------------------------
+        // He stands. You have crossSheatheDelay to reach a shadow. The mark pulses on him — the
+        // only motion on him while the cut hangs.
+        float wait = 0f;
+        while (wait < crossSheatheDelay && !crossingCancelled)
+        {
+            wait += Time.deltaTime;
+            if (rb != null && IsGrounded()) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            if (mark != null) mark.color = new Color(markColour.r, markColour.g, markColour.b, 0.35f + 0.35f * Mathf.PingPong(wait * 4f, 1f));
             yield return null;
         }
-        float hold = 0f;
-        while (hold < drawHold)
+        if (mark != null) mark.color = new Color(markColour.r, markColour.g, markColour.b, 0.55f);
+        crossingShadow = null;
+
+        // ---- the click ----------------------------------------------------------------------------
+        foreach (var s in shadows)
+            if (s != null && s.Current == ShadowDouble.State.Armed) s.SetState(ShadowDouble.State.Standing);
+        doublesExpire = Time.time + doubleLifetime;
+
+        if (!crossingCancelled)
         {
-            hold += Time.deltaTime;
-            if (tel != null) { tel.Place(ChestPoint, terminus, drawHeight); tel.SetIntensity(1f); }
-            yield return null;
+            SfxManager.PlayOn(sfx, SheatheClip, sfxVolume);
+            FaceTowardPlayer();
+            if (crossedPlayer && player != null)
+            {
+                var pc = player.GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    float kdir = Mathf.Sign(player.position.x - transform.position.x); if (kdir == 0f) kdir = 1f;
+                    CutMark.Spawn((Vector2)player.position + Vector2.up * 0.9f, streakColour, 1.5f);
+                    if (HitStop.instance != null) HitStop.instance.Stop(0.09f);
+                    if (CameraShake.instance != null) CameraShake.instance.Shake(0.22f, 0.35f);
+                    pc.TakeDamage(crossDamage);
+                    pc.ApplyKnockback(new Vector2(kdir * crossKnockback, crossKnockback * 0.5f));
+                }
+            }
         }
-        if (tel != null) tel.Clear();
+        else
+        {
+            // Cancelled: the click never comes. He flinches instead — the shard went home.
+            FaceTowardPlayer();
+        }
+
+        yield return new WaitForSeconds(crossRecovery);
     }
 
     private const float TRAVEL_TIMEOUT = 1.4f;
     private const float TRAVEL_STALL = 0.10f;
 
-    private IEnumerator DrawTravel(float dir, Vector2 terminus)
-    {
-        if (animator != null)
-        {
-            animator.SetBool("IsCrouching", false);
-            animator.SetBool("IsDashing", true);
-            animator.SetInteger("AttackAction", SWIPE_ACTION);
-            animator.SetBool("IsAttacking", true);
-        }
-        SfxManager.PlayOn(sfx, DrawClip, sfxVolume);
-        Puff(ChestPoint - new Vector2(dir * 0.3f, 0.9f), 7, 1f, -dir);
-
-        SetPlayerCollision(false);
-        bool hitWall = false;
-        // The line the edge takes, extended as he travels and left hanging when he stops. His
-        // vocabulary, not the Ninja's afterimages.
-        CutStreak streak = CutStreak.Begin(ChestPoint, streakColour, 0.12f);
-        try
-        {
-            bool struck = false;
-            float elapsed = 0f, stalled = 0f, lastX = transform.position.x;
-
-            // Ends on reaching the drawn terminus, on NO PROGRESS, or on the hard timeout — a single
-            // wall ray is not enough (a ledge above or below it pins him and the loop never ends).
-            while ((terminus.x - transform.position.x) * dir > 0.05f)
-            {
-                elapsed += Time.fixedDeltaTime;
-                if (elapsed > TRAVEL_TIMEOUT) { hitWall = true; break; }
-                float moved = Mathf.Abs(transform.position.x - lastX);
-                lastX = transform.position.x;
-                stalled = moved < 0.01f ? stalled + Time.fixedDeltaTime : 0f;
-                if (stalled > TRAVEL_STALL) { hitWall = true; break; }
-
-                rb.linearVelocity = new Vector2(dir * drawSpeed, 0f);
-                streak.SetEnd(ChestPoint);
-
-                if (!struck && EnemyMelee.TryHit(transform, dir, 1.5f, drawDamage, drawKnockback, drawHeight))
-                {
-                    struck = true;
-                    if (player != null) CutMark.Spawn((Vector2)player.position + Vector2.up * 0.9f, streakColour, 1.3f);
-                }
-
-                if (WallAhead(dir)) { hitWall = true; break; }
-                yield return new WaitForFixedUpdate();
-            }
-        }
-        finally
-        {
-            SetPlayerCollision(true);
-            RestoreGravity();
-            if (streak != null) streak.Release(0.4f);
-        }
-
-        rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
-        if (animator != null) { animator.SetBool("IsDashing", false); animator.SetBool("IsAttacking", false); }
-        Puff(ChestPoint - new Vector2(0f, 0.9f), hitWall ? 12 : 8, hitWall ? 1.4f : 1f, -dir);
-        if (hitWall && CameraShake.instance != null) CameraShake.instance.Shake(0.18f, 0.30f);
-
-        // The recovery is the point: it is where a cardless player does real damage.
-        yield return new WaitForSeconds(hitWall ? drawWallRecovery : drawRecovery);
-    }
-
     private float MeasureLane(float dir)
     {
-        float want = drawMaxLength;
-        if (player != null) want = Mathf.Abs(player.position.x - transform.position.x) + drawOvershoot;
-        want = Mathf.Min(want, drawMaxLength);
+        float want = crossMaxLength;
+        if (player != null) want = Mathf.Abs(player.position.x - transform.position.x) + crossOvershoot;
+        want = Mathf.Min(want, crossMaxLength);
         var hit = Physics2D.Raycast(ChestPoint, new Vector2(dir, 0f), want, LayerMask.GetMask("Ground"));
         return hit.collider != null ? Mathf.Max(0.5f, hit.distance - 0.6f) : want;
     }
 
-    // ---- SPLIT --------------------------------------------------------------------------------------
-    // Doubles peel off to either side, all of them stand ARMED for the windup — the window to break
-    // one — then everyone cuts together along their own lane.
-    private IEnumerator SplitRoutine()
+    private ShadowDouble NextShadow()
     {
-        FaceTowardPlayer();
-        float dir = facingRight ? 1f : -1f;
-        int n = Mathf.Clamp(finale ? doublesFinale : doublesMidMap, 0, doubles != null ? doubles.Length : 0);
-
-        SfxManager.PlayOn(sfx, SplitClip, sfxVolume);
-        live.Clear();
-        List<Vector3> spots = SplitSpots(n);
-        for (int i = 0; i < n; i++)
+        if (doubles == null || doubles.Length == 0) return null;
+        // Prefer a hidden one; otherwise recycle the oldest standing shadow.
+        for (int i = 0; i < doubles.Length; i++)
         {
-            var d = doubles[i];
-            if (d == null) continue;
-            Vector3 pos = i < spots.Count ? spots[i] : transform.position;
-            d.Appear(pos, facingRight, twisted ? 1f : doubleAlpha);
-            d.SetState(ShadowDouble.State.Armed);
-            d.ShowMark(twisted, markColour);
-            live.Add(d);
+            var d = doubles[(nextShadow + i) % doubles.Length];
+            if (d != null && d.Current == ShadowDouble.State.Hidden) { nextShadow = (nextShadow + i + 1) % doubles.Length; return d; }
         }
-
-        // Everyone winds up together. Each figure draws its own lane.
-        Vector2 myTerminus = ChestPoint + new Vector2(dir * MeasureLane(dir), 0f);
-        var myTel = LaneTelegraph.Build(ChestPoint, myTerminus, drawHeight, LaneTelegraph.Style.Default(laneColor));
-        var tels = new List<LaneTelegraph>();
-        foreach (var d in live)
-        {
-            d.Pose(true, false, 0, false);
-            Vector2 from = (Vector2)d.transform.position + Vector2.up * 1.05f;
-            Vector2 to = from + new Vector2(dir * LaneFrom(from, dir, drawMaxLength), 0f);
-            tels.Add(LaneTelegraph.Build(from, to, drawHeight, LaneTelegraph.Style.Default(laneColor)));
-        }
-
-        if (rb != null) { rb.gravityScale = 0f; rb.linearVelocity = Vector2.zero; }
-        if (animator != null) animator.SetBool("IsCrouching", true);
-        float t = 0f;
-        while (t < splitWindup + drawHold)
-        {
-            t += Time.deltaTime;
-            float k = Mathf.Clamp01(t / splitWindup);
-            myTel.Place(ChestPoint, myTerminus, drawHeight); myTel.SetIntensity(k);
-            for (int i = 0; i < live.Count; i++)
-            {
-                // A broken double takes its lane with it.
-                if (live[i].Current != ShadowDouble.State.Armed) { tels[i].Clear(); continue; }
-                Vector2 from = (Vector2)live[i].transform.position + Vector2.up * 1.05f;
-                tels[i].Place(from, from + new Vector2(dir * LaneFrom(from, dir, drawMaxLength), 0f), drawHeight);
-                tels[i].SetIntensity(k);
-            }
-            yield return null;
-        }
-        myTel.Clear();
-        foreach (var tl in tels) tl.Clear();
-
-        // The unison cut. Survivors strike on their own coroutines; he strikes on this one.
-        foreach (var d in live)
-            if (d.Current == ShadowDouble.State.Armed)
-                d.StartCoroutine(d.Draw(dir, drawMaxLength, drawSpeed, drawDamage, drawKnockback, drawHeight, streakColour));
-
-        doublesExpire = Time.time + doubleLifetime;
-        yield return StartCoroutine(DrawTravel(dir, myTerminus));
+        var recycled = doubles[nextShadow % doubles.Length];
+        nextShadow = (nextShadow + 1) % doubles.Length;
+        return recycled;
     }
 
-    private float LaneFrom(Vector2 from, float dir, float max)
-    {
-        var hit = Physics2D.Raycast(from, new Vector2(dir, 0f), max, LayerMask.GetMask("Ground"));
-        return hit.collider != null ? Mathf.Max(0.5f, hit.distance - 0.6f) : max;
-    }
-
-    // Where `count` doubles stand: alternating sides at splitSpread, then 2x splitSpread, and so on —
-    // skipping any slot that would put a copy inside a wall. ⚠️ Slots are allocated from ONE list,
-    // not computed per double: the first version flipped a walled double to the other side and it
-    // landed exactly on top of its sibling. A copy stood half inside the arena's rock frame — or two
-    // copies in one place — is exactly the "sometimes it looks broken" a split cannot afford.
-    private List<Vector3> SplitSpots(int count)
-    {
-        var spots = new List<Vector3>();
-        if (count <= 0) return spots;
-
-        Vector2 chest = ChestPoint;
-        float margin = CapsuleSize.x * 0.5f + 0.35f;
-        int ground = LayerMask.GetMask("Ground");
-
-        // Clear distance to each side, measured once.
-        float[] clear = new float[2];
-        for (int s = 0; s < 2; s++)
-        {
-            float side = s == 0 ? -1f : 1f;
-            var wall = Physics2D.Raycast(chest, new Vector2(side, 0f), 40f, ground);
-            clear[s] = wall.collider != null ? wall.distance - margin : 40f;
-        }
-
-        for (int ring = 1; spots.Count < count && ring <= 4; ring++)
-            for (int s = 0; s < 2 && spots.Count < count; s++)
-            {
-                float side = s == 0 ? -1f : 1f;
-                float dx = splitSpread * ring;
-                if (dx > clear[s]) continue;          // that slot is in the wall — skip it
-                Vector2 foot = (Vector2)transform.position + new Vector2(side * dx, 0f);
-                var down = Physics2D.Raycast(foot + Vector2.up * 1.0f, Vector2.down, 6f, ground);
-                if (down.collider != null) foot.y = down.point.y + 0.02f;
-                spots.Add(new Vector3(foot.x, foot.y, PlayPlane.Z));
-            }
-
-        // Boxed in on both sides: stand them on him rather than not at all.
-        while (spots.Count < count) spots.Add(transform.position);
-        return spots;
-    }
-
-    /// <summary>Called by a double the player touched while it was ARMED. The shard goes home.</summary>
+    /// <summary>Called by a shadow the player touched while it was ARMED. The shard goes home.</summary>
     public void OnDoubleShattered(ShadowDouble d)
     {
         if (d == null || d.Current != ShadowDouble.State.Armed) return;
@@ -669,9 +570,11 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         SfxManager.PlayOn(sfx, ShatterClip, sfxVolume);
         Puff(at + Vector3.up * 0.9f, 10, 1.3f, 1f);
         Puff(at + Vector3.up * 0.9f, 10, 1.3f, -1f);
-        if (CameraShake.instance != null) CameraShake.instance.Shake(0.12f, 0.22f);
-        if (HitStop.instance != null) HitStop.instance.Stop(0.05f);
+        CutMark.Spawn(ChestPoint, streakColour, 1.4f);     // the cut lands on HIM
+        if (CameraShake.instance != null) CameraShake.instance.Shake(0.14f, 0.25f);
+        if (HitStop.instance != null) HitStop.instance.Stop(0.06f);
 
+        crossingCancelled = true;
         if (health != null) health.TakeDamage(shatterDamage);
 
         if (shiftCrystalPrefab != null)
@@ -682,162 +585,200 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
             }
     }
 
-    // ---- SHEATHE ------------------------------------------------------------------------------------
-    // Blade low, still, loud. Hurt him now and he ANSWERS: swaps with his nearest double and cuts.
-    // Nothing happens if you simply wait — the stance exists so that "play a card now" is sometimes
-    // the wrong answer, which is a real decision in a deckbuilder and nothing else creates it.
-    private IEnumerator SheatheRoutine()
+    // ================================================================================================
+    // HUNDRED CUTS
+    // ================================================================================================
+    // He sheathes. The room dims. Lines flash in one by one. They hang. Click.
+    //
+    // ⚠️ THE PATTERN IS BUILT AROUND ITS SAFE POCKETS, NOT CHECKED FOR THEM AFTERWARDS. Pockets are
+    // chosen first from spots the player can actually stand on, and every line is rejected if it
+    // comes within cutsSafeRadius of one. That is what makes "find the gap" a promise rather than a
+    // probability — and one pocket is always on the FLOOR, because a player at 0 Shift cannot jump
+    // and this is the room where ending at 0 is likely.
+    private struct Cut { public Vector2 a, b; }
+    private SpriteRenderer dim;
+
+    private IEnumerator HundredCutsRoutine()
     {
-        FaceTowardPlayer();
         if (rb != null) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
-        if (animator != null) animator.SetBool("IsCrouching", true);
-        SfxManager.PlayOn(sfx, SheatheClip, sfxVolume);
-
-        // A slow pulse on the mark — the only motion on him while he waits.
-        sheathed = true; counterTriggered = false;
-        float t = 0f;
-        while (t < sheatheDuration && !counterTriggered)
-        {
-            t += Time.deltaTime;
-            if (mark != null) mark.color = new Color(markColour.r, markColour.g, markColour.b, 0.35f + 0.35f * Mathf.PingPong(t * 3f, 1f));
-            yield return null;
-        }
-        sheathed = false;
-        if (mark != null) mark.color = new Color(markColour.r, markColour.g, markColour.b, 0.55f);
-        if (animator != null) animator.SetBool("IsCrouching", false);
-
-        if (!counterTriggered) yield break;
-
-        // THE ANSWER. Swap with the nearest standing double, if any — the body-double trick.
-        ShadowDouble nearest = null; float best = float.MaxValue;
-        foreach (var d in live)
-        {
-            if (d == null || d.Current != ShadowDouble.State.Standing) continue;
-            float dist = Vector2.Distance(d.transform.position, transform.position);
-            if (dist < best) { best = dist; nearest = d; }
-        }
-        if (nearest != null && Fits(nearest.transform.position))
-        {
-            Vector3 mine = transform.position, theirs = nearest.transform.position;
-            Puff(mine + Vector3.up * 0.9f, 8, 1.1f, 1f);
-            Puff(theirs + Vector3.up * 0.9f, 8, 1.1f, -1f);
-            transform.position = new Vector3(theirs.x, theirs.y, PlayPlane.Z);
-            nearest.transform.position = new Vector3(mine.x, mine.y, PlayPlane.Z);
-            if (rb != null) rb.linearVelocity = Vector2.zero;
-            Physics2D.SyncTransforms();
-        }
-
         FaceTowardPlayer();
-        SfxManager.PlayOn(sfx, CounterClip, sfxVolume);
-        if (animator != null) { animator.SetInteger("AttackAction", SWIPE_ACTION); animator.SetBool("IsAttacking", true); }
-        yield return new WaitForSeconds(0.12f);
-        CircleHit(ChestPoint, counterRadius, counterDamage, counterKnockback);
-        if (CameraShake.instance != null) CameraShake.instance.Shake(0.2f, 0.3f);
+        if (animator != null) animator.SetBool("IsCrouching", true);
+        SfxManager.PlayOn(sfx, SheatheClip, sfxVolume * 0.8f);
+
+        // The room goes dark. A quad behind the actors, so he, his shadows, the player and the
+        // lines all stay lit — the world does not.
+        Bounds area = PlayArea ?? new Bounds(transform.position, new Vector3(60f, 30f, 1f));
+        if (dim == null)
+        {
+            var go = new GameObject("HundredCutsDim");
+            go.AddComponent<TemporaryObject>();
+            dim = go.AddComponent<SpriteRenderer>();
+            dim.sprite = FlatUI.Pixel();
+            dim.sortingOrder = 40;
+        }
+        Vector2 native = dim.sprite.bounds.size;
+        dim.transform.position = new Vector3(area.center.x, area.center.y, PlayPlane.Z + 0.3f);
+        dim.transform.localScale = new Vector3((area.size.x + 30f) / native.x, (area.size.y + 20f) / native.y, 1f);
+        dim.gameObject.SetActive(true);
+        float d0 = 0f;
+        while (d0 < 0.25f) { d0 += Time.deltaTime; dim.color = new Color(0f, 0f, 0f, cutsDim * (d0 / 0.25f)); yield return null; }
+        dim.color = new Color(0f, 0f, 0f, cutsDim);
+
+        // ---- the pattern ----------------------------------------------------------------------
+        List<Vector2> pockets = ChoosePockets(area, cutsSafePockets);
+        List<Cut> cuts = new List<Cut>();
+        List<CutStreak> lines = new List<CutStreak>();
+        int tries = 0;
+        while (cuts.Count < cutsCount && tries < cutsCount * 30)
+        {
+            tries++;
+            // Mostly shallow, a few steep. Through a random point in the room.
+            float ang = Random.value < 0.7f ? Random.Range(-28f, 28f) : Random.Range(-70f, 70f);
+            Vector2 dir = new Vector2(Mathf.Cos(ang * Mathf.Deg2Rad), Mathf.Sin(ang * Mathf.Deg2Rad));
+            Vector2 p = new Vector2(Random.Range(area.min.x + 1f, area.max.x - 1f), Random.Range(area.min.y + 0.8f, area.max.y - 0.8f));
+            Cut cut = ClipToArea(p, dir, area);
+
+            bool ok = true;
+            foreach (var s in pockets) if (DistanceToSegment(s, cut.a, cut.b) < cutsSafeRadius) { ok = false; break; }
+            if (!ok) continue;
+            foreach (var other in cuts)
+                if (DistanceToSegment((cut.a + cut.b) * 0.5f, other.a, other.b) < 0.7f) { ok = false; break; }
+            if (!ok) continue;
+            cuts.Add(cut);
+        }
+
+        // ---- they appear, one by one --------------------------------------------------------
+        foreach (var cut in cuts)
+        {
+            var line = CutStreak.Begin(cut.a, cutsColour, 0.07f, 45);
+            line.SetEnd(cut.b);
+            lines.Add(line);
+            SfxManager.PlayOn(sfx, LineClip, sfxVolume * 0.35f);
+            yield return new WaitForSeconds(cutsLineInterval);
+        }
+
+        // ---- they hang --------------------------------------------------------------------------
+        yield return new WaitForSeconds(cutsHang);
+
+        // ---- the click --------------------------------------------------------------------------
+        SfxManager.PlayOn(sfx, LandClip, sfxVolume);
+        if (HitStop.instance != null) HitStop.instance.Stop(0.10f);
+        if (CameraShake.instance != null) CameraShake.instance.Shake(0.35f, 0.45f);
+        if (animator != null) { animator.SetBool("IsCrouching", false); animator.SetInteger("AttackAction", SWIPE_ACTION); animator.SetBool("IsAttacking", true); }
+
+        foreach (var line in lines) if (line != null) line.Release(0.30f);
+        foreach (var cut in cuts)
+        {
+            // A white flash along each line as it lands.
+            var flash = CutStreak.Begin(cut.a, Color.white, 0.16f, 46);
+            flash.SetEnd(cut.b);
+            flash.Release(0.22f);
+        }
+
+        // One hit, however many lines you were standing in. Tested against three points up the
+        // player's body so a line through the chest counts and one over the head does not.
+        if (player != null)
+        {
+            var pc = player.GetComponent<PlayerController>();
+            bool hit = false;
+            Vector2 feet = player.position;
+            Vector2[] probes = { feet + Vector2.up * 0.35f, feet + Vector2.up * 0.9f, feet + Vector2.up * 1.45f };
+            foreach (var cut in cuts)
+            {
+                foreach (var pr in probes)
+                    if (DistanceToSegment(pr, cut.a, cut.b) <= cutsHalfWidth) { hit = true; break; }
+                if (hit) break;
+            }
+            if (hit && pc != null)
+            {
+                CutMark.Spawn(feet + Vector2.up * 0.9f, Color.white, 1.8f);
+                pc.TakeDamage(cutsDamage);
+                pc.ApplyKnockback(new Vector2(Random.value < 0.5f ? -cutsKnockback : cutsKnockback, cutsKnockback * 0.7f));
+            }
+        }
+
+        // ---- the room comes back, and he is open -----------------------------------------------
+        float d1 = 0f;
+        while (d1 < 0.35f) { d1 += Time.deltaTime; dim.color = new Color(0f, 0f, 0f, cutsDim * (1f - d1 / 0.35f)); yield return null; }
+        dim.gameObject.SetActive(false);
+
         yield return new WaitForSeconds(0.2f);
         if (animator != null) animator.SetBool("IsAttacking", false);
-
-        yield return new WaitForSeconds(counterRecovery);
+        yield return new WaitForSeconds(cutsRecovery);
     }
 
-    // ---- OVERHEAD -----------------------------------------------------------------------------------
-    // A ballistic leap onto where you were standing, a vertical cut on landing, and a shockwave that
-    // runs along the floor both ways. Ledges beat the wave; the floor does not. The opposite of Draw.
-    private IEnumerator OverheadRoutine()
+    // Safe pockets: real standing spots, spread apart, the first always on the floor.
+    private List<Vector2> ChoosePockets(Bounds area, int count)
     {
-        if (player == null || rb == null) yield break;
-        FaceTowardPlayer();
+        var spots = new List<Vector2>();
+        int ground = LayerMask.GetMask("Ground");
+        Vector2 offset = body != null ? body.offset : Vector2.up;
+        Vector2 size = CapsuleSize;
 
-        Vector2 target = player.position;
-        Vector2 from = transform.position;
-        float T = Mathf.Max(0.25f, overheadFlightTime);
-        float leapGravity = baseGravityScale * Mathf.Max(0.1f, overheadGravityMul);
-        float g = Physics2D.gravity.y * leapGravity;
-        float vx = (target.x - from.x) / T;
-        float vy = (target.y - from.y - 0.5f * g * T * T) / T;
-
-        // Heavier for the leap only, and put back in a finally — a boss killed mid-air would
-        // otherwise keep 2.5x gravity for whatever came next.
-        rb.gravityScale = leapGravity;
-        try
-        {
-            rb.linearVelocity = new Vector2(vx, vy);
-            if (animator != null) { animator.SetInteger("AttackAction", SWIPE_ACTION); }
-            SfxManager.PlayOn(sfx, DrawClip, sfxVolume * 0.7f);
-
-            float t = 0f;
-            yield return new WaitForSeconds(0.12f);
-            while (!IsGrounded() && t < 1.8f) { t += Time.deltaTime; yield return null; }
-        }
-        finally { RestoreGravity(); }
-
-        rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
-        if (animator != null) animator.SetBool("IsAttacking", true);
-        SfxManager.PlayOn(sfx, LandClip, sfxVolume);
-        if (CameraShake.instance != null) CameraShake.instance.Shake(0.28f, 0.35f);
-        Puff(ChestPoint - new Vector2(0f, 0.9f), 10, 1.4f, 1f);
-        Puff(ChestPoint - new Vector2(0f, 0.9f), 10, 1.4f, -1f);
-
-        CircleHit(ChestPoint, overheadRadius, overheadDamage, overheadKnockback);
-        StartCoroutine(Shockwave(1f));
-        StartCoroutine(Shockwave(-1f));
-
-        yield return new WaitForSeconds(0.25f);
-        if (animator != null) animator.SetBool("IsAttacking", false);
-        yield return new WaitForSeconds(overheadRecovery);
-    }
-
-    // A travelling box at floor level, drawn as a bright strip. Low enough that a jump clears it.
-    private IEnumerator Shockwave(float dir)
-    {
-        var go = new GameObject("Shockwave");
-        go.AddComponent<TemporaryObject>();
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = FlatUI.Pixel();
-        sr.sortingOrder = 5;
-        Vector2 native = sr.sprite.bounds.size;
-        float w = 0.9f, h = shockwaveHeight;
-        go.transform.localScale = new Vector3(w / native.x, h / native.y, 1f);
-
-        float floorY = transform.position.y;
-        float x = transform.position.x + dir * 0.8f;
-        float travelled = 0f;
-        bool struck = false;
-        while (travelled < shockwaveLength)
-        {
-            float step = shockwaveSpeed * Time.fixedDeltaTime;
-            if (Physics2D.Raycast(new Vector2(x, floorY + 0.5f), new Vector2(dir, 0f), step + 0.5f, LayerMask.GetMask("Ground")).collider != null) break;
-            x += dir * step; travelled += step;
-            Vector2 centre = new Vector2(x, floorY + h * 0.5f);
-            go.transform.position = new Vector3(centre.x, centre.y, PlayPlane.Z + 0.05f);
-            float fade = 1f - travelled / shockwaveLength;
-            sr.color = new Color(shockwaveColour.r, shockwaveColour.g, shockwaveColour.b, 0.25f + 0.55f * fade);
-
-            if (!struck)
+        // Sample the interior: every 0.5 in x, every 1 in y; a spot stands if the capsule fits there
+        // and there is ground within a third of a unit below the feet.
+        for (float x = area.min.x + 0.6f; x <= area.max.x - 0.6f; x += 0.5f)
+            for (float y = area.min.y + 0.1f; y <= area.max.y - 2f; y += 1f)
             {
-                var hit = Physics2D.OverlapBox(centre, new Vector2(w, h), 0f, LayerMask.GetMask("Player"));
-                var pc = hit != null ? hit.GetComponentInParent<PlayerController>() : null;
-                if (pc != null)
-                {
-                    struck = true;
-                    pc.TakeDamage(shockwaveDamage);
-                    pc.ApplyKnockback(new Vector2(dir * overheadKnockback * 0.7f, overheadKnockback * 0.6f));
-                }
+                Vector2 foot = new Vector2(x, y);
+                if (Blocked(foot + offset, size * 0.95f)) continue;
+                var down = Physics2D.Raycast(foot + Vector2.up * 0.1f, Vector2.down, 0.35f, ground);
+                if (down.collider == null) continue;
+                spots.Add(new Vector2(x, down.point.y));
             }
-            yield return new WaitForFixedUpdate();
+
+        var chosen = new List<Vector2>();
+        if (spots.Count == 0) { chosen.Add(player != null ? (Vector2)player.position : (Vector2)transform.position); return chosen; }
+
+        float floorY = float.MaxValue;
+        foreach (var s in spots) floorY = Mathf.Min(floorY, s.y);
+
+        // Floor pocket first — never one the boss is standing in, and away from him so the answer
+        // is "move", not "stand next to him".
+        var floor = spots.FindAll(s => Mathf.Abs(s.y - floorY) < 0.2f && Mathf.Abs(s.x - transform.position.x) > 2.5f);
+        if (floor.Count == 0) floor = spots.FindAll(s => Mathf.Abs(s.y - floorY) < 0.2f);
+        if (floor.Count > 0) chosen.Add(floor[Random.Range(0, floor.Count)] + Vector2.up * 0.9f);
+
+        // Then spread the rest as far from each other as the room allows.
+        int guard = 0;
+        while (chosen.Count < count && guard++ < 200)
+        {
+            Vector2 best = spots[Random.Range(0, spots.Count)];
+            float bestScore = -1f;
+            for (int i = 0; i < 12; i++)
+            {
+                Vector2 cand = spots[Random.Range(0, spots.Count)] + Vector2.up * 0.9f;
+                float score = float.MaxValue;
+                foreach (var c in chosen) score = Mathf.Min(score, Vector2.Distance(c, cand));
+                if (score > bestScore) { bestScore = score; best = cand; }
+            }
+            chosen.Add(best);
         }
-        Destroy(go);
+        return chosen;
     }
 
-    private void CircleHit(Vector2 centre, float radius, float damage, float knockback)
+    private static Cut ClipToArea(Vector2 p, Vector2 dir, Bounds area)
     {
-        var hit = Physics2D.OverlapCircle(centre, radius, LayerMask.GetMask("Player"));
-        var pc = hit != null ? hit.GetComponentInParent<PlayerController>() : null;
-        if (pc == null) return;
-        float dirX = Mathf.Sign(pc.transform.position.x - transform.position.x);
-        if (Mathf.Approximately(dirX, 0f)) dirX = facingRight ? 1f : -1f;
-        pc.TakeDamage(damage);
-        pc.ApplyKnockback(new Vector2(dirX * knockback, knockback * 0.6f));
-        if (HitStop.instance != null) HitStop.instance.Stop(0.06f);
+        // Walk out both ways until the room edge.
+        float tMin = -1000f, tMax = 1000f;
+        void Clip(float p0, float d, float lo, float hi)
+        {
+            if (Mathf.Abs(d) < 1e-5f) return;
+            float t0 = (lo - p0) / d, t1 = (hi - p0) / d;
+            if (t0 > t1) { float tmp = t0; t0 = t1; t1 = tmp; }
+            tMin = Mathf.Max(tMin, t0); tMax = Mathf.Min(tMax, t1);
+        }
+        Clip(p.x, dir.x, area.min.x, area.max.x);
+        Clip(p.y, dir.y, area.min.y, area.max.y);
+        return new Cut { a = p + dir * tMin, b = p + dir * tMax };
+    }
+
+    private static float DistanceToSegment(Vector2 p, Vector2 a, Vector2 b)
+    {
+        Vector2 ab = b - a;
+        float len2 = ab.sqrMagnitude;
+        float t = len2 < 1e-6f ? 0f : Mathf.Clamp01(Vector2.Dot(p - a, ab) / len2);
+        return Vector2.Distance(p, a + ab * t);
     }
 
     // ---- per frame ----------------------------------------------------------------------------------
@@ -853,30 +794,23 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
             animator.SetFloat("VelocityY", rb != null ? rb.linearVelocity.y : 0f);
         }
 
-        // Doubles that are just standing there mirror him; striking ones drive themselves.
+        // Standing shadows fade out on their clock. Armed ones (a cut in the air) never expire early.
         if (doubles != null)
             foreach (var d in doubles)
-            {
-                if (d == null || d.Current == ShadowDouble.State.Hidden) continue;
-                if (d.Current == ShadowDouble.State.Standing && Time.time >= doublesExpire) { d.StartCoroutine(d.Dissolve(0.5f)); continue; }
-                if (d.Current == ShadowDouble.State.Standing) d.Mirror(animator);
-            }
+                if (d != null && d.Current == ShadowDouble.State.Standing && Time.time >= doublesExpire)
+                    d.StartCoroutine(d.Dissolve(0.5f));
 
-        // The finale twist. One number: the doubles turn solid and marked, and nobody can tell.
+        // THE REVEAL. One number: the shadows turn solid and marked, and nobody can tell.
         if (finale && !twisted && health != null && health.maxHealth > 0f &&
             health.CurrentHealth / health.maxHealth <= twistAtFraction)
         {
             twisted = true;
             SfxManager.PlayOn(sfx, SplitClip, sfxVolume);
+            if (CameraShake.instance != null) CameraShake.instance.Shake(0.2f, 0.5f);
             if (doubles != null)
                 foreach (var d in doubles)
                     if (d != null) { d.SetAlpha(1f); d.ShowMark(true, markColour); }
         }
-    }
-
-    private void OnDamaged()
-    {
-        if (sheathed) counterTriggered = true;
     }
 
     private void OnBossDied()
@@ -886,9 +820,10 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         SetPlayerCollision(true);
         RestoreGravity();
         OpenExit();
+        if (dim != null) dim.gameObject.SetActive(false);
         if (MusicManager.instance != null) MusicManager.instance.StopBossMusic();
 
-        // He comes apart into two of himself: the doubles stand up either side and fade.
+        // He comes apart into two of himself: the shadows stand up either side and fade.
         if (doubles != null)
             for (int i = 0; i < Mathf.Min(2, doubles.Length); i++)
             {
@@ -937,6 +872,12 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     private Vector2 ChestPoint => (Vector2)transform.position + (body != null ? body.offset : Vector2.up);
     private Vector2 CapsuleSize => body is CapsuleCollider2D c ? c.size : new Vector2(0.63f, 2.1f);
 
+    private bool PlayerInBox(Vector2 centre, Vector2 size)
+    {
+        var hit = Physics2D.OverlapBox(centre, size, 0f, LayerMask.GetMask("Player"));
+        return hit != null && hit.GetComponentInParent<PlayerController>() != null;
+    }
+
     private bool IsGrounded()
     {
         var cap = body as CapsuleCollider2D;
@@ -962,16 +903,34 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         return false;
     }
 
-    private bool Fits(Vector3 feet)
+    /// <summary>
+    /// The room's own idea of where the fight happens: the CameraBounds zones every room must have.
+    /// Cached including the null result.
+    /// </summary>
+    private Bounds? PlayArea
     {
-        Vector2 offset = body != null ? body.offset : Vector2.up;
-        return !Blocked((Vector2)feet + offset, CapsuleSize * 0.95f);
+        get
+        {
+            if (playAreaResolved) return playArea;
+            playAreaResolved = true;
+            Transform root = transform; while (root.parent != null) root = root.parent;
+            Transform cb = root.Find("CameraBounds");
+            if (cb == null) return playArea = null;
+            Bounds b = new Bounds(); bool any = false;
+            foreach (var c in cb.GetComponentsInChildren<Collider2D>(true))
+            {
+                if (!any) { b = c.bounds; any = true; } else b.Encapsulate(c.bounds);
+            }
+            playArea = any ? (Bounds?)b : null;
+            return playArea;
+        }
     }
+    private Bounds? playArea;
+    private bool playAreaResolved;
 
     // The watchdog. If he is ever inside terrain, ring-search outward for somewhere his capsule
-    // fits — inside the room's CameraBounds first, anywhere second — and put him there. No
-    // mid-move exemption flag: that flag is a latch, and the detection box (0.8x) is smaller than
-    // the fit test (0.95x), so being pressed against a wall at speed does not trip it.
+    // fits and put him there. No mid-move exemption flag: that flag is a latch, and the detection
+    // box (0.8x) is smaller than the fit test (0.95x), so being pressed against a wall does not trip it.
     private void EnsureNotStuck()
     {
         if (body == null || Time.time < nextStuckCheck) return;

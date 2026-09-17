@@ -272,6 +272,26 @@ in the code describes them.
 - **Testing:** `Deckshift → Test → Kagemusha Boss Fight (Ctrl+Shift+K)`, a *force FINALE*
   variant, `Toggle Player Invincible (Ctrl+Shift+I)` and `Play As → Wizard / Ninja / Samurai`.
 
+
+## KIT v2 — rewritten with the designer, 2026-09-17
+
+The first kit (Draw / Overhead / Split / Sheathe) was **"not cool enough"**. Rewritten together into
+three moves; §4–§6 below describe the OLD kit and are kept only for the reasoning that survived.
+
+| | what you see | what it is for |
+|---|---|---|
+| **The Crossing** | he blurs straight THROUGH you and stops on the far side, back turned — leaving a **shadow of himself where he started**. Nothing happens… until he sheathes (`crossSheatheDelay`, 1.1s). | **The card-free route, the Shift income and the dodge-or-punish decision in one mechanic.** Break the shadow before the click → the cut is cancelled, HE takes 12, a crystal drops. Don't → you take 20. Finale chains 2, after the Reveal 3 — one click for all, and breaking ANY shadow cancels the whole cut. |
+| **Hundred Cuts** | he sheathes, the room dims (a quad behind the actors — figures and lines stay lit), 12 gold cut-lines flash in one by one across the hall, hang 0.55s, then all land on one click. | The spectacle, and the anti-camping move: it reaches every ledge. **The pattern is built AROUND its safe pockets, not checked afterwards** — 3 standable pockets are chosen first (spread apart, away from him) and every line is rejected within 1.6 of one. ⚠️ **One pocket is always ON THE FLOOR**, because a 0-Shift player cannot jump. |
+| **The Reveal** (finale, 40%) | shadows stop fading — a Crossing leaves a SOLID, marked him — Hundred Cuts fires twice, the Crossing chains three. | He doesn't pay Shift. |
+
+Dropped: Draw (folded into the Crossing), Overhead (Hundred Cuts covers the room), Split as a
+separate move (the Crossing *is* the split now), the passive Sheathe. Deflect was pitched and
+declined. Kept: the kneeling trio at the start.
+
+**Smoke-tested, zero errors:** the Crossing runs and leaves Standing shadows; Hundred Cuts dims
+the hall, draws twelve lines with a legible floor pocket, and lands. Ability FEEL is the
+designer's to judge.
+
 ## 3. The Kagemusha — the thesis, and why he is not the Ninja again
 
 **The Ninja is evasion. The Kagemusha is COMMITMENT — and he makes YOUR commitment dangerous.**
