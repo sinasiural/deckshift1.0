@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27701a6f0f52d86438cb67605f92527c, type: 3}
+  m_Name: ThroughAndThrough
+  m_EditorClassIdentifier: 
+  cardName: Through and Through
+  description: Lunge forward. Nothing can hurt you, you pass through enemies, and
+    every one you pass is cut for 20.
+  cardArt: {fileID: 3949312561008636491, guid: db24c03a6360afa44a906cd18adf60e6, type: 3}
+  nameIsPaintedIntoArt: 0
+  actionType: 22
+  actionValue: 20
+  singleUse: 0
+  shiftCost: 1
+  maxUses: 4

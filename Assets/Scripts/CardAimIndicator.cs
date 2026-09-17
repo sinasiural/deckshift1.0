@@ -218,6 +218,8 @@ public class CardAimIndicator : MonoBehaviour
             case CardActionType.Phase:          SetKind(Kind.Phase);    UpdatePhase(dim);    break;
             case CardActionType.ReturnAnchor:   SetKind(Kind.Anchor);   UpdateAnchor(dim);   break;
             case CardActionType.Shuriken:       SetKind(Kind.Shuriken); UpdateShuriken(dim); break;
+            case CardActionType.ThroughAndThrough:
+                                                SetKind(Kind.Dash);     UpdateDash(dim, true); break;
             default:                            SetKind(Kind.None);                          break;
         }
     }
@@ -543,10 +545,14 @@ public class CardAimIndicator : MonoBehaviour
         ReleaseDashTrail();
     }
 
-    private void UpdateDash(float dim)
+    // `lunge` switches to Through and Through's travel, which is the same preview in every respect
+    // except how far it reaches — that card IS a dash, so it gets the dash's ghost trail rather
+    // than a second visual language for the same motion.
+    private void UpdateDash(float dim, bool lunge = false)
     {
         float dir = player.isFacingRight ? 1f : -1f;
-        float dist = player.dashSpeed * player.dashDuration;
+        float dist = lunge ? player.lungeSpeed * player.lungeDuration
+                           : player.dashSpeed  * player.dashDuration;
 
         // Wall-clamp with the player's own capsule so the trail never previews standing in rock.
         if (playerCapsule != null)

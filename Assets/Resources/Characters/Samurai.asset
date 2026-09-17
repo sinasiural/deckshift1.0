@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e52aebcd04c3d3844a86f95913467ff0, type: 3}
+  m_Name: Samurai
+  m_EditorClassIdentifier: 
+  characterName: Samurai
+  description: Places one cut and does not flinch. Walks into every room already
+    wearing armour, and keeps whatever he does not spend.
+  portrait: {fileID: 0}
+  startingDeck:
+  - {fileID: 11400000, guid: a16d94c42ae7497ebcf2faf64c862ec9, type: 2}
+  - {fileID: 11400000, guid: a16d94c42ae7497ebcf2faf64c862ec9, type: 2}
+  - {fileID: 11400000, guid: f1db857c51730034d88b552efac326b9, type: 2}
+  - {fileID: 11400000, guid: b3132bd486128a34183f125375419fd5, type: 2}
+  traitName: Full Plate
+  traitDescription: You put on 5 Armour in every room. Armour takes hits before your
+    health does, and whatever survives comes with you.
+  handCapacityBonus: 0
+  recallCostNeverRises: 0
+  armourPerRoom: 5
+  appearancePreset: {fileID: 1546294774153461753, guid: b09a6bbd84ba65442b5f078f18ec3dda, type: 3}
+  weaponPrefab: {fileID: 6805170423116255223, guid: 09a528dd68982dd4b9b88fa7362d81a2, type: 3}

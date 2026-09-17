@@ -46,6 +46,8 @@ public class CardActionExecutor : MonoBehaviour
             { CardActionType.FreefallBlade,  new FreefallBladeAction()  },
             { CardActionType.ReturnAnchor,   new ReturnAnchorAction()   },
             { CardActionType.Shuriken,       new ShurikenAction()       },
+            { CardActionType.SalvagedShuriken, new SalvagedShurikenAction() },
+            { CardActionType.ThroughAndThrough, new ThroughAndThroughAction() },
         };
     }
 

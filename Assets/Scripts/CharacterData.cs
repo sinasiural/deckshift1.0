@@ -39,6 +39,20 @@ public class CharacterData : ScriptableObject
     // Consumed by DeckManager.RecallCostIsLocked.
     public bool recallCostNeverRises = false;
 
+    // Armour granted on entering each COMBAT room (the Samurai's "Full Plate"). Armour is a second
+    // health pool that empties before HP and does NOT reset between rooms, so a player who is never
+    // touched walks into room five wearing five times this. The streak IS the trait.
+    //
+    // ⚠️ Granted on combat rooms only — PlayerController.OnNewRoomEnter gates it on
+    // LevelManager.IsCurrentRoomCombat(). The hub and the recharge rooms (Foundry / Market / Well)
+    // are sandboxes; paying out on every visit there is the umbrella rule broken from the income
+    // side, and the Well in particular could be farmed.
+    //
+    // Read through the live character at the grant site — never copied into a field on the player,
+    // for the same reason handCapacityBonus never is: a character swap must not be able to leave a
+    // stale copy behind.
+    public float armourPerRoom = 0f;
+
     [Header("Look")]
     // A Cainos character PRESET prefab (Assets/Cainos/.../Character Preset/). Its outfit is COPIED
     // onto the player's existing rig at runtime — materials only.

@@ -1137,6 +1137,110 @@ public class PlayerController : MonoBehaviour
             ChangeState(isGrounded ? PlayerState.Idle : PlayerState.Jumping);
     }
 
+    // ============================================================================================
+    // THROUGH AND THROUGH — the Samurai's signature. A Dash that cuts.
+    // ============================================================================================
+    [Header("Through and Through (Samurai)")]
+    [SerializeField] internal float lungeSpeed = 26f;       // matches dashSpeed — it IS a dash
+    [SerializeField] internal float lungeDuration = 0.19f;  // 26 * 0.19 = ~4.9 units of travel
+    [SerializeField] internal float lungeIFrameDuration = 0.25f;   // >= duration, like the dash
+    [SerializeField] internal Color lungeAfterimageTint = new Color(1f, 0.93f, 0.72f, 0.6f);
+
+    // Built on DashRoutine's shape on purpose (designer 2026-09-16): same driven velocity, same
+    // i-frames, same momentum tail, so a player who has learned Dash is not surprised by this.
+    // The two differences are the whole card: it passes THROUGH enemy bodies, and it cuts every
+    // one it crosses.
+    //
+    // ⚠️ IT DOES NOT TOUCH THE GLOBAL LAYER-COLLISION MATRIX, unlike Phase. Two reasons. The matrix
+    // survives scene loads, so a coroutine killed mid-flight leaves the player permanently
+    // intangible (Phase needs an explicit death-path restore for exactly this). And it would not
+    // work anyway: enemy layers in this project are INCONSISTENT — zombies, bats, Mimic and
+    // ShieldEnemy sit on Default(0) while MeleeEnemy, RangedEnemy, Slime, Turret and Patrol sit on
+    // Enemy(11) — so ignoring Player<->Enemy would pass through some enemies and bounce off the
+    // most common ones. Per-collider Physics2D.IgnoreCollision against the bodies actually in the
+    // lane is exact, is restored in a finally, and cannot outlive the routine.
+    internal IEnumerator LungeRoutine(float damageAmount)
+    {
+        float dir = isFacingRight ? 1f : -1f;
+
+        ChangeState(PlayerState.Dashing);
+
+        SfxManager.PlayOn(audioSource, freefallBladeSound);
+        if (CameraShake.instance != null) CameraShake.instance.Shake(0.14f, 0.5f);
+
+        StartCoroutine(DashIFrames(lungeIFrameDuration));
+
+        // Each enemy is cut once and un-ignored once, however many physics steps it is overlapped for.
+        HashSet<EnemyHealth> struck = new HashSet<EnemyHealth>();
+        List<Collider2D> ignored = new List<Collider2D>();
+
+        try
+        {
+            float elapsed = 0f;
+            float ghostTimer = 0f;
+
+            while (elapsed < lungeDuration)
+            {
+                if (playerHealth != null && playerHealth.IsDead) yield break;
+
+                rb.linearVelocity = new Vector2(dir * lungeSpeed, 0f);
+
+                // ~0 (all layers) rather than enemyLayer, for the layer-split reason above — the
+                // same all-layers + GetComponentInParent pattern Vampiric Bite and Glass Parry use.
+                Vector2 centre = (Vector2)transform.position + capsuleCollider.offset;
+                foreach (Collider2D hit in Physics2D.OverlapBoxAll(centre, capsuleCollider.size, 0f, ~0))
+                {
+                    EnemyHealth enemy = hit.GetComponentInParent<EnemyHealth>();
+                    if (enemy == null) continue;
+
+                    // Stop this body blocking us for the rest of the lunge. Enemies are mass 500,
+                    // so without this the player simply stops dead against the first one.
+                    if (capsuleCollider != null && !ignored.Contains(hit))
+                    {
+                        Physics2D.IgnoreCollision(capsuleCollider, hit, true);
+                        ignored.Add(hit);
+                    }
+
+                    if (struck.Contains(enemy)) continue;
+                    struck.Add(enemy);
+
+                    float finalDamage = RelicManager.instance != null
+                        ? RelicManager.instance.ModifyPlayerDamage(damageAmount, enemy)
+                        : damageAmount;
+                    enemy.TakeDamage(finalDamage);
+
+                    if (HitStop.instance != null) HitStop.instance.Stop(0.04f);
+                }
+
+                if (dashAfterimages && visualModel != null)
+                {
+                    ghostTimer -= Time.fixedDeltaTime;
+                    if (ghostTimer <= 0f)
+                    {
+                        DashAfterimage.Spawn(visualModel.transform, lungeAfterimageTint);
+                        ghostTimer = 0.03f;
+                    }
+                }
+
+                elapsed += Time.fixedDeltaTime;
+                yield return new WaitForFixedUpdate();
+            }
+        }
+        finally
+        {
+            // ⚠️ EVERY ignored pair is a latch. A StopCoroutine from death or a room change lands
+            // here, so the player can never be left permanently intangible to an enemy.
+            if (capsuleCollider != null)
+                foreach (Collider2D c in ignored)
+                    if (c != null) Physics2D.IgnoreCollision(capsuleCollider, c, false);
+        }
+
+        rb.linearVelocity = new Vector2(dir * dashEndSpeed, rb.linearVelocity.y);
+
+        if (currentState == PlayerState.Dashing)
+            ChangeState(isGrounded ? PlayerState.Idle : PlayerState.Jumping);
+    }
+
     public void ApplyKnockback(Vector2 knockbackForce) => playerHealth.ApplyKnockback(knockbackForce);
 
     public void TakeDamage(float damage) => playerHealth.TakeDamage(damage);
@@ -1145,6 +1249,16 @@ public class PlayerController : MonoBehaviour
     {
         tookDamageThisRoom = false;
         ResetFallTracking();
+
+        // The Samurai's "Full Plate": armour on entering every COMBAT room, stacking on whatever
+        // survived the last one. Gated on IsCurrentRoomCombat rather than granted unconditionally —
+        // the hub and the recharge rooms are sandboxes, and a player could otherwise walk in and out
+        // of the Well for free armour. Read off the live character so a swap can't leave a stale copy.
+        if (character != null && character.armourPerRoom > 0f && playerHealth != null &&
+            (LevelManager.instance == null || LevelManager.instance.IsCurrentRoomCombat()))
+        {
+            playerHealth.AddArmour(character.armourPerRoom);
+        }
 
         // Ghost Step's free jumps refill. Topped up unconditionally rather than only when the relic
         // is held, so picking it up mid-room grants the full allowance immediately instead of

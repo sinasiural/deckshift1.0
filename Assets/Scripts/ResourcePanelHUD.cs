@@ -109,7 +109,44 @@ public class ResourcePanelHUD : MonoBehaviour
         maxNumberColor = new Color(0.60f, 0.58f, 0.78f)
     };
 
-    private ResourceBarUI healthBar, shiftBar;
+    // ARMOUR — a second pool that empties before health (PlayerHealth.Armour). Drawn as a short,
+    // plated bar sitting directly ABOVE the health bar, because that is the order damage goes
+    // through them and the HUD should say so.
+    //
+    // ⚠️ IT HIDES ENTIRELY AT 0, rather than showing an empty track. Only the Samurai has any
+    // armour today; the Wizard and the Ninja would otherwise carry a permanently dead bar for the
+    // whole run. An empty readout for a resource you can never have is clutter, not information.
+    //
+    // ⚠️ Its max is not a real maximum — armour has no cap. The bar scales against the biggest
+    // value seen this run (floored at armourBarReference) so it always reads as "how much have I
+    // got", never as "how full is a bar that cannot fill".
+    [Header("Armour bar")]
+    [Tooltip("Gap above the health row. The armour bar is thinner than the other two — it is an " +
+             "extra, not a third sibling.")]
+    public float armourGap = 4f;
+    public float armourBarHeight = 12f;
+    [Tooltip("The bar scales against the most armour held this run, never dropping below this.")]
+    public float armourBarReference = 10f;
+    public BarStyle armourStyle = new BarStyle
+    {
+        segmented = true,
+        unitsPerSegment = 5,
+        segmentGap = 3f,
+        pipMode = BarPipMode.None,
+        fill = new Color(0.74f, 0.80f, 0.88f),      // cold steel — it is plate
+        empty = new Color(0.16f, 0.17f, 0.20f),
+        chip = new Color(1f, 0.66f, 0.30f),
+        low = new Color(0.74f, 0.80f, 0.88f),
+        lowThreshold = 0f,
+        warnWhenLow = false,                         // armour running out is not an emergency; HP is
+        showMax = false,
+        numberColor = new Color(0.88f, 0.92f, 1f),
+        maxNumberColor = new Color(0.60f, 0.64f, 0.72f)
+    };
+
+    private ResourceBarUI healthBar, shiftBar, armourBar;
+    private float armourPeak;
+    private PlayerHealth playerHealthCache;
     private RectTransform panelRT;
 
     void Start()
@@ -140,6 +177,22 @@ public class ResourcePanelHUD : MonoBehaviour
         shiftBar = new ResourceBarUI(panelRT, "ShiftBar", barGeometry, shiftStyle, font);
         shiftBar.SetPosition(new Vector2(barX, shiftRowY));
 
+        // Its own geometry — same length so it lines up with the bars below it, but thinner and
+        // with no number column, since the count is short and the plates already read as a count.
+        BarGeometry armourGeo = new BarGeometry
+        {
+            width = barGeometry.width,
+            height = armourBarHeight,
+            frameThickness = barGeometry.frameThickness,
+            numberPlacement = barGeometry.numberPlacement,
+            numberSize = 15f,
+            maxNumberSize = 11f,
+            numberGap = barGeometry.numberGap
+        };
+        armourBar = new ResourceBarUI(panelRT, "ArmourBar", armourGeo, armourStyle, font);
+        armourBar.SetPosition(new Vector2(barX, healthRowY - armourBarHeight - armourGap));
+        armourBar.Root.gameObject.SetActive(false);   // nobody starts with armour
+
         LayOutGoldRow();
     }
 
@@ -157,6 +210,29 @@ public class ResourcePanelHUD : MonoBehaviour
 
         shiftBar.SetValue(player.GetCurrentShift(), player.maxShift);
         shiftBar.Tick(dt);
+
+        UpdateArmourBar(player, dt);
+    }
+
+    // Shown only while the player actually has armour. The peak is remembered so the bar DRAINS
+    // when armour is spent instead of re-scaling itself to whatever is left — a bar whose maximum
+    // follows its value never appears to move, which is the one thing this readout has to do.
+    private void UpdateArmourBar(PlayerController player, float dt)
+    {
+        if (armourBar == null) return;
+
+        if (playerHealthCache == null) playerHealthCache = player.GetComponent<PlayerHealth>();
+        float value = playerHealthCache != null ? playerHealthCache.Armour : 0f;
+
+        bool show = value > 0f;
+        if (armourBar.Root.gameObject.activeSelf != show)
+            armourBar.Root.gameObject.SetActive(show);
+
+        if (!show) { armourPeak = 0f; return; }
+
+        armourPeak = Mathf.Max(armourPeak, value, armourBarReference);
+        armourBar.SetValue(value, armourPeak);
+        armourBar.Tick(dt);
     }
 
     private PlayerController ResolvePlayer()
