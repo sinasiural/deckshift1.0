@@ -85,4 +85,14 @@ public class CharacterData : ScriptableObject
     // rather than a material on the body — but it goes into the same "Weapon Slot" the pack
     // already animates, so the hand still carries it correctly through every clip.
     public GameObject weaponPrefab;
+
+    // A second weapon for the LEFT hand (designer 2026-09-17: the Samurai wields two swords). The
+    // pack has exactly one weapon slot, on the right hand, so this goes through our own
+    // OffhandWeapon component, which keeps a slot glued to the rig's left-hand bone. Empty = none.
+    public GameObject offhandWeaponPrefab;
+
+    // Leave the preset's back item (a cape, a quiver, the Samurai's sashimono banner) OFF the
+    // player. The BOSS made from the same preset keeps it — the designer wants the banner on the
+    // Kagemusha and not on the playable Samurai, and this is the one switch that separates them.
+    public bool hideBackItem = false;
 }

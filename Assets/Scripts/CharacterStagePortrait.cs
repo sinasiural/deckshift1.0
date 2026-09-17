@@ -69,7 +69,12 @@ public class CharacterStagePortrait : MonoBehaviour
 
         PixelCharacter pc = rig.GetComponentInChildren<PixelCharacter>(true);
         if (pc != null && character.weaponPrefab != null) pc.AddWeapon(character.weaponPrefab, true);
-        if (pc != null) SetLayerRecursive(rig.transform, layer);   // the weapon arrived after the first pass
+        // The same two departures from the preset the live player gets: the back item switched off,
+        // and the second weapon. Without these the portrait shows a different character from the
+        // one you then play as.
+        if (pc != null) CharacterAppearance.SetBackItem(pc, !character.hideBackItem);
+        if (pc != null) CharacterAppearance.ApplyOffhand(pc, character);
+        if (pc != null) SetLayerRecursive(rig.transform, layer);   // the weapons arrived after the first pass
 
         animator = rig.GetComponentInChildren<Animator>(true);
         SetAwake(false);

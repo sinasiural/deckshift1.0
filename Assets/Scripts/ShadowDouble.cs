@@ -190,29 +190,42 @@ public class ShadowDouble : MonoBehaviour
     /// The same cut the boss makes: travel `length` along `dir` at `speed`, hitting the player once.
     /// No physics body, so the transform is driven directly and walls are checked by ray.
     /// </summary>
-    public IEnumerator Draw(float dir, float length, float speed, float damage, float knockback, float height)
+    public IEnumerator Draw(float dir, float length, float speed, float damage, float knockback, float height,
+                            Color streakColour)
     {
         Current = State.Striking;
         Face(dir > 0f);
         Pose(false, true, KagemushaBoss.SWIPE_ACTION, true);
 
+        // The same line the real one leaves — it IS him, as far as the eye can tell.
+        Vector2 chest = (Vector2)transform.position + Vector2.up * 1.05f;
+        CutStreak streak = CutStreak.Begin(chest, streakColour, 0.12f);
+
         float travelled = 0f;
         bool struck = false;
         float halfW = 0.32f;
-        while (travelled < length)
+        try
         {
-            float step = speed * Time.fixedDeltaTime;
-            Vector2 chest = (Vector2)transform.position + Vector2.up * 1.05f;
-            if (Physics2D.Raycast(chest, new Vector2(dir, 0f), halfW + step + 0.2f, LayerMask.GetMask("Ground")).collider != null)
-                break;
+            while (travelled < length)
+            {
+                float step = speed * Time.fixedDeltaTime;
+                chest = (Vector2)transform.position + Vector2.up * 1.05f;
+                if (Physics2D.Raycast(chest, new Vector2(dir, 0f), halfW + step + 0.2f, LayerMask.GetMask("Ground")).collider != null)
+                    break;
 
-            transform.position += new Vector3(dir * step, 0f, 0f);
-            travelled += step;
+                transform.position += new Vector3(dir * step, 0f, 0f);
+                travelled += step;
+                streak.SetEnd((Vector2)transform.position + Vector2.up * 1.05f);
 
-            if (!struck && EnemyMelee.TryHit(transform, dir, 1.5f, damage, knockback, height))
-                struck = true;
+                if (!struck && EnemyMelee.TryHit(transform, dir, 1.5f, damage, knockback, height))
+                    struck = true;
 
-            yield return new WaitForFixedUpdate();
+                yield return new WaitForFixedUpdate();
+            }
+        }
+        finally
+        {
+            if (streak != null) streak.Release(0.4f);
         }
 
         Pose(false, false, 0, false);

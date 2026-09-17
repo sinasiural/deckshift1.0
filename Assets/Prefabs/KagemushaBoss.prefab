@@ -336,8 +336,8 @@ MonoBehaviour:
   drawHeight: 2
   drawRecovery: 0.6
   drawWallRecovery: 1.1
-  laneColor: {r: 0.95, g: 0.25, b: 0.3, a: 1}
-  premonitionTint: {r: 1, g: 0.32, b: 0.3, a: 0.42}
+  laneColor: {r: 0.98, g: 0.706, b: 0.365, a: 1}
+  streakColour: {r: 0.78, g: 0.86, b: 1, a: 1}
   overheadCooldown: 7
   overheadFlightTime: 0.9
   overheadGravityMul: 2.5

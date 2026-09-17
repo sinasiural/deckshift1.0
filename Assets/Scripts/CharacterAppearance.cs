@@ -56,6 +56,10 @@ public static class CharacterAppearance
         target.BackMaterial     = Safe(() => source.BackMaterial);
         target.BodyMaterial     = Safe(() => source.BodyMaterial);
 
+        // The back slot is the one place a character deliberately differs from its preset: the
+        // Samurai's banner belongs on the BOSS made from him, not on the player (designer 2026-09-17).
+        SetBackItem(target, !character.hideBackItem);
+
         target.ClipHair     = source.ClipHair;
         target.HideHair     = source.HideHair;
         target.ShoesInFront = source.ShoesInFront;
@@ -79,13 +83,45 @@ public static class CharacterAppearance
     // wants instead.
     private static void ApplyWeapon(PixelCharacter target, CharacterData character)
     {
-        if (character.weaponPrefab == null) return;
+        if (character.weaponPrefab != null)
+        {
+            // Already holding it — a second Apply on the same player must not add a second weapon.
+            Weapon current = target.Weapon;
+            if (current == null || !current.name.StartsWith(character.weaponPrefab.name))
+            {
+                target.AddWeapon(character.weaponPrefab, true);
 
-        // Already holding it — a second Apply on the same player must not add a second weapon.
-        Weapon current = target.Weapon;
-        if (current != null && current.name.StartsWith(character.weaponPrefab.name)) return;
+                // ⚠️ The pack's weapon prefabs carry a kinematic Rigidbody2D and a trigger collider
+                // (so its demo can throw them). The player's staff had those removed by hand for a
+                // reason — an animation-driven hitbox and a physics rebake every frame — and a
+                // weapon added at runtime must not quietly bring them back.
+                if (target.Weapon != null) OffhandWeapon.StripPhysics(target.Weapon.gameObject);
+            }
+        }
 
-        target.AddWeapon(character.weaponPrefab, true);
+        ApplyOffhand(target, character);
+    }
+
+    /// <summary>
+    /// Show or hide the preset's back item. ⚠️ By DISABLING THE RENDERER, never by nulling the
+    /// material: `BackMaterial = null` leaves the back renderer drawing with no shader, which is a
+    /// large MAGENTA quad behind the character — photographed on the select screen 2026-09-17.
+    /// Public because the portrait builds its rig from the preset and has to match.
+    /// </summary>
+    public static void SetBackItem(PixelCharacter target, bool visible)
+    {
+        if (target == null || target.back == null) return;
+        target.back.enabled = visible;
+    }
+
+    /// <summary>
+    /// The left-hand weapon, if the character has one. Public because the select screen's portrait
+    /// builds its rig from the preset directly and has to dress it the same way.
+    /// </summary>
+    public static void ApplyOffhand(PixelCharacter target, CharacterData character)
+    {
+        if (target == null || character == null || character.offhandWeaponPrefab == null) return;
+        OffhandWeapon.Attach(target, character.offhandWeaponPrefab);
     }
 
     // Reading an unassigned reference on these presets throws UnassignedReferenceException instead

@@ -1138,87 +1138,113 @@ public class PlayerController : MonoBehaviour
     }
 
     // ============================================================================================
-    // THROUGH AND THROUGH — the Samurai's signature. A Dash that cuts.
+    // THROUGH AND THROUGH — the Samurai's signature. The iai cut.
     // ============================================================================================
     [Header("Through and Through (Samurai)")]
-    [SerializeField] internal float lungeSpeed = 26f;       // matches dashSpeed — it IS a dash
-    [SerializeField] internal float lungeDuration = 0.19f;  // 26 * 0.19 = ~4.9 units of travel
-    [SerializeField] internal float lungeIFrameDuration = 0.25f;   // >= duration, like the dash
-    [SerializeField] internal Color lungeAfterimageTint = new Color(1f, 0.93f, 0.72f, 0.6f);
+    [SerializeField] internal float lungeSpeed = 30f;
+    [SerializeField] internal float lungeDuration = 0.17f;   // 30 * 0.17 = ~5.1 units of travel
+    [SerializeField] internal float lungeIFrameDuration = 0.45f;   // covers travel AND the sheathe beat
+    [Tooltip("⚠️ THE BEAT. After he passes through, everything he crossed stands uncut for this long. " +
+             "Then the blade clicks home and they all split at once. This pause is the whole feel of " +
+             "the card — try 0 and watch it turn back into a dash.")]
+    [SerializeField] internal float lungeSheatheBeat = 0.16f;
+    [SerializeField] internal Color lungeStreakColor = new Color(1f, 0.82f, 0.45f, 1f);   // warm gold
+    [SerializeField] internal Color lungeMarkColor = new Color(1f, 0.90f, 0.70f, 1f);
+    [SerializeField] internal Color lungeAfterimageTint = new Color(1f, 0.93f, 0.72f, 0.5f);
+    public AudioClip lungeDrawSound;      // override; procedural by default
+    public AudioClip lungeSheatheSound;   // override; procedural by default
 
-    // Built on DashRoutine's shape on purpose (designer 2026-09-16): same driven velocity, same
-    // i-frames, same momentum tail, so a player who has learned Dash is not surprised by this.
-    // The two differences are the whole card: it passes THROUGH enemy bodies, and it cuts every
-    // one it crosses.
+    // The iai: draw, pass THROUGH them, stop, and only when the blade goes home do they fall.
     //
-    // ⚠️ IT DOES NOT TOUCH THE GLOBAL LAYER-COLLISION MATRIX, unlike Phase. Two reasons. The matrix
-    // survives scene loads, so a coroutine killed mid-flight leaves the player permanently
-    // intangible (Phase needs an explicit death-path restore for exactly this). And it would not
-    // work anyway: enemy layers in this project are INCONSISTENT — zombies, bats, Mimic and
-    // ShieldEnemy sit on Default(0) while MeleeEnemy, RangedEnemy, Slime, Turret and Patrol sit on
-    // Enemy(11) — so ignoring Player<->Enemy would pass through some enemies and bounce off the
-    // most common ones. Per-collider Physics2D.IgnoreCollision against the bodies actually in the
-    // lane is exact, is restored in a finally, and cannot outlive the routine.
+    // Three beats, and the third is the card:
+    //   DRAW     a Dash with i-frames, built on the dash's velocity drive so it feels like one
+    //            (designer's ruling: Dash needs no protecting). A hot streak — the line the edge
+    //            took — extends behind him as he travels. He passes through enemy bodies.
+    //   CROSS    every enemy the blade crosses is MARKED, not yet hurt. A spark, a tick of
+    //            hit-stop, nothing else.
+    //   SHEATHE  he stops. A beat of stillness. The blade clicks home — and every marked enemy
+    //            splits at once: cut marks, a ring, a hard hit-stop. Damage lands HERE.
+    //
+    // Deferring the damage is not decoration. It is what makes the card read as one cut through
+    // several things rather than a dash that happens to hurt — and it gives the strike a moment
+    // the player can feel land.
+    //
+    // ⚠️ IT DOES NOT TOUCH THE GLOBAL LAYER-COLLISION MATRIX, unlike Phase. The matrix survives
+    // scene loads (a coroutine killed mid-flight leaves the player permanently intangible), and
+    // enemy layers are INCONSISTENT — zombies, bats, Mimic and ShieldEnemy on Default(0); MeleeEnemy,
+    // RangedEnemy, Slime, Turret, Patrol on Enemy(11) — so ignoring Player<->Enemy would pass
+    // through some and bounce off the most common ones. Per-collider IgnoreCollision against the
+    // bodies actually in the lane, restored in a finally, is exact and cannot outlive the routine.
     internal IEnumerator LungeRoutine(float damageAmount)
     {
         float dir = isFacingRight ? 1f : -1f;
 
         ChangeState(PlayerState.Dashing);
-
-        SfxManager.PlayOn(audioSource, freefallBladeSound);
-        if (CameraShake.instance != null) CameraShake.instance.Shake(0.14f, 0.5f);
-
         StartCoroutine(DashIFrames(lungeIFrameDuration));
 
-        // Each enemy is cut once and un-ignored once, however many physics steps it is overlapped for.
-        HashSet<EnemyHealth> struck = new HashSet<EnemyHealth>();
+        // The swing pose: Swipe (1) plays on both the Arm and Body layers of AC Character.
+        if (animator != null)
+        {
+            animator.SetInteger("AttackAction", 1);
+            animator.SetBool("IsAttacking", true);
+        }
+
+        SfxManager.PlayOn(audioSource, lungeDrawSound != null ? lungeDrawSound : ProcSfx.FreefallBlade, 0.9f);
+        if (CameraShake.instance != null) CameraShake.instance.Shake(0.10f, 0.35f);
+
+        Vector2 chest = (Vector2)transform.position + capsuleCollider.offset;
+        CutStreak streak = CutStreak.Begin(chest, lungeStreakColor, 0.10f);
+
+        // Crossed, not yet cut. Each enemy once, each ignored collider once, however many physics
+        // steps it is overlapped for.
+        List<EnemyHealth> crossed = new List<EnemyHealth>();
         List<Collider2D> ignored = new List<Collider2D>();
 
         try
         {
-            float elapsed = 0f;
-            float ghostTimer = 0f;
-
+            float elapsed = 0f, ghostTimer = 0f;
             while (elapsed < lungeDuration)
             {
                 if (playerHealth != null && playerHealth.IsDead) yield break;
 
                 rb.linearVelocity = new Vector2(dir * lungeSpeed, 0f);
 
-                // ~0 (all layers) rather than enemyLayer, for the layer-split reason above — the
-                // same all-layers + GetComponentInParent pattern Vampiric Bite and Glass Parry use.
                 Vector2 centre = (Vector2)transform.position + capsuleCollider.offset;
+                streak.SetEnd(centre);
+
+                // ~0 (all layers), for the layer-split reason above — the same all-layers +
+                // GetComponentInParent pattern Vampiric Bite and Glass Parry use.
                 foreach (Collider2D hit in Physics2D.OverlapBoxAll(centre, capsuleCollider.size, 0f, ~0))
                 {
                     EnemyHealth enemy = hit.GetComponentInParent<EnemyHealth>();
                     if (enemy == null) continue;
 
-                    // Stop this body blocking us for the rest of the lunge. Enemies are mass 500,
-                    // so without this the player simply stops dead against the first one.
-                    if (capsuleCollider != null && !ignored.Contains(hit))
+                    // Stop this body blocking us. Enemies are mass 500; without this the player
+                    // simply stops dead against the first one.
+                    if (!ignored.Contains(hit))
                     {
                         Physics2D.IgnoreCollision(capsuleCollider, hit, true);
                         ignored.Add(hit);
                     }
 
-                    if (struck.Contains(enemy)) continue;
-                    struck.Add(enemy);
+                    if (crossed.Contains(enemy)) continue;
+                    crossed.Add(enemy);
 
-                    float finalDamage = RelicManager.instance != null
-                        ? RelicManager.instance.ModifyPlayerDamage(damageAmount, enemy)
-                        : damageAmount;
-                    enemy.TakeDamage(finalDamage);
-
-                    if (HitStop.instance != null) HitStop.instance.Stop(0.04f);
+                    // The cross: a spark and a flicker of stopped time. No damage yet.
+                    SparkAt(enemy.transform.position + Vector3.up * 0.9f, dir);
+                    if (HitStop.instance != null) HitStop.instance.Stop(0.025f);
                 }
 
+                // ⚠️ GhostTrail, not DashAfterimage. DashAfterimage copies SpriteRenderers only, and
+                // on this rig that is the WEAPON alone (16 SkinnedMeshRenderers + 1 SpriteRenderer) —
+                // a floating katana with no one holding it. GhostTrail bakes the skinned body.
                 if (dashAfterimages && visualModel != null)
                 {
                     ghostTimer -= Time.fixedDeltaTime;
                     if (ghostTimer <= 0f)
                     {
-                        DashAfterimage.Spawn(visualModel.transform, lungeAfterimageTint);
-                        ghostTimer = 0.03f;
+                        GhostTrail.Snapshot(visualModel.transform, lungeAfterimageTint, 0.22f);
+                        ghostTimer = 0.045f;
                     }
                 }
 
@@ -1230,15 +1256,67 @@ public class PlayerController : MonoBehaviour
         {
             // ⚠️ EVERY ignored pair is a latch. A StopCoroutine from death or a room change lands
             // here, so the player can never be left permanently intangible to an enemy.
-            if (capsuleCollider != null)
-                foreach (Collider2D c in ignored)
-                    if (c != null) Physics2D.IgnoreCollision(capsuleCollider, c, false);
+            foreach (Collider2D c in ignored)
+                if (c != null && capsuleCollider != null) Physics2D.IgnoreCollision(capsuleCollider, c, false);
+            if (streak != null) streak.Release(0.45f);
         }
 
-        rb.linearVelocity = new Vector2(dir * dashEndSpeed, rb.linearVelocity.y);
+        // ---- THE SHEATHE -----------------------------------------------------------------------
+        // Dead stop. He holds, and so do they.
+        rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        float beat = 0f;
+        while (beat < lungeSheatheBeat)
+        {
+            beat += Time.deltaTime;
+            if (isGrounded) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            yield return null;
+        }
+
+        if (animator != null) animator.SetBool("IsAttacking", false);
+
+        if (crossed.Count > 0)
+        {
+            // The click. Then everything he crossed splits at once.
+            SfxManager.PlayOn(audioSource, lungeSheatheSound != null ? lungeSheatheSound : ProcSfx.KatanaPlant, 1.1f);
+            if (HitStop.instance != null) HitStop.instance.Stop(0.09f);
+            if (CameraShake.instance != null) CameraShake.instance.Shake(0.22f, 0.4f);
+
+            foreach (EnemyHealth enemy in crossed)
+            {
+                if (enemy == null) continue;   // died to something else in the meantime
+                float finalDamage = RelicManager.instance != null
+                    ? RelicManager.instance.ModifyPlayerDamage(damageAmount, enemy)
+                    : damageAmount;
+                CutMark.Spawn((Vector2)enemy.transform.position + Vector2.up * 0.9f, lungeMarkColor, 1.5f);
+                enemy.TakeDamage(finalDamage);
+            }
+        }
 
         if (currentState == PlayerState.Dashing)
             ChangeState(isGrounded ? PlayerState.Idle : PlayerState.Jumping);
+    }
+
+    // A few hot motes thrown forward from a point of contact — the cross, not the cut.
+    private void SparkAt(Vector3 at, float dir)
+    {
+        var root = new GameObject("CrossSpark");
+        root.transform.position = new Vector3(at.x, at.y, PlayPlane.Z - 0.05f);
+        root.AddComponent<TemporaryObject>();
+        for (int i = 0; i < 5; i++)
+        {
+            var s = new GameObject("Mote");
+            s.transform.SetParent(root.transform, false);
+            float ang = Random.Range(-40f, 40f) + (dir >= 0f ? 0f : 180f);
+            float len = Random.Range(0.18f, 0.36f);
+            s.transform.localRotation = Quaternion.Euler(0f, 0f, ang);
+            s.transform.localPosition = Quaternion.Euler(0f, 0f, ang) * Vector3.right * (len * 0.6f);
+            s.transform.localScale = new Vector3(len, 0.06f, 1f);
+            var sr = s.AddComponent<SpriteRenderer>();
+            sr.sprite = FlatUI.Pixel();
+            sr.color = new Color(1f, 0.95f, 0.8f, 0.95f);
+            sr.sortingOrder = 9;
+        }
+        root.AddComponent<SparkFade>();   // AFTER the motes exist — it gathers them in Awake
     }
 
     public void ApplyKnockback(Vector2 knockbackForce) => playerHealth.ApplyKnockback(knockbackForce);

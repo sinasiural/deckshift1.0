@@ -246,6 +246,32 @@ playing rather than by arguing.
 ⚠️ Verify the preset's actual outfit colours in-editor before assuming anything about them; nothing
 in the code describes them.
 
+### Revisions after the first hands-on, 2026-09-17 (all DESIGNER)
+
+- **Through and Through was "not cool enough" and could not kill a MeleeEnemy.** It is now the
+  **iai**: draw and pass through (a warm-gold `CutStreak` extends behind him, sparse body ghosts),
+  each enemy crossed is *marked* with a spark — and only when he stops and the blade goes home
+  (`lungeSheatheBeat`, 0.16s) do they all split at once: cut marks, a ring, a hard hit-stop.
+  **The deferred damage IS the card**; try the beat at 0 and it is a dash again. **Damage 40**
+  (kills MeleeEnemy 40 / Ranged 25 / Rotbrute 25 / Mimic 30 outright), 4 charges, 1 Shift —
+  above the `CardAnchors` budget (~24), by the designer's call. ⚠️ It uses `GhostTrail`, not
+  `DashAfterimage`: the latter copies SpriteRenderers only, which on this rig is the weapon alone.
+  (The ordinary Dash still uses `DashAfterimage` and so its "afterimages" are floating staffs.)
+- **The boss's trails were "the same as the Ninja's."** Lane telegraph now **Torch gold**, no
+  premonition ghost, and his travel (and every double's) leaves a cold-steel `CutStreak` instead of
+  body afterimages. Same structure, his colour, his vocabulary: the line the edge took.
+- **The playable Samurai carries no banner; the boss keeps it.** `CharacterData.hideBackItem`,
+  applied by DISABLING the back renderer — nulling `BackMaterial` draws a large **magenta quad**
+  (photographed). The select-screen portrait applies it too.
+- **The playable Samurai wields two katanas.** `CharacterData.offhandWeaponPrefab` → `OffhandWeapon`,
+  a slot glued to the rig's LEFT-hand bone (the pack has one weapon slot, right hand only).
+  ⚠️ The far hand sits BEHIND the body (z +0.14), so the blade only shows where it pokes past the
+  silhouette: **rotationOffset 45** angles it up over the shoulder, which reads; 180 hung it
+  straight down like a cane. Runtime-added weapons now have their pack physics stripped (a kinematic
+  Rigidbody2D + trigger collider on layer Hazard were arriving on every character's weapon).
+- **Testing:** `Deckshift → Test → Kagemusha Boss Fight (Ctrl+Shift+K)`, a *force FINALE*
+  variant, `Toggle Player Invincible (Ctrl+Shift+I)` and `Play As → Wizard / Ninja / Samurai`.
+
 ## 3. The Kagemusha — the thesis, and why he is not the Ninja again
 
 **The Ninja is evasion. The Kagemusha is COMMITMENT — and he makes YOUR commitment dangerous.**

@@ -106,8 +106,12 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     public float drawRecovery = 0.6f;
     [Tooltip("Recovery after ending against a wall. Longer: overshooting is the mistake the player baits.")]
     public float drawWallRecovery = 1.1f;
-    public Color laneColor = new Color(0.95f, 0.25f, 0.30f, 1f);
-    public Color premonitionTint = new Color(1f, 0.32f, 0.30f, 0.42f);
+    // ⚠️ NOT the Ninja's red, and no premonition ghost. His telegraph is the same lane structure in
+    // TORCH GOLD — lit steel — and his travel leaves the line the edge took (CutStreak) rather than
+    // afterimages of his body. Body ghosts are the Ninja's vocabulary; the samurai's is the cut.
+    public Color laneColor = new Color(0.980f, 0.706f, 0.365f, 1f);
+    [Tooltip("The streak he and his doubles leave when they cut. Cold steel against the player's warm gold.")]
+    public Color streakColour = new Color(0.78f, 0.86f, 1f, 1f);
 
     [Header("Overhead — the leap and the shockwave (TUNE BY EYE)")]
     public float overheadCooldown = 7f;
@@ -441,8 +445,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         float dir = facingRight ? 1f : -1f;
         Vector2 terminus = ChestPoint + new Vector2(dir * MeasureLane(dir), 0f);
 
-        LaneTelegraph tel = LaneTelegraph.Build(ChestPoint, terminus, drawHeight, LaneTelegraph.Style.Default(laneColor),
-                                                visualModel, premonitionTint, drawWindup + drawHold);
+        LaneTelegraph tel = LaneTelegraph.Build(ChestPoint, terminus, drawHeight, LaneTelegraph.Style.Default(laneColor));
         yield return StartCoroutine(DrawWindup(terminus, tel, drawWindup));
         yield return StartCoroutine(DrawTravel(dir, terminus));
     }
@@ -488,10 +491,13 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
 
         SetPlayerCollision(false);
         bool hitWall = false;
+        // The line the edge takes, extended as he travels and left hanging when he stops. His
+        // vocabulary, not the Ninja's afterimages.
+        CutStreak streak = CutStreak.Begin(ChestPoint, streakColour, 0.12f);
         try
         {
             bool struck = false;
-            float elapsed = 0f, stalled = 0f, lastX = transform.position.x, ghostClock = 0f;
+            float elapsed = 0f, stalled = 0f, lastX = transform.position.x;
 
             // Ends on reaching the drawn terminus, on NO PROGRESS, or on the hard timeout — a single
             // wall ray is not enough (a ledge above or below it pins him and the loop never ends).
@@ -505,12 +511,13 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
                 if (stalled > TRAVEL_STALL) { hitWall = true; break; }
 
                 rb.linearVelocity = new Vector2(dir * drawSpeed, 0f);
-
-                ghostClock += Time.fixedDeltaTime;
-                if (ghostClock >= 0.04f) { ghostClock = 0f; GhostTrail.Snapshot(visualModel, new Color(0.15f, 0.15f, 0.2f, 0.45f), 0.2f); }
+                streak.SetEnd(ChestPoint);
 
                 if (!struck && EnemyMelee.TryHit(transform, dir, 1.5f, drawDamage, drawKnockback, drawHeight))
+                {
                     struck = true;
+                    if (player != null) CutMark.Spawn((Vector2)player.position + Vector2.up * 0.9f, streakColour, 1.3f);
+                }
 
                 if (WallAhead(dir)) { hitWall = true; break; }
                 yield return new WaitForFixedUpdate();
@@ -520,6 +527,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         {
             SetPlayerCollision(true);
             RestoreGravity();
+            if (streak != null) streak.Release(0.4f);
         }
 
         rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
@@ -565,7 +573,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
 
         // Everyone winds up together. Each figure draws its own lane.
         Vector2 myTerminus = ChestPoint + new Vector2(dir * MeasureLane(dir), 0f);
-        var myTel = LaneTelegraph.Build(ChestPoint, myTerminus, drawHeight, LaneTelegraph.Style.Default(laneColor), visualModel, premonitionTint, splitWindup + drawHold);
+        var myTel = LaneTelegraph.Build(ChestPoint, myTerminus, drawHeight, LaneTelegraph.Style.Default(laneColor));
         var tels = new List<LaneTelegraph>();
         foreach (var d in live)
         {
@@ -599,7 +607,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         // The unison cut. Survivors strike on their own coroutines; he strikes on this one.
         foreach (var d in live)
             if (d.Current == ShadowDouble.State.Armed)
-                d.StartCoroutine(d.Draw(dir, drawMaxLength, drawSpeed, drawDamage, drawKnockback, drawHeight));
+                d.StartCoroutine(d.Draw(dir, drawMaxLength, drawSpeed, drawDamage, drawKnockback, drawHeight, streakColour));
 
         doublesExpire = Time.time + doubleLifetime;
         yield return StartCoroutine(DrawTravel(dir, myTerminus));
@@ -1032,7 +1040,6 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         var root = new GameObject("Dust");
         root.transform.position = new Vector3(pos.x, pos.y, PlayPlane.Z);
         root.AddComponent<TemporaryObject>();
-        root.AddComponent<SparkFade>();
         for (int i = 0; i < count; i++)
         {
             var s = new GameObject("Mote");
@@ -1047,5 +1054,6 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
             sr.color = new Color(0.72f, 0.68f, 0.62f, 0.85f);
             sr.sortingOrder = 6;
         }
+        root.AddComponent<SparkFade>();   // AFTER the motes exist — it gathers them in Awake
     }
 }

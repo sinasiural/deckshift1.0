@@ -17,8 +17,11 @@ public class ThroughAndThroughAction : CardAction
 {
     public override CardActionType ActionType => CardActionType.ThroughAndThrough;
     public override bool IsCoroutine => true;
+    // AnimatorAttackState too: the lunge drives AttackAction/IsAttacking for the swing pose, so it
+    // and Fireball / Shuriken (which also do) refuse each other rather than fighting over the arm.
     public override ConflictFlags ModifiedState =>
-        ConflictFlags.PlayerVelocity | ConflictFlags.Invincibility | ConflictFlags.LayerCollisionMatrix;
+        ConflictFlags.PlayerVelocity | ConflictFlags.Invincibility | ConflictFlags.LayerCollisionMatrix |
+        ConflictFlags.AnimatorAttackState;
 
     // Coroutine action: no gate. It is playable grounded or airborne, into empty air or into a
     // wall — like Freefall Blade, the swing itself is what the charge buys. Returning true simply

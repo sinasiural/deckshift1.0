@@ -13,12 +13,12 @@ MonoBehaviour:
   m_Name: ThroughAndThrough
   m_EditorClassIdentifier: 
   cardName: Through and Through
-  description: Lunge forward. Nothing can hurt you, you pass through enemies, and
-    every one you pass is cut for 20.
+  description: Draw and lunge. Nothing can hurt you, you pass through enemies, and
+    when the blade goes home every one you passed is cut for 40.
   cardArt: {fileID: 3949312561008636491, guid: db24c03a6360afa44a906cd18adf60e6, type: 3}
   nameIsPaintedIntoArt: 0
   actionType: 22
-  actionValue: 20
+  actionValue: 40
   singleUse: 0
   shiftCost: 1
   maxUses: 4
