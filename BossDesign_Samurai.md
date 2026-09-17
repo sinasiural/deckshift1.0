@@ -33,13 +33,43 @@ the matrix — but it has only been measured against the Enemy-layer case.
 shipped with. Its name plate is empty so the title types in correctly; only the picture is wrong.
 The two references that could not be hand-written (a Cainos preset is a prefab VARIANT, so its root
 fileID is Unity-computed) were assigned through the editor and are now in the asset.
-| Per-character finale plumbing (`CharacterData.bossRoom` / `finaleRoom`) | ❌ — **prerequisite, see §11** |
-| Arena `KagemushaHall.txt` → prefab, `RoomCamera` locked | ❌ |
-| `KagemushaBoss` — dormant, awaken, four attacks, doubles | ❌ |
-| `ShadowDouble` — the fakes: mirror, shatter, crystal | ❌ |
-| `BossHealthBar_Kagemusha.prefab` | ❌ |
-| Death, loot, `BossRewardCue`, relic *Body Double* | ❌ |
-| `ProcSfx` SAMURAI family | ❌ |
+| Per-character finale plumbing (`CharacterData.bossRoom`, `IMirrorBoss`) | ✅ built 2026-09-17 |
+| Arena `KagemushaHall.txt` → prefab, `RoomCamera` 10, bounds bound to interior, trigger | ✅ built, in `bossRoomPrefabs` |
+| `KagemushaBoss` — kneel, awaken, Draw, Overhead, Split, Sheathe, death | ✅ **built and smoke-tested** |
+| `ShadowDouble` — mirror, strike, shatter, crystal | ✅ **built and verified** |
+| `LaneTelegraph` — standalone lane warning (cut / streaks / notch / premonition) | ✅ |
+| `BossHealthBar_Kagemusha.prefab` (12 steel plates, Wound-red chunk, lacquer frame) | ✅ |
+| Death: loot, VFX, `BossRewardCue`, exit unsealed | ✅ verified |
+| Relic *Body Double* | ❌ — the banner offers the existing boss relics |
+| `ProcSfx` SAMURAI family | ❌ — sounds are BORROWED clips (see §8 "as built") |
+| Arena dressing (props) | ❌ — the Hall is undressed rock |
+
+**Smoke-tested in play mode 2026-09-17, zero console errors or warnings** (the designer is doing the
+real ability testing): three identical figures kneel at the far end → crossing the trigger dissolves
+two and he rises with his bar → a Split put two doubles out with three lanes drawn and a premonition
+ghost → **touching an ARMED double took him 220 → 208 and paid +1 Shift** → hitting him during a
+Sheathe swapped him with a Standing double (the double ended up exactly where he had been) → killing
+him unbarred the exit, dropped 14 gold + 5 crystals, cleared the bar and the doubles, and raised the
+Spoils banner with `Time.timeScale` held by the banner alone. Also: an unshielded player parked on
+the trigger was killed by the first Split — the fight is not shy.
+
+**Written standalone, NOT on the Ninja skeleton** (designer 2026-09-17). `KagemushaBoss.cs` shares
+no code with `NinjaBoss.cs`; only the generic lessons were carried (gravity captured once, latches
+released in `finally` + death + destroy, positions from transform not bounds, a stuck watchdog with
+no exemption flag, exit fails passable). The lane telegraph was extracted as `LaneTelegraph` rather
+than copied as a nested class.
+
+**Deliberate simplifications in this build (§5 as designed vs as built):**
+- **Draw is HORIZONTAL only**, at his height, hit-tested with `EnemyMelee.TryHit`. The doc proposed
+  aiming it at the player; a ledge is therefore a Draw refuge and the Overhead is what answers it.
+- **Split always resolves into a unison DRAW.** "Doubles perform his NEXT attack" (three Overheads)
+  is not built — one unison shape is enough to judge the loop.
+- **The Overhead leap runs at 2.5x gravity** for the flight only (`overheadGravityMul`), restored in
+  a `finally`. At base gravity a 0.9s flight peaked under a unit — a hop, not a leap.
+- ⚠️ **`finale` is set by `LevelManager` through `IMirrorBoss.SetFinale`** when the room spawned is
+  the played character's own `bossRoom`. Forced through the testing hook while playing the Samurai
+  it therefore reads `finale = true`; play the Wizard or Ninja to see the mid-map cut (one double,
+  no twist).
 
 He follows the rule the story pivot set (see `BossDesign_Ninja.md` §1 and the `bosses-are-characters`
 memory): **one identity, shipped twice** — a playable character and the boss made from them. He is a

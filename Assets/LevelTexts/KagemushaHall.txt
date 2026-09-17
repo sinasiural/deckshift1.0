@@ -1,0 +1,69 @@
+// Deckshift level text format — import via menu: Deckshift > Import Level From Text...
+//
+// BOSS ARENA — Kagemusha, the Long Hall.  Design doc: BossDesign_Samurai.md §7
+//
+// Grid 48 x 24.  PLAYABLE INTERIOR is 32 wide x 15 tall (x8-x39, rows 4-18).
+// Everything outside that is a deliberately THICK ROCK FRAME, for the same reason the
+// Ninja arena has one: the camera is LOCKED at orthographicSize 10 (RoomCamera on the
+// prefab root) because he swaps places with his doubles across the whole room, and a
+// camera that pans loses the swap.  At 21:9 a locked size-10 camera shows 46.7 units of
+// world whether or not the room is that big, so the frame covers the widest view.
+//
+// ⚠️ The CameraBounds zone is resized AFTER import to the INTERIOR (32 x 15, centred on
+//    24, 12.5), not the grid.  That is what makes CameraFollow centre — and therefore
+//    lock — instead of clamp.  Re-import this file and that must be redone.
+//
+// ── THE SHAPE SAYS "HALL": wider and lower than the Ninja's ──────────────────
+//   floor (row 18)  -> low ledges (row 15)     = 4 tile rise
+//   low ledges      -> central SHELF (row 11)  = 4 tile rise
+// Jump apex is 4.9; the shelf keeps 6 rows of headroom.  A long floor is what makes
+// his Draw lanes long (his best attack gets room) and his Overhead shockwave matter
+// (a long floor is where it travels).  The shelf is the Draw refuge and the Overhead
+// trap: no tier is correct for long.
+//
+// ── RULES BAKED INTO THIS GEOMETRY — inherited whole from the Ninja arena ────
+//   * The floor is ONE UNBROKEN FLAT RUN and the exit sits on it.  A player at 0
+//     Shift cannot jump; an exit up a ledge is a softlock wearing a victory screen.
+//   * NO pits, NO hazards.  The danger in this room is the man and his shadows.
+//   * Side walls solid floor-to-ceiling.  His Draw must terminate against something.
+//   * The low ledges DO NOT touch the side walls: the 2-tile chutes at x8-9 and
+//     x38-39 are escape hatches, so a Draw along a ledge cannot corner the player.
+//   * Every ledge has two ways off (inner end drops or jumps to the shelf, outer
+//     end drops down a chute).
+//
+// NOT PLACED BY THIS FILE (no markers exist for them):
+//   * The boss and his two doubles, kneeling at the FAR (right) end of the floor.
+//   * The BossAwakenTrigger a few tiles past the spawn.  Cross it and two of the
+//     three kneeling figures dissolve — he shows you the trick before he uses it.
+//
+// LEGEND
+//   #  ground tile          .  empty
+//   S  player spawn (GirisNoktasi)      X  exit door
+//   +  ShiftCrystal — two on the floor, reachable with no jump (the 0-Shift lifeline)
+
+!name: KagemushaHall
+
+################################################
+################################################
+################################################
+################################################
+########................................########
+########................................########
+########................................########
+########................................########
+########................................########
+########................................########
+########................................########
+########............########............########
+########................................########
+########................................########
+########................................########
+########..########............########..########
+########................................########
+########................................########
+########..S.....+..............+....X...########
+################################################
+################################################
+################################################
+################################################
+################################################

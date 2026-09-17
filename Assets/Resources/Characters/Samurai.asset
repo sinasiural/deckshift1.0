@@ -27,5 +27,6 @@ MonoBehaviour:
   handCapacityBonus: 0
   recallCostNeverRises: 0
   armourPerRoom: 5
+  bossRoom: {fileID: 2878295946641621518, guid: 88d320750502e9d4eb2a42acefa1577b, type: 3}
   appearancePreset: {fileID: 1546294774153461753, guid: b09a6bbd84ba65442b5f078f18ec3dda, type: 3}
   weaponPrefab: {fileID: 6805170423116255223, guid: 09a528dd68982dd4b9b88fa7362d81a2, type: 3}

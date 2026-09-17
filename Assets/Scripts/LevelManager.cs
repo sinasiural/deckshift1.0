@@ -55,6 +55,23 @@ public class LevelManager : MonoBehaviour
     /// The next optional boss. Draws without repeating until the pool is exhausted, then resets —
     /// so a project with one authored boss still works, it just repeats, rather than failing.
     /// </summary>
+    // The arena where the played character is the boss — their own mirror, held for the finale.
+    // Read live, never cached: a character swap must not leave a stale room behind.
+    private static GameObject OwnMirrorRoom =>
+        CharacterSelection.Chosen != null ? CharacterSelection.Chosen.bossRoom : null;
+
+    /// <summary>
+    /// The run's terminus. The played character's own boss room when they have one (you fight
+    /// yourself at the top of the castle); otherwise the shared `finalBossRoomPrefab`; otherwise a
+    /// pool draw, so a project with no finale authored still ends the run rather than stranding it.
+    /// </summary>
+    private GameObject PickFinaleRoom()
+    {
+        GameObject mirror = OwnMirrorRoom;
+        if (mirror != null) return mirror;
+        return finalBossRoomPrefab != null ? finalBossRoomPrefab : PickBossRoom();
+    }
+
     private GameObject PickBossRoom()
     {
         if (bossRoomPrefabs == null || bossRoomPrefabs.Count == 0)
@@ -66,15 +83,22 @@ public class LevelManager : MonoBehaviour
             return PickRoomForTier(MapNodeType.Elite);
         }
 
+        // ⚠️ YOUR OWN MIRROR IS NEVER A MID-MAP BOSS. Every character is also a boss; the one made
+        // from the character you are playing is held back for the finale (bosses-are-characters).
+        GameObject mirror = OwnMirrorRoom;
+
         List<GameObject> fresh = new List<GameObject>();
         foreach (GameObject g in bossRoomPrefabs)
-            if (g != null && !usedBossPrefabs.Contains(g)) fresh.Add(g);
+            if (g != null && g != mirror && !usedBossPrefabs.Contains(g)) fresh.Add(g);
 
         if (fresh.Count == 0)
         {
             usedBossPrefabs.Clear();
-            foreach (GameObject g in bossRoomPrefabs) if (g != null) fresh.Add(g);
+            foreach (GameObject g in bossRoomPrefabs) if (g != null && g != mirror) fresh.Add(g);
         }
+        // A roster of one, whose only boss is the mirror: better to meet yourself early than to
+        // reach a Boss node with nothing in it.
+        if (fresh.Count == 0 && mirror != null) fresh.Add(mirror);
         if (fresh.Count == 0) return roomPrefabs != null && roomPrefabs.Count > 0 ? roomPrefabs[0] : null;
 
         GameObject pick = fresh[Random.Range(0, fresh.Count)];
@@ -158,7 +182,7 @@ public class LevelManager : MonoBehaviour
         // The run's terminus. Deliberately its own prefab slot and never drawn from the pool — the
         // designer's stated intent is that the final fight is unique.
         if (node.type == MapNodeType.FinalBoss)
-            return finalBossRoomPrefab != null ? finalBossRoomPrefab : PickBossRoom();
+            return PickFinaleRoom();
 
         pendingRecharge = node.recharge;
         return PickRoomForTier(node.type);
@@ -310,7 +334,7 @@ public class LevelManager : MonoBehaviour
 
         if (!bossSpawned)
         {
-            GameObject finale = finalBossRoomPrefab != null ? finalBossRoomPrefab : PickBossRoom();
+            GameObject finale = PickFinaleRoom();
             if (finale != null) { bossSpawned = true; return finale; }
         }
 
@@ -417,6 +441,12 @@ public class LevelManager : MonoBehaviour
         Debug.Log($"Spawning room: {selectedRoomPrefab.name}" + (at != null ? $" — map node {at}" : " — no map"));
 
         currentRoom = Instantiate(selectedRoomPrefab, Vector3.zero, Quaternion.identity);
+
+        // A character's own boss room spawned for THAT character is the finale — the boss dials up
+        // (see IMirrorBoss). Everyone else meets the same room as an ordinary mid-map boss.
+        if (selectedRoomPrefab == OwnMirrorRoom)
+            foreach (IMirrorBoss mirror in currentRoom.GetComponentsInChildren<IMirrorBoss>(true))
+                mirror.SetFinale(true);
 
         // Put every actor on the shared draw plane and shove decoration behind it. Opaque sprites
         // sort by camera depth, not sortingOrder, and each room had been authored at its own Z —

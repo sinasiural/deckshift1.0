@@ -53,6 +53,18 @@ public class CharacterData : ScriptableObject
     // stale copy behind.
     public float armourPerRoom = 0f;
 
+    [Header("The boss made from this character")]
+    // Every playable character is also a boss (the castle's former owners — see the
+    // bosses-are-characters premise). This is the arena where THIS character is the boss.
+    //
+    // It does two things in LevelManager, both read live off CharacterSelection.Chosen:
+    //   - it is the run's FINALE for a player who picked this character (your own mirror is held
+    //     for the top of the castle), falling back to `finalBossRoomPrefab` when empty;
+    //   - it is FILTERED OUT of the mid-map boss pool for that same player, so you never meet
+    //     yourself before the end.
+    // For everyone else it is an ordinary entry in `bossRoomPrefabs`.
+    public GameObject bossRoom;
+
     [Header("Look")]
     // A Cainos character PRESET prefab (Assets/Cainos/.../Character Preset/). Its outfit is COPIED
     // onto the player's existing rig at runtime — materials only.
