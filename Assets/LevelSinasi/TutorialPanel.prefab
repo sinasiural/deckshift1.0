@@ -585,13 +585,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Cards are skills. Use them to kill enemies and for utility!
-
-    Every
-    card has "charges" when picked up. When a card has 0 charges, that card is unusable
-    and goes to your exhaust pile. Some cards also have "shift charges", which use
-    up shifts. You can press "R" to cycle your deck. This does not have a drawback
-    for now.'
+  m_text: 'use cards to kill enemies.                     press 1 to choose, left
+    click to play.                       '
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3ac13a9add857c243977de8d60555863, type: 2}
   m_sharedMaterial: {fileID: 8858033032181273310, guid: 3ac13a9add857c243977de8d60555863, type: 2}

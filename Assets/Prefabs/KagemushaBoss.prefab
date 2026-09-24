@@ -317,54 +317,41 @@ MonoBehaviour:
   - {fileID: 8533986804939031511}
   doubleAlpha: 0.5
   finale: 0
-  doublesMidMap: 1
-  doublesFinale: 2
   twistAtFraction: 0.4
+  doubleLifetime: 8
   markColour: {r: 0.98, g: 0.706, b: 0.365, a: 1}
   betweenAttacks: 1
   walkSpeed: 4.5
   preferredRange: 6
   repositionJitter: 2.5
-  drawRange: 13
-  drawWindup: 0.7
-  drawHold: 0.12
-  drawSpeed: 28
-  drawOvershoot: 3
-  drawMaxLength: 12
-  drawDamage: 16
-  drawKnockback: 7
-  drawHeight: 2
-  drawRecovery: 0.6
-  drawWallRecovery: 1.1
-  laneColor: {r: 0.98, g: 0.706, b: 0.365, a: 1}
-  streakColour: {r: 0.78, g: 0.86, b: 1, a: 1}
-  overheadCooldown: 7
-  overheadFlightTime: 0.9
-  overheadGravityMul: 2.5
-  overheadDamage: 18
-  overheadRadius: 1.6
-  overheadKnockback: 8
-  shockwaveSpeed: 14
-  shockwaveLength: 6
-  shockwaveDamage: 12
-  shockwaveHeight: 1.1
-  overheadRecovery: 0.8
-  shockwaveColour: {r: 0.95, g: 0.85, b: 0.65, a: 1}
-  splitInterval: 9
-  splitWindup: 0.9
-  splitSpread: 3.5
-  doubleLifetime: 8
+  crossWindup: 0.55
+  crossSpeed: 34
+  crossOvershoot: 3.2
+  crossMaxLength: 14
+  crossSheatheDelay: 1.1
+  crossDamage: 20
+  crossKnockback: 8
+  crossHeight: 2
+  crossRecovery: 0.7
   shatterDamage: 12
   shiftCrystalPrefab: {fileID: 8096823719252344264, guid: 738e8751a02a1344eb634cdabe172263, type: 3}
   crystalsPerShatter: 1
-  sheatheCooldown: 8
-  sheatheDuration: 1.6
-  counterDamage: 18
-  counterRadius: 2.4
-  counterKnockback: 9
-  counterRecovery: 0.7
+  laneColor: {r: 0.98, g: 0.706, b: 0.365, a: 1}
+  streakColour: {r: 0.78, g: 0.86, b: 1, a: 1}
+  cutsInterval: 11
+  cutsCount: 12
+  cutsLineInterval: 0.09
+  cutsHang: 0.55
+  cutsHalfWidth: 0.5
+  cutsSafeRadius: 1.6
+  cutsSafePockets: 3
+  cutsDamage: 24
+  cutsKnockback: 6
+  cutsDim: 0.55
+  cutsRecovery: 1.2
+  cutsColour: {r: 0.98, g: 0.706, b: 0.365, a: 1}
   playDeathEffect: 1
-  deathSound: {fileID: 0}
+  deathSound: {fileID: 8300000, guid: cef1a7a889cbb034483e7ba4ba986eb0, type: 3}
   deathVolume: 1.4
   deathGoldPrefab: {fileID: 36429608721029561, guid: 2d3e20ebe97aafe4cb7d40cea6f64c78, type: 3}
   deathShiftCrystalPrefab: {fileID: 8096823719252344264, guid: 738e8751a02a1344eb634cdabe172263, type: 3}
@@ -376,10 +363,10 @@ MonoBehaviour:
   rewardDelay: 2.6
   drawSound: {fileID: 0}
   sheatheSound: {fileID: 0}
-  counterSound: {fileID: 0}
-  splitSound: {fileID: 0}
-  shatterSound: {fileID: 0}
+  lineSound: {fileID: 0}
   landSound: {fileID: 0}
+  shatterSound: {fileID: 0}
+  splitSound: {fileID: 0}
   sfxVolume: 1
 --- !u!1001 &537322698280840222
 PrefabInstance:

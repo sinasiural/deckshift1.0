@@ -1,0 +1,27 @@
+// THE FOUNDRY — recharge room (scrap). Attached to a Fight/Elite node by the run map;
+// LevelManager.foundryRoomPrefab. NOT a floor.
+//
+// Same rules as Well.txt: no enemies, flat from spawn to exit, one job per room. The Foundry is
+// where SCRAP is spent — the Scrap Forge ('f': repair / salvage cards) and Blompo ('B': bless a
+// card). Both are card maintenance, which is why they share a room and the shop does not.
+//
+// Layout mirrored against the Well (spawn ledge on the RIGHT) so the two rooms don't read as the
+// same corridor. Drop in, pass Blompo, pass the forge, leave on the left.
+
+!name: Foundry
+!recharge: on
+
+############################################
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#.........................................S#
+#.................................##########
+#.................................##########
+#.................................##########
+#.....X.........f..........B......##########
+############################################

@@ -1,0 +1,83 @@
+// Deckshift level text format — import via menu: Deckshift > Import Level From Text...
+//
+// BOSS ARENA — The Ninja.  Design doc: BossDesign_Ninja.md §8
+//
+// Grid 48 x 24.  PLAYABLE INTERIOR is only 30 wide x 15 tall (x9-x38, rows 4-18).
+// Everything outside that is a deliberately THICK ROCK FRAME — see below.
+//
+// ── WHY THE FRAME IS SO THICK ─────────────────────────────────────────────────
+// This room is framed by a LOCKED camera at orthographicSize 10 (RoomCamera on the
+// prefab root), because the boss teleports and a camera that pans loses him mid-blink.
+// A locked camera at size 10 shows 20 units tall and, depending on aspect:
+//      4:3  -> 26.7 wide      16:9 -> 35.6 wide      21:9 -> 46.7 wide
+// So at 21:9 the player sees 46.7 units of world whether or not the room is that big.
+// The first draft of this arena was 34 wide and showed SIX UNITS OF UNDRESSED VOID
+// past the outer wall at ultrawide.  The frame is sized to cover the widest view.
+//
+// ⚠️ The CameraBounds zone is therefore resized AFTER import to match the INTERIOR,
+//    not the grid (the importer auto-sizes it to the grid).  That is what makes
+//    CameraFollow centre — and therefore lock — instead of clamping.  If this room is
+//    ever re-imported, redo that or the camera starts roaming again.
+//
+// ── THE THREE STANDING LEVELS ─────────────────────────────────────────────────
+//   floor (row 18) -> low ledges (row 15)   = 4 tile rise
+//   low ledges     -> centre island (row 11) = 4 tile rise
+// Jump apex is 4.9, so both are inside budget; the island keeps 6 rows of headroom.
+// Four tiers will NOT fit: four rises of 4 plus Law 2's 5 tiles of clear air above a
+// launch surface needs ~24 interior rows, well past the 20 units the locked camera shows.
+//
+// ── RULES BAKED INTO THIS GEOMETRY — do not "tidy" them away ──────────────────
+//   * The floor is ONE UNBROKEN FLAT RUN and the exit sits on it.  Jumping costs
+//     Shift, so a player who ends this fight at 0 Shift CANNOT JUMP AT ALL.  An
+//     exit up a ledge is a softlock wearing a victory screen.
+//   * NO pits, NO hazards.  The danger in this room is the man.  A cardless
+//     player is already fighting with scraps.
+//   * Side walls solid floor-to-ceiling.  NO OPEN ENDS — his dash has to terminate
+//     against something, and that impact is the player's punish window.
+//   * The low ledges DO NOT touch the side walls.  The 2-tile chutes at x9-10 and
+//     x37-38 are escape hatches, so a dash along a ledge cannot pin the player
+//     against the wall with no way off but running through him.
+//   * The centre column of air is deliberately empty — that is where he flies and
+//     where the player shoots him for Shift crystals.  Keep props out of it.
+//
+// PROPS (designer's pass): crates/barrels at the wall bases, chains and beams at
+// the ceiling as katana anchors.  Nothing tall in the middle.
+//
+// NOT PLACED BY THIS FILE (no markers exist for them):
+//   * The boss.  Starts dormant on a ceiling beam / the right ledge, woken by a
+//     BossFightTrigger a few tiles past the spawn.
+//   * His katana, embedded in the FLOOR AT CENTRE (~x24).  The awaken is him
+//     blinking to it and pulling it out — it teaches the teleport before it is
+//     ever used as an attack.
+//
+// LEGEND
+//   #  ground tile          .  empty
+//   S  player spawn (GirisNoktasi)      X  exit door
+//   +  ShiftCrystal
+
+!name: NinjaArena
+
+################################################
+################################################
+################################################
+################################################
+#########..............................#########
+#########..............................#########
+#########..............................#########
+#########..............................#########
+#########..............................#########
+#########..............................#########
+#########..............................#########
+#########............######............#########
+#########..............................#########
+#########..............................#########
+#########..............................#########
+#########..########..........########..#########
+#########..............................#########
+#########..............................#########
+#########..S......+..........+.....X...#########
+################################################
+################################################
+################################################
+################################################
+################################################

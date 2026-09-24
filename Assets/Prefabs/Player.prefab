@@ -301,7 +301,7 @@ MonoBehaviour:
   character: {fileID: 11400000, guid: 21b96c1d04ec32147ae371aee3de4593, type: 2}
   fireballPrefab: {fileID: 6847861146471343392, guid: c410de68076b28846bb5e156129b8267, type: 3}
   firePoint: {fileID: 7525573285496672760}
-  shurikenThrowSound: {fileID: 8300000, guid: 4f25667166ce44040bd09867cd3a4042, type: 3}
+  shurikenThrowSound: {fileID: 0}
   shurikenSprite: {fileID: 1030694015, guid: b217a154a8231e54bbb50405bdfafbaf, type: 3}
   wailRange: 10
   fireballCastDelay: 0.12
@@ -348,6 +348,11 @@ MonoBehaviour:
   - {fileID: 9072995722623145976}
   - {fileID: 9072995722623145982}
   - {fileID: 1045048363762776297}
+  deadDropSpeed: 34
+  grapnelRange: 12
+  grapnelShiftCost: 2
+  grapnelPullSpeed: 26
+  stopgapDuration: 1.5
 --- !u!114 &232683879776169985
 MonoBehaviour:
   m_ObjectHideFlags: 0

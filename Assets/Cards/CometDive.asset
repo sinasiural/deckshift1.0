@@ -15,8 +15,8 @@ MonoBehaviour:
   cardName: Comet Dive
   description: Slam straight down. Everything near where you land takes 40 damage.
     Only works in the air.
-  cardArt: {fileID: -6264566646456649978, guid: 82da3f8f21bd06c41842722cd5bef0ac, type: 3}
-  nameIsPaintedIntoArt: 1
+  cardArt: {fileID: -6264566646456649978, guid: 92133b8d957e97e45b3abf0cb9183932, type: 3}
+  nameIsPaintedIntoArt: 0
   actionType: 12
   actionValue: 0
   singleUse: 0

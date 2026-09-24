@@ -27,6 +27,10 @@ public class DeckManager : MonoBehaviour
     [Header("Special Cards")]
     public CardData staggerCardData;
 
+    // The Ninja boss's stars, picked up off his arena floor. Like Stagger this is CONJURED, never
+    // owned — it is not in any deck and cannot be bought, blessed or repaired.
+    public CardData salvagedShurikenCardData;
+
     private List<RuntimeCard> drawPile = new List<RuntimeCard>();
     private List<RuntimeCard> hand = new List<RuntimeCard>();
     private List<RuntimeCard> discardPile = new List<RuntimeCard>();
@@ -211,7 +215,7 @@ public class DeckManager : MonoBehaviour
             // the second placement, by the same code path as everything else. It used to charge
             // itself inside TryPlacePortal, which is why "On the House" and First One's Free did
             // nothing on it. Do not hoist this back out.
-            if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
+            if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())
                 player.SpendShift(cost);
 
             OnCardPlayed?.Invoke(index);
@@ -253,7 +257,7 @@ public class DeckManager : MonoBehaviour
                 // Ýkinci kez çalýþtýr
                 player.ExecuteAction(data.actionType, actionValue, out bool _);
             }
-            bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+            bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
             // Blompo: several blessings can skip the charge (Sleight of Hand, Slow Burn, the first
             // Teacher's Pet play each room). `- 1` because this card's own play was just counted.
             bool spendCharge = CardEnhancements.ShouldSpendCharge(playedCard, cardsPlayedThisRoom - 1);
@@ -266,6 +270,22 @@ public class DeckManager : MonoBehaviour
             // where the player had plenty of Shift and had never asked for it.
             if (IsStagger(playedCard))
             {
+                OnHandChanged?.Invoke(false);
+                return;
+            }
+
+            // ⚠️ THE QUIVER IS AMMO, NOT A CARD. It goes straight back to hand while it still holds
+            // stars, and ENTERS NO PILE when the last one is thrown.
+            //
+            // This is the entire reason the pickup mechanic is playable. A quiver that discarded on
+            // play would need a RECALL between every single throw — and Recall costs Shift and
+            // escalates within a room, so killing a ~160 HP boss with 8-damage stars would have cost
+            // roughly twenty Recalls. That is a toll booth, not a fight. (It also must not fall
+            // through to the discard for Stagger's reason: that quietly enrols a conjured card in
+            // the player's actual DECK, where it would turn up in later rooms.)
+            if (IsSalvagedShuriken(playedCard))
+            {
+                if (playedCard.currentUses > 0) hand.Add(playedCard);
                 OnHandChanged?.Invoke(false);
                 return;
             }
@@ -497,6 +517,15 @@ public class DeckManager : MonoBehaviour
                 Debug.Log($"DEAD WEIGHT held to room end: +{payout} Shift.");
             }
         }
+
+        // The Ninja's quiver does not leave his arena. It is conjured, not owned — letting it ride
+        // into the rest of the run is the same mistake Stagger's "enters no pile" rule guards
+        // against, and it would put a card the player can never repair or bless into their deck.
+        //
+        // ⚠️ THIS IS AN OPEN DESIGN DECISION (BossDesign_Ninja.md §11.3): keeping a real Shuriken as
+        // part of the reward is the alternative, and it is a nicer payoff. This is the SAFE default,
+        // and it is one line to flip.
+        hand.RemoveAll(IsSalvagedShuriken);
     }
     // Stagger is identified by ACTION TYPE, not by asset reference, so every rule below holds for
     // any card that staggers — and can't be broken by renaming or duplicating the asset.
@@ -504,6 +533,57 @@ public class DeckManager : MonoBehaviour
     {
         return card != null && card.cardData != null
             && card.cardData.actionType == CardActionType.Stagger;
+    }
+
+    // ---- The Ninja boss's quiver ---------------------------------------------------------------
+    // Identified by ACTION TYPE for the same reason Stagger is: it survives a rename or a duplicate
+    // of the asset, and every rule below then holds for any card that behaves this way.
+    public static bool IsSalvagedShuriken(RuntimeCard card)
+    {
+        return card != null && card.cardData != null
+            && card.cardData.actionType == CardActionType.SalvagedShuriken;
+    }
+
+    /// <summary>
+    /// One picked-up star. Stacks a CHARGE onto the single quiver card rather than adding a second
+    /// card — the hand is 3 slots (2 for the Ninja), so six pickups cannot be six cards.
+    ///
+    /// ⚠️ IT IS APPENDED PAST HAND CAPACITY, exactly like Stagger. A player whose hand is full of
+    /// junk must never be locked out of the only damage source the arena gives them — that lockout
+    /// is the death spiral this whole mechanic exists to prevent.
+    /// </summary>
+    public void AddSalvagedShuriken(int count = 1)
+    {
+        if (salvagedShurikenCardData == null || count <= 0) return;
+
+        foreach (RuntimeCard card in hand)
+        {
+            if (!IsSalvagedShuriken(card)) continue;
+            // Deliberately NOT clamped to MaxUses. The quiver holds what the player picked up; the
+            // boss decides how many that is by how much he throws, and capping it here would
+            // silently bin stars the player crossed the arena under fire to collect.
+            card.currentUses += count;
+            OnHandChanged?.Invoke(false);
+            return;
+        }
+
+        RuntimeCard quiver = new RuntimeCard(salvagedShurikenCardData);
+        quiver.currentUses = count;    // NOT maxUses — you have what you picked up, not a full card
+        quiver.isInfinite = false;
+        hand.Add(quiver);
+
+        OnHandChanged?.Invoke(true);
+    }
+
+    /// <summary>How many stars the player is currently holding. 0 when they hold no quiver at all.</summary>
+    public int SalvagedShurikenCount
+    {
+        get
+        {
+            foreach (RuntimeCard card in hand)
+                if (IsSalvagedShuriken(card)) return card.currentUses;
+            return 0;
+        }
     }
 
     // Stagger appears the moment you hit ZERO SHIFT — that alone, nothing else.
@@ -515,7 +595,7 @@ public class DeckManager : MonoBehaviour
     // option at exactly the moment it's the decision the player should be making.
     private void CheckForStaggerCondition()
     {
-        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub()) return;
+        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox()) return;
         if (player.GetCurrentShift() > 0) return;
 
         foreach (RuntimeCard card in hand)
@@ -559,7 +639,7 @@ public class DeckManager : MonoBehaviour
         // 1. Zaten el yenileniyorsa dur
         if (isReloading) return;
 
-        bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+        bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
         bool overclocked = RelicManager.instance != null && RelicManager.instance.HasRelic("OverclockedRecall");
 
         if (overclocked)
@@ -663,7 +743,11 @@ public class DeckManager : MonoBehaviour
         List<RuntimeCard> retained = new List<RuntimeCard>();
         for (int i = 0; i < hand.Count; i++)
         {
-            if (hand[i] != null && (CardEnhancements.RetainsThroughRecall(hand[i]) || IsStagger(hand[i])))
+            // ⚠️ The Ninja's quiver is retained for BOTH of Stagger's reasons: discarding it would
+            // put a conjured card into the real deck, and a player who Recalled would lose the stars
+            // they crossed the arena to collect — while the boss keeps throwing more.
+            if (hand[i] != null && (CardEnhancements.RetainsThroughRecall(hand[i])
+                                    || IsStagger(hand[i]) || IsSalvagedShuriken(hand[i])))
                 retained.Add(hand[i]);
             else
                 discardPile.Add(hand[i]);
@@ -720,6 +804,33 @@ public class DeckManager : MonoBehaviour
     {
         RuntimeCard newCardInstance = new RuntimeCard(newCardData);
         discardPile.Add(newCardInstance);
+    }
+
+    /// <summary>
+    /// Testing / trailer only: throw away every pile and deal EXACTLY these cards into the hand,
+    /// in this order. A staged shot needs "Comet Dive in slot 0, right now", not a shuffle that
+    /// might deal it. Nothing in a real run calls this. Hand capacity is honoured so the drawer
+    /// never shows a card the character could not hold.
+    /// </summary>
+    public void SetHandForTesting(IList<CardData> cards)
+    {
+        drawPile.Clear();
+        discardPile.Clear();
+        exhaustPile.Clear();
+        hand.Clear();
+        selectedIndex = -1;
+
+        if (cards != null)
+        {
+            foreach (CardData data in cards)
+            {
+                if (data == null) continue;
+                if (hand.Count >= HandCapacity) { drawPile.Add(new RuntimeCard(data)); continue; }
+                hand.Add(new RuntimeCard(data));
+            }
+        }
+
+        OnHandChanged?.Invoke(true);
     }
 
     private void ShuffleDeck()

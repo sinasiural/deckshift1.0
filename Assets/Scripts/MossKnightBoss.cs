@@ -11,7 +11,9 @@ using Cainos.PixelArtMonster_Dungeon;
 // platform — same arc, different payload).
 // Still to come: phase transitions, the full acid system (flank pools → P3 rise), boss death/reward.
 [RequireComponent(typeof(EnemyHealth))]
-public class MossKnightBoss : MonoBehaviour
+// IBossFight is satisfied by the existing public StartFight() below — nothing else changed. It lets
+// the generic BossAwakenTrigger wake this boss too, so the two triggers can merge later.
+public class MossKnightBoss : MonoBehaviour, IBossFight
 {
     [Header("Fight Start")]
     [Tooltip("Sleep until a BossFightTrigger wakes him (place one over the arena platform). " +

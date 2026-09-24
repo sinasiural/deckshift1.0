@@ -379,6 +379,16 @@ public class LevelManager : MonoBehaviour
             return;
         }
 
+        // The node's recharge room is NEXT no matter what — it hangs off the room just cleared and
+        // is not a floor — so there is nothing to choose yet. Asking here made the player pick a
+        // branch and then walk into a Well instead (designer, 2026-09-14). The map opens on the
+        // recharge room's exit instead, when the choice is real.
+        if (pendingRecharge != RechargeType.None && RechargeRoomPrefab(pendingRecharge) != null)
+        {
+            SpawnNextRoom();
+            return;
+        }
+
         RunMapScreen.OpenForChoice(SpawnNextRoom);
     }
 
@@ -418,19 +428,38 @@ public class LevelManager : MonoBehaviour
             Destroy(shot.gameObject);
     }
 
+    /// <summary>
+    /// Testing only: makes the NEXT SpawnNextRoom use this prefab instead of the map's choice.
+    /// Cleared the moment it is used. Never serialized — see the note at the use site.
+    /// </summary>
+    [System.NonSerialized] public GameObject forcedNextRoom;
+
     public void SpawnNextRoom()
     {
         // Room-end Held payoffs (Dead Weight): fire while the ending room's hand still
         // exists — the ReloadHand below discards it. Only when actually leaving a combat
-        // room: not on the first spawn (currentRoom null), not when leaving the hub.
-        if (currentRoom != null && !IsCurrentRoomHub() && DeckManager.instance != null)
+        // room: not on the first spawn (currentRoom null), not when leaving a sandbox (hub or
+        // recharge room — a held Dead Weight must not pay a second time on the Well's exit).
+        if (currentRoom != null && !IsCurrentRoomSandbox() && DeckManager.instance != null)
             DeckManager.instance.OnRoomEnd();
 
         ClearRuntimeSpawns();
 
         if (currentRoom != null) Destroy(currentRoom);
 
-        GameObject selectedRoomPrefab = PickNextRoomPrefab();
+        // ⚠️ TESTING HOOK. When set, the next spawn uses this room instead of asking the map — and it
+        // is CLEARED IMMEDIATELY, so it can only ever affect one room change. It is [NonSerialized]
+        // on purpose: it can never be saved into a scene or prefab and quietly hijack a real run,
+        // which is the failure mode `roomPrefabs` has suffered four times.
+        GameObject selectedRoomPrefab;
+        if (forcedNextRoom != null)
+        {
+            selectedRoomPrefab = forcedNextRoom;
+            forcedNextRoom = null;
+            Debug.Log($"[LevelManager] FORCED room: {selectedRoomPrefab.name} (testing hook)");
+        }
+        else selectedRoomPrefab = PickNextRoomPrefab();
+
         if (selectedRoomPrefab == null)
         {
             Debug.LogError("LevelManager: no room prefab to spawn (is roomPrefabs empty?).");
@@ -475,6 +504,17 @@ public class LevelManager : MonoBehaviour
             Debug.LogError("CameraBounds objesi bulunamadı!");
         }
 
+        // Per-room camera size (RoomCamera on the room root, same convention as HubMarker).
+        // Pushed on EVERY spawn, deliberately OUTSIDE the CameraBounds block above: a room that
+        // only ever SET the size would leave the boss arena's framing on for the rest of the run.
+        // Passing 0 for a room with no override is what restores the default.
+        CameraFollow follow = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
+        if (follow != null)
+        {
+            RoomCamera roomCam = currentRoom.GetComponent<RoomCamera>();
+            follow.SetRoomSize(roomCam != null ? roomCam.orthographicSize : 0f);
+        }
+
         MeasureRoomBounds();
 
         Transform entryPoint = currentRoom.transform.Find("GirisNoktasi");
@@ -513,5 +553,34 @@ public class LevelManager : MonoBehaviour
     {
         if (currentRoom == null) return false;
         return currentRoom.GetComponent<HubMarker>() != null;
+    }
+
+    // Returns true when the active room has a RechargeRoomMarker on its root (Foundry / Market /
+    // Well). Read from the PREFAB rather than from pendingRecharge so it stays right for a room
+    // spawned through the forcedNextRoom testing hook, or by any future path that skips the map.
+    public bool IsCurrentRoomRecharge()
+    {
+        if (currentRoom == null) return false;
+        return currentRoom.GetComponent<RechargeRoomMarker>() != null;
+    }
+
+    // The one test for "does leaving this room count as clearing a room?" — used by the exit
+    // door's per-room payouts (flawless clear, oaths, Nest Egg). Neither the hub nor a recharge
+    // room has anything at stake, so neither may pay out. Prefer this over checking the hub alone.
+    public bool IsCurrentRoomCombat()
+    {
+        if (currentRoom == null) return false;
+        return !IsCurrentRoomHub() && !IsCurrentRoomRecharge();
+    }
+
+    // THE UMBRELLA RULE'S TEST. True in the hub AND in a recharge room (designer, 2026-09-14:
+    // "the recharge rooms should not waste anything, they should be more like a sandbox level,
+    // just like the hub"). Every consumption site — Shift on jumps, cards, Recall, altars, card
+    // charges, Stagger, blessing payouts — gates on THIS, never on IsCurrentRoomHub() directly, so
+    // a new kind of free room is one line here rather than a hunt through a dozen files.
+    public bool IsCurrentRoomSandbox()
+    {
+        if (currentRoom == null) return false;
+        return IsCurrentRoomHub() || IsCurrentRoomRecharge();
     }
 }

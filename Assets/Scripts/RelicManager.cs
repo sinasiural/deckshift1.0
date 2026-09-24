@@ -107,6 +107,11 @@ public class RelicManager : MonoBehaviour
     // Per-room relic effects — called by LevelManager.SpawnNextRoom at the start of each room.
     public void OnRoomStart()
     {
+        // A recharge room (Foundry / Market / Well) is an attachment to a floor, not a floor: the
+        // per-room relics below already paid on the combat room it hangs off. Paying again here
+        // would make every recharge room a second +1 Shift / free card / +8 HP for nothing.
+        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomRecharge()) return;
+
         PlayerController player = GameManager.instance != null ? GameManager.instance.player : null;
 
         // Pocket Battery: +1 Shift at the start of each room.

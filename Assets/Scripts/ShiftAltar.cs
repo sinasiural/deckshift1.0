@@ -103,7 +103,7 @@ public class ShiftAltar : MonoBehaviour, IInteractable
         PlayerController player = GameManager.instance != null ? GameManager.instance.player : null;
         if (player == null) return;
 
-        bool free = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+        bool free = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
 
         if (!free && player.GetCurrentShift() < shiftCost)
         {

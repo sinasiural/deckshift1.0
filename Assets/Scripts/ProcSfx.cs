@@ -901,6 +901,102 @@ public static class ProcSfx
         return Finalize(dry, 0.14f, 13000f);
     }
 
+    // ---- WELL (recharge room, 2026-09-14) ------------------------------------------------------
+    // The Well is the altar's opposite: the altar DRINKS your Shift, the Well gives it back. So the
+    // two clips share a voice — the same harmonic partials as AltarPay — and invert the shape:
+    // the altar rises and resolves upward; the well DRAWS (a held, falling intake) and then SURGES
+    // (water and a rising bloom). Read the pair as a sound-design brief, like everything here.
+    private static AudioClip wellDraw, wellSurge;
+
+    /// <summary>The well holding its breath: water pulled inward, a low tone sinking. ~0.4s.</summary>
+    public static AudioClip WellDraw
+    { get { if (wellDraw == null) wellDraw = BuildWellDraw(); return wellDraw; } }
+
+    /// <summary>The water erupts and the light blooms: a splash, then a rising resolved chime. ~1.3s.</summary>
+    public static AudioClip WellSurge
+    { get { if (wellSurge == null) wellSurge = BuildWellSurge(); return wellSurge; } }
+
+    private static AudioClip BuildWellDraw()
+    {
+        const float dur = 0.42f;
+        int n = Mathf.CeilToInt(SampleRate * dur);
+        var dry = new float[n];
+        var rng = new System.Random(5601);
+
+        float lp = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float t = (float)i / SampleRate;
+            float k = t / dur;
+
+            // Water being drawn INWARD: filtered noise whose band closes as it goes — the sound of
+            // a surface being pulled taut. Reverse-enveloped so it swells rather than decays.
+            float nz = (float)(rng.NextDouble() * 2.0 - 1.0);
+            lp += (1f - Mathf.Exp(-2f * Mathf.PI * Mathf.Lerp(1400f, 380f, k) / SampleRate)) * (nz - lp);
+            float water = lp * Mathf.SmoothStep(0f, 1f, k) * 0.55f;
+
+            // Under it a tone that SINKS a fourth — the intake. The altar's voice, going the other way.
+            float root = Mathf.Lerp(294f, 220f, Mathf.SmoothStep(0f, 1f, k));
+            float tone = (Mathf.Sin(2f * Mathf.PI * root * t) + 0.4f * Mathf.Sin(2f * Mathf.PI * root * 2f * t))
+                         * Mathf.Sin(k * Mathf.PI) * 0.16f;
+            dry[i] = water + tone;
+        }
+        return Finalize(dry, 0.22f, 7000f);
+    }
+
+    private static AudioClip BuildWellSurge()
+    {
+        const float dur = 1.30f;
+        int n = Mathf.CeilToInt(SampleRate * dur);
+        var dry = new float[n];
+        var rng = new System.Random(5602);
+
+        float[] partial = { 1f, 2f, 3f, 4f, 5.1f };
+        float[] gain = { 1f, 0.52f, 0.30f, 0.16f, 0.09f };
+
+        float lp = 0f, lp2 = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float t = (float)i / SampleRate;
+
+            // THE SPLASH — a burst of bright water in the first 120ms, then droplets: the noise band
+            // opens wide and slams shut, with a slow gurgle underneath so it stays liquid, not hiss.
+            float nz = (float)(rng.NextDouble() * 2.0 - 1.0);
+            float band = t < 0.12f ? Mathf.Lerp(3200f, 900f, t / 0.12f) : 700f;
+            lp += (1f - Mathf.Exp(-2f * Mathf.PI * band / SampleRate)) * (nz - lp);
+            float splash = lp * Mathf.Exp(-9f * t) * 0.9f;
+            lp2 += (1f - Mathf.Exp(-2f * Mathf.PI * 260f / SampleRate)) * (nz - lp2);
+            float gurgle = lp2 * (0.55f + 0.45f * Mathf.Sin(2f * Mathf.PI * 7.5f * t)) * Mathf.Exp(-2.6f * t) * 0.35f;
+
+            // THE BLOOM — the altar's chord, but arriving late (the light follows the water), rising
+            // a fifth and RESOLVING. Slower decay than the altar: this is a gift, let it ring.
+            float bloom = 0f;
+            if (t > 0.10f)
+            {
+                float bt = t - 0.10f;
+                float root = Mathf.Lerp(220f, 330f, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(bt / 0.35f)));
+                for (int p = 0; p < partial.Length; p++)
+                    bloom += Mathf.Sin(2f * Mathf.PI * root * partial[p] * bt) * gain[p] * Mathf.Exp(-(1.6f + p * 1.2f) * bt);
+                bloom *= 0.22f * Mathf.Clamp01(bt / 0.05f);
+            }
+
+            // DROPLETS — a scatter of tiny high pings falling back into the water over the tail.
+            float drops = 0f;
+            for (int d = 0; d < 9; d++)
+            {
+                float at = 0.18f + d * 0.09f + (float)((d * 7919) % 50) * 0.001f;
+                if (t > at && t < at + 0.06f)
+                {
+                    float dt = t - at;
+                    float hz = 1800f + (d * 613) % 900;
+                    drops += Mathf.Sin(2f * Mathf.PI * hz * dt) * Mathf.Exp(-70f * dt) * 0.08f;
+                }
+            }
+            dry[i] = splash + gurgle + bloom + drops;
+        }
+        return Finalize(dry, 0.34f, 11000f);
+    }
+
     private static AudioClip glassParry, freefallBlade;
 
     /// <summary>A blow stopped on glass: struck, an instant of ring, then shards.</summary>
@@ -1621,6 +1717,480 @@ public static class ProcSfx
         Rustle(dry, 0f, 0.165f, 0.120f, rng, 1500f, -0.85f);
         Thud(dry, 0.150f, 250f, 0.115f, 38f, rng, 0.6f);
         return Finalize(dry, 0.085f, 5400f);
+    }
+
+    // =============================================================================================
+    // THE NINJA — thrown steel, cloth, and displaced air.
+    //
+    // A SIXTH family, and it is built on the one axis none of the others use: FLUTTER RATE. Every
+    // family above is separated by material (magic = harmonic bells, metal = inharmonic bar modes,
+    // stone = noise and sub, paper = no pitch at all) or by envelope (the pause pair) or by pitch
+    // motion (UI). These sounds are all the SAME two materials — steel and air — so material cannot
+    // tell them apart. What can is how fast the thing is turning:
+    //
+    //     ShurikenThrow   flutter 62 Hz   a small star spinning far too fast to count
+    //     KatanaThrow     flutter 11 Hz   a long blade going end over end, slowly
+    //     KatanaPlant     tremolo 7 Hz    buried in stone and quivering
+    //     NinjaDash       NO flutter      a body, not a blade — the absence IS the message
+    //
+    // ⚠️ THE FLUTTER IS THE WHOLE IDENTITY OF A THROWN SHURIKEN, and it is the thing the old whoosh
+    // was missing (designer, 2026-08-22: "i dont like the current shuriken throw whoosh"). A plain
+    // swept-noise whip is a generic swing — it is what `FreefallBlade` and `ZombieSwing` already are,
+    // and adding a third would just be a quieter version of one of them. A star chops the air four
+    // times per revolution; that chopping is audible, and it is the only reason the sound says
+    // "spinning object" rather than "something moved fast".
+    //
+    // ⚠️ AND ALL FOUR SHARE ONE VOICE — literally the same `Whip` call — for the same reason the six
+    // UI sounds share `WoodTap`: a family assembled from hand-tuned one-offs drifts apart the moment
+    // anyone retunes one of them.
+
+    private static AudioClip shurikenThrow, shurikenStick, shurikenCatch, shurikenRecall;
+    private static AudioClip ninjaDash, katanaThrow, katanaPlant, ninjaBlink;
+
+    /// <summary>A star leaving the hand. Fast air, chopped by the spin.</summary>
+    public static AudioClip ShurikenThrow
+    { get { if (shurikenThrow == null) shurikenThrow = BuildShurikenThrow(); return shurikenThrow; } }
+
+    /// <summary>A star biting stone — and therefore becoming ammo lying on the floor.</summary>
+    public static AudioClip ShurikenStick
+    { get { if (shurikenStick == null) shurikenStick = BuildShurikenStick(); return shurikenStick; } }
+
+    /// <summary>Picking one up.</summary>
+    public static AudioClip ShurikenCatch
+    { get { if (shurikenCatch == null) shurikenCatch = BuildShurikenCatch(); return shurikenCatch; } }
+
+    /// <summary>The boss calling every loose star home at once.</summary>
+    public static AudioClip ShurikenRecall
+    { get { if (shurikenRecall == null) shurikenRecall = BuildShurikenRecall(); return shurikenRecall; } }
+
+    /// <summary>The dash launch: cloth cracking, air shoved aside, and weight leaving the floor.</summary>
+    public static AudioClip NinjaDash
+    { get { if (ninjaDash == null) ninjaDash = BuildNinjaDash(); return ninjaDash; } }
+
+    /// <summary>The katana thrown — a long blade tumbling and singing.</summary>
+    public static AudioClip KatanaThrow
+    { get { if (katanaThrow == null) katanaThrow = BuildKatanaThrow(); return katanaThrow; } }
+
+    /// <summary>The katana landing. ⚠️ THIS IS A TELEGRAPH, so it RINGS ON — see the builder.</summary>
+    public static AudioClip KatanaPlant
+    { get { if (katanaPlant == null) katanaPlant = BuildKatanaPlant(); return katanaPlant; } }
+
+    /// <summary>He arrives. Air collapsing inward, a dull pop, and the room breathing back.</summary>
+    public static AudioClip NinjaBlink
+    { get { if (ninjaBlink == null) ninjaBlink = BuildNinjaBlink(); return ninjaBlink; } }
+
+    // The blade-through-air voice, shared by every sound in this family.
+    //
+    // The band centre RISES to the pass and FALLS away after it, which is the doppler of something
+    // going by rather than something being switched on — a static band reads as a hiss no matter how
+    // it is enveloped. `flutterDepth` 0 leaves it as a plain whip (used by the dash, where the moving
+    // object has no blades).
+    private static void Whip(float[] buf, float atSeconds, float dur, float amp, System.Random rng,
+                             float startHz, float peakHz, float endHz,
+                             float flutterHz, float flutterDepth)
+    {
+        int start = Mathf.RoundToInt(atSeconds * SampleRate);
+        int n = Mathf.RoundToInt(dur * SampleRate);
+        if (n <= 0) return;
+
+        float lp = 0f, hp = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            int j = start + i;
+            if (j < 0 || j >= buf.Length) continue;
+
+            float k = (float)i / n;
+            float t = (float)i / SampleRate;
+
+            float centre = k < 0.5f
+                ? Mathf.Lerp(startHz, peakHz, k * 2f)
+                : Mathf.Lerp(peakHz, endHz, (k - 0.5f) * 2f);
+            centre = Mathf.Min(centre, SampleRate * 0.40f);
+
+            float nz = (float)(rng.NextDouble() * 2.0 - 1.0);
+            lp += (1f - Mathf.Exp(-2f * Mathf.PI * (centre * 1.7f) / SampleRate)) * (nz - lp);
+            hp += (1f - Mathf.Exp(-2f * Mathf.PI * (centre * 0.62f) / SampleRate)) * (lp - hp);
+
+            // The chop. Never allowed to reach zero — a fully gated stream reads as a broken speaker
+            // rather than as a spinning object.
+            float flutter = flutterDepth > 0f
+                ? 1f - flutterDepth * 0.5f * (1f + Mathf.Sin(2f * Mathf.PI * flutterHz * t))
+                : 1f;
+
+            // Fast in, slow out: the approach is shorter than the departure.
+            float env = Mathf.Sin(Mathf.PI * Mathf.Pow(k, 0.62f));
+
+            buf[j] += (lp - hp) * env * flutter * amp;
+        }
+    }
+
+    // Steel ringing: the metal family's inharmonic free-bar modes, plus an optional TREMOLO. A blade
+    // in the air tumbles and one buried in stone quivers, and in both cases the ring is amplitude
+    // modulated by that movement. Without the wobble this is a struck bar sitting on a bench.
+    private static void Blade(float[] buf, float atSeconds, float hz, float amp, float decay,
+                              System.Random rng, float tremHz = 0f, float tremDepth = 0f)
+    {
+        int start = Mathf.RoundToInt(atSeconds * SampleRate);
+        if (start >= buf.Length) return;
+
+        float[] ratio = { 1f, 2.76f, 5.40f, 8.93f };
+        float[] gain = { 1f, 0.44f, 0.19f, 0.08f };
+
+        for (int i = start; i < buf.Length; i++)
+        {
+            float t = (float)(i - start) / SampleRate;
+            float env = Mathf.Exp(-decay * t);
+            if (env < 0.0006f) break;
+
+            float s = 0f;
+            for (int k = 0; k < ratio.Length; k++)
+                s += Mathf.Sin(2f * Mathf.PI * hz * ratio[k] * t) * gain[k]
+                     * Mathf.Exp(-decay * (1f + 0.9f * k) * t);
+
+            float trem = tremHz > 0f
+                ? 1f - tremDepth * 0.5f * (1f + Mathf.Sin(2f * Mathf.PI * tremHz * t))
+                : 1f;
+
+            // The edge catching. A couple of milliseconds, so the tone starts as a strike rather
+            // than as an oscillator being switched on.
+            float edge = t < 0.003f ? (float)(rng.NextDouble() * 2.0 - 1.0) * 0.30f * (1f - t / 0.003f) : 0f;
+
+            buf[i] += (s * 0.30f + edge) * env * trem * amp;
+        }
+    }
+
+    // A gliding low sine. Phase is integrated rather than sin(2*pi*f*t) so the pitch can move without
+    // the waveform tearing — the same reason MeteorImpact's sub does it.
+    private static void Sub(float[] buf, float atSeconds, float fromHz, float toHz,
+                            float amp, float decay, float glide)
+    {
+        int start = Mathf.RoundToInt(atSeconds * SampleRate);
+        if (start >= buf.Length) return;
+
+        float phase = 0f;
+        for (int i = start; i < buf.Length; i++)
+        {
+            float t = (float)(i - start) / SampleRate;
+            float env = Mathf.Exp(-decay * t);
+            if (env < 0.0006f) break;
+
+            float f = Mathf.Lerp(fromHz, toHz, Mathf.Clamp01(t / Mathf.Max(0.001f, glide)));
+            phase += 2f * Mathf.PI * f / SampleRate;
+            buf[i] += Mathf.Sin(phase) * env * amp;
+        }
+    }
+
+    private static AudioClip BuildShurikenThrow()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.30f)];
+        var rng = new System.Random(6601);
+
+        // The release: fingers and cloth letting go. Short enough to be an attack, not a layer.
+        Rustle(dry, 0f, 0.032f, 0.26f, rng, 2600f, -1f);
+
+        // ⚠️ 62 Hz FLUTTER. This is the sound. See the family note above.
+        Whip(dry, 0.004f, 0.235f, 0.80f, rng, 2600f, 7200f, 3000f, 62f, 0.55f);
+
+        // A thin high edge, well above KatanaThrow's 820 — a small piece of steel has a small voice.
+        Blade(dry, 0.008f, 2450f, 0.090f, 34f, rng);
+
+        return Finalize(dry, 0.09f, 15000f);   // dry and bright: this happens right next to you
+    }
+
+    private static AudioClip BuildShurikenStick()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.26f)];
+        var rng = new System.Random(6602);
+
+        Latch(dry, 0f, 0.44f, rng, 2900f);                 // iron biting
+        Thud(dry, 0.001f, 190f, 0.26f, 72f, rng, 0.10f);   // ring 0.10: stone chips, it does not sing
+
+        // ⚠️ AND THEN IT QUIVERS. A star driven into rock is still vibrating, and that half-second of
+        // wobble is what makes this read as "it stuck" rather than "it hit". It is also the cue that
+        // there is now ammo on the floor, which is the whole reason this fight is winnable with an
+        // empty deck — so it deliberately outlasts the impact.
+        Blade(dry, 0.004f, 2300f, 0.085f, 24f, rng, 9f, 0.5f);
+
+        return Finalize(dry, 0.10f, 12000f);
+    }
+
+    private static AudioClip BuildShurikenCatch()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.17f)];
+        var rng = new System.Random(6603);
+
+        // ⚠️ TWO TICKS, NOT ONE, and no tail at all. Two pieces of steel meeting is what picking a
+        // star out of a wall and putting it with the others sounds like; a single chime would be a
+        // menu confirm. And a handful get collected in a couple of seconds, so anything that rings
+        // stacks into a chord — the same rule CrystalCollect is built on.
+        Latch(dry, 0f, 0.44f, rng, 3400f);
+        Latch(dry, 0.026f, 0.28f, rng, 2650f);
+        Rustle(dry, 0.002f, 0.048f, 0.095f, rng, 2000f, -1f);
+
+        return Finalize(dry, 0.05f, 13000f);
+    }
+
+    private static AudioClip BuildShurikenRecall()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.90f)];
+        var rng = new System.Random(6604);
+
+        // ⚠️ THEY CONVERGE. The starts are staggered but every whip PEAKS at roughly the same moment,
+        // so a scatter of separate objects becomes one arrival — which is exactly what the recall is,
+        // and it is why this reads as a summons rather than as six stars being thrown.
+        float[] at = { 0.00f, 0.035f, 0.075f, 0.105f, 0.150f, 0.185f, 0.225f };
+        for (int i = 0; i < at.Length; i++)
+        {
+            float dur = 0.62f - at[i];
+            Whip(dry, at[i], dur, 0.24f, rng, 700f, 4600f + i * 320f, 3200f, 48f + i * 6f, 0.5f);
+        }
+
+        // The pull itself: a low tone rising under the whole thing. Rising, because gravity falls and
+        // this is the opposite of gravity.
+        Sub(dry, 0.0f, 58f, 104f, 0.16f, 3.4f, 0.42f);
+
+        // ...and they arrive. A tight cluster of steel, not one hit.
+        Latch(dry, 0.470f, 0.30f, rng, 2700f);
+        Latch(dry, 0.492f, 0.26f, rng, 3100f);
+        Latch(dry, 0.508f, 0.22f, rng, 2300f);
+        Blade(dry, 0.478f, 1900f, 0.09f, 15f, rng, 12f, 0.4f);
+
+        return Finalize(dry, 0.20f, 11000f);
+    }
+
+    private static AudioClip BuildNinjaDash()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.38f)];
+        var rng = new System.Random(6605);
+
+        // Cloth cracking taut. This is the transient, and it is the only part of the dash that is
+        // allowed to be sharp — the movement itself is a shove of air, not an impact.
+        Rustle(dry, 0f, 0.042f, 0.44f, rng, 1400f, -1f);
+
+        // ⚠️ NO FLUTTER, AND LOW. A body is not a blade. Against ShurikenThrow (2600-7200 Hz, chopped)
+        // this sits an octave and a half down and runs smooth, so the two can never be confused even
+        // though they are made of the same ingredients. That contrast is the whole reason the family
+        // shares one function.
+        Whip(dry, 0.004f, 0.215f, 0.62f, rng, 480f, 2500f, 680f, 0f, 0f);
+
+        // The weight leaving the floor.
+        Sub(dry, 0.006f, 78f, 42f, 0.28f, 13f, 0.14f);
+
+        // Cloth settling behind him.
+        Rustle(dry, 0.150f, 0.130f, 0.095f, rng, 900f, -0.9f);
+
+        return Finalize(dry, 0.12f, 6000f);   // darker than anything else in the family
+    }
+
+    private static AudioClip BuildKatanaThrow()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.52f)];
+        var rng = new System.Random(6606);
+
+        Rustle(dry, 0f, 0.030f, 0.16f, rng, 1800f, -1f);
+
+        // ⚠️ 11 Hz — SIX TIMES SLOWER THAN THE STAR. A katana goes end over end a handful of times
+        // across a room; you can hear each pass. Same function, same materials, and it is instantly a
+        // different object. Do not "fix" this toward the shuriken's rate.
+        Whip(dry, 0.004f, 0.400f, 0.68f, rng, 900f, 3600f, 1200f, 11f, 0.62f);
+
+        // The blade singing, tremolo locked to the tumble so the two halves are one object.
+        Blade(dry, 0.006f, 820f, 0.17f, 9f, rng, 11f, 0.35f);
+
+        return Finalize(dry, 0.16f, 9000f);
+    }
+
+    private static AudioClip BuildKatanaPlant()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.80f)];
+        var rng = new System.Random(6607);
+
+        Latch(dry, 0f, 0.82f, rng, 2100f);                 // deep iron, lower than the star's bite
+        Thud(dry, 0.002f, 150f, 0.56f, 55f, rng, 0.12f);   // the stone taking it
+
+        // ⚠️ AND IT RINGS ON FOR HALF A SECOND. This clip is a TELEGRAPH, not an impact: the planted
+        // blade is where he is about to be, and it sits there while the player reads it. A sound that
+        // stops dead says the event is over; a blade still humming says something has not happened
+        // yet. Longest tail in the family, and that is deliberate.
+        Blade(dry, 0.006f, 640f, 0.19f, 5.5f, rng, 7f, 0.55f);
+
+        return Finalize(dry, 0.22f, 7000f);
+    }
+
+    private static AudioClip BuildNinjaBlink()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.42f)];
+        var rng = new System.Random(6608);
+
+        // ⚠️ NOT ELECTRIC. The jump SFX hunt already settled this for the whole game: a flanged,
+        // swept, sci-fi teleport is wrong for a candlelit dungeon, and a ninja vanishing is a cloth
+        // and smoke trick rather than a machine. So the arrival is AIR COLLAPSING INWARD — a band
+        // sweeping DOWN, which is the inverse of every other whip in this family.
+        Whip(dry, 0f, 0.098f, 0.58f, rng, 4600f, 2200f, 380f, 0f, 0f);
+
+        // The pop. ring 0.05 = almost pure contact: displaced air closing, with nothing to resonate.
+        Thud(dry, 0.095f, 118f, 0.36f, 62f, rng, 0.05f);
+
+        // ...and the room breathing back around him.
+        Rustle(dry, 0.104f, 0.210f, 0.150f, rng, 1900f, 0.6f);
+
+        return Finalize(dry, 0.18f, 6500f);
+    }
+
+    // =============================================================================================
+    // BOSSES + PORTAL (2026-09-24) — the last silent events on the run's critical path.
+    //
+    // Measured before writing these: every boss death in the game was SILENT. All three bosses hand
+    // an empty `deathSound` to BossDeathVFX, and `SfxManager.PlayOn` with a null clip is a no-op —
+    // so the single biggest moment of a run played to a freeze-frame, a screen flash and nothing.
+    // The Moss Knight's awakening stomps and his leap were silent the same way, and the Portal
+    // component had no AudioClip field at all.
+    //
+    // ⚠️ THE BOSS CLIPS ARE ARMOURED STONE, NOT MAGIC. A boss is a body with weight; the Shift
+    // family's bell partials belong to the player's resource. The one exception is the death TOLL
+    // below, and it is there on purpose: it is the only sound in the game that says "the fight is
+    // over", so it borrows the one voice that is never used for an impact.
+
+    private static AudioClip bossDeath, bossStomp, bossLeap, portalPass;
+
+    /// <summary>A champion falling: the killing blow, armour collapsing, a low toll, and dust.</summary>
+    public static AudioClip BossDeath
+    { get { if (bossDeath == null) bossDeath = BuildBossDeath(); return bossDeath; } }
+
+    /// <summary>An armoured foot hitting stone hard enough to shake the room.</summary>
+    public static AudioClip BossStomp
+    { get { if (bossStomp == null) bossStomp = BuildBossStomp(); return bossStomp; } }
+
+    /// <summary>A heavy body leaving the floor: push-off, armour, and a lot of air moved.</summary>
+    public static AudioClip BossLeap
+    { get { if (bossLeap == null) bossLeap = BuildBossLeap(); return bossLeap; } }
+
+    /// <summary>Stepping through a portal. Short, magic-family, and gone before you have landed.</summary>
+    public static AudioClip PortalPass
+    { get { if (portalPass == null) portalPass = BuildPortalPass(); return portalPass; } }
+
+    // Harmonic partials — the magic family's voice, the same series AltarPay uses — with a pitch
+    // glide. Phase is integrated per partial so the glide cannot tear the waveform.
+    private static void Bell(float[] buf, float atSeconds, float fromHz, float toHz, float glide,
+                             float amp, float decay)
+    {
+        int start = Mathf.RoundToInt(atSeconds * SampleRate);
+        if (start >= buf.Length) return;
+
+        float[] partial = { 1f, 2f, 3f, 4f, 5.1f };
+        float[] gain = { 1f, 0.52f, 0.30f, 0.16f, 0.09f };
+        var phase = new float[partial.Length];
+
+        for (int i = start; i < buf.Length; i++)
+        {
+            float t = (float)(i - start) / SampleRate;
+            if (Mathf.Exp(-decay * t) < 0.0006f) break;
+
+            float root = Mathf.Lerp(fromHz, toHz, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / Mathf.Max(0.001f, glide))));
+            float s = 0f;
+            for (int p = 0; p < partial.Length; p++)
+            {
+                phase[p] += 2f * Mathf.PI * root * partial[p] / SampleRate;
+                s += Mathf.Sin(phase[p]) * gain[p] * Mathf.Exp(-decay * (1f + 0.7f * p) * t);
+            }
+            buf[i] += s * amp;
+        }
+    }
+
+    // ⚠️ IT IS A SEQUENCE, NOT A HIT — and the gap in the middle is the point. The killing blow and
+    // the body landing are half a second apart, which is the stagger BossDeathVFX's slow-mo plays
+    // over. A single big impact would say "he was hit hard"; blow, beat, collapse says "he fell".
+    private static AudioClip BuildBossDeath()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 2.9f)];
+        var rng = new System.Random(7701);
+
+        // 1. THE BLOW — a hard strike with an armoured edge on it.
+        Thud(dry, 0f, 94f, 0.80f, 13f, rng, 0.35f);
+        Latch(dry, 0.001f, 0.55f, rng, 1650f);
+        Sub(dry, 0.0f, 104f, 30f, 0.50f, 1.7f, 0.85f);
+
+        // 2. THE COLLAPSE — the body landing, then plate and weapon clattering down after it. The
+        // pieces are scattered and quieten as they go, the same rule WallBreak's rubble follows.
+        Thud(dry, 0.52f, 68f, 0.80f, 11f, rng, 0.25f);
+        Sub(dry, 0.52f, 82f, 34f, 0.34f, 3.2f, 0.30f);
+        for (int k = 0; k < 7; k++)
+        {
+            float at = 0.56f + k * 0.055f + (float)rng.NextDouble() * 0.04f;
+            float hz = 1500f + (float)rng.NextDouble() * 1100f;
+            Latch(dry, at, 0.34f * (1f - k / 8f), rng, hz);
+        }
+
+        // 3. THE TOLL — one low bell, settling a whole step down and ringing out under the dust.
+        // Nothing else in the game is a low bell, so this is unmistakably the end of something.
+        Bell(dry, 0.60f, 110f, 98f, 0.9f, 0.20f, 1.8f);
+
+        // 4. DUST — low noise swelling in after the collapse and thinning out over two seconds.
+        float lp = 0f;
+        for (int i = Mathf.RoundToInt(0.55f * SampleRate); i < dry.Length; i++)
+        {
+            float t = (float)i / SampleRate - 0.55f;
+            float nz = (float)(rng.NextDouble() * 2.0 - 1.0);
+            lp += (1f - Mathf.Exp(-2f * Mathf.PI * 620f / SampleRate)) * (nz - lp);
+            dry[i] += lp * Mathf.Clamp01(t / 0.08f) * Mathf.Exp(-1.9f * t) * 0.30f;
+        }
+
+        return Finalize(dry, 0.32f, 5000f);   // a big room, heard from inside it
+    }
+
+    // ⚠️ THIS REPEATS. The awakening stomps several times in a row, so the tail is short and the
+    // weight lives in the first 150ms — a long debris tail would smear consecutive stomps together.
+    private static AudioClip BuildBossStomp()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.75f)];
+        var rng = new System.Random(7702);
+
+        Thud(dry, 0f, 72f, 0.82f, 19f, rng, 0.25f);          // the foot, dead and heavy
+        Sub(dry, 0.0f, 90f, 34f, 0.56f, 6.0f, 0.18f);        // the floor taking it
+        Latch(dry, 0.004f, 0.22f, rng, 1800f);               // armour jolting
+        Latch(dry, 0.048f, 0.12f, rng, 2350f);
+
+        float lp = 0f;
+        for (int i = 0; i < dry.Length; i++)
+        {
+            float t = (float)i / SampleRate;
+            float nz = (float)(rng.NextDouble() * 2.0 - 1.0);
+            lp += (1f - Mathf.Exp(-2f * Mathf.PI * 900f / SampleRate)) * (nz - lp);
+            dry[i] += lp * Mathf.Clamp01((t - 0.012f) / 0.02f) * Mathf.Exp(-9f * t) * 0.26f;
+        }
+
+        return Finalize(dry, 0.22f, 5200f);
+    }
+
+    // The NinjaDash recipe at twice the mass: the same ingredients, an octave lower, with armour on.
+    // Keeping the two related is deliberate — "a body launching" should sound like one family.
+    private static AudioClip BuildBossLeap()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.58f)];
+        var rng = new System.Random(7703);
+
+        Rustle(dry, 0f, 0.050f, 0.36f, rng, 1000f, -1f);                  // moss and cloth pulled taut
+        Thud(dry, 0.002f, 96f, 0.50f, 30f, rng, 0.15f);                   // pushing off the stone
+        Latch(dry, 0.010f, 0.18f, rng, 2000f);                            // plate shifting
+        Whip(dry, 0.018f, 0.400f, 0.72f, rng, 220f, 1500f, 360f, 0f, 0f); // a LOT of air
+        Sub(dry, 0.005f, 70f, 40f, 0.30f, 9f, 0.20f);                     // weight leaving the floor
+
+        return Finalize(dry, 0.14f, 5500f);
+    }
+
+    // ⚠️ SHORT AND DRY, BECAUSE IT IS INSTANT. Traversal teleports you on the frame you touch the
+    // portal, so anything that swells arrives after you have. That is also why Portal.mp3 is NOT
+    // used here: it takes half a second to peak, which fits the portal OPENING and lags stepping
+    // through. This one is all attack — air sucked inward, then a small bell bloom as you land.
+    private static AudioClip BuildPortalPass()
+    {
+        var dry = new float[Mathf.CeilToInt(SampleRate * 0.40f)];
+        var rng = new System.Random(7704);
+
+        Whip(dry, 0f, 0.110f, 0.52f, rng, 5200f, 2600f, 520f, 0f, 0f);   // collapsing inward, like the blink
+        Bell(dry, 0.060f, 523f, 392f, 0.08f, 0.13f, 9f);                  // falls a fourth: you arrived
+
+        return Finalize(dry, 0.16f, 10000f);
     }
 
     private static float[] ApplyReverbAndWarmth(float[] dry, float wet, float masterLpHz)

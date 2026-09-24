@@ -1,0 +1,30 @@
+// THE WELL — recharge room (Shift + healing). Attached to a Fight/Elite node by the run map;
+// LevelManager.wellRoomPrefab. NOT a floor.
+//
+// Rules for every recharge room (2026-09-14):
+//   - No enemies. Nothing at stake.
+//   - FLAT from spawn to exit: zero mandatory jumps. The room gives Shift back; taxing a jump to
+//     reach the service or the door works against the room. Elevation only via a spawn ledge you
+//     DROP off (drops are free).
+//   - One job per room. The Well is 'H' and nothing else — no crystals, no chests, no NPCs.
+//   - "!recharge: on" is what stops the exit paying a free flawless clear / oath step / Nest Egg.
+//
+// Layout: spawn on a ledge, drop into a sunken courtyard with the well at its centre, walk out.
+
+!name: Well
+!recharge: on
+
+############################################
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#S.........................................#
+##########.................................#
+##########.................................#
+##########.................................#
+##########..........H...............X......#
+############################################

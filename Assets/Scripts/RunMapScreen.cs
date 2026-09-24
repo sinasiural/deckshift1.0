@@ -83,6 +83,7 @@ public class RunMapScreen : MonoBehaviour
     private CanvasGroup group;
     private TMP_FontAsset font;
     private TextMeshProUGUI footer, sub;
+    private RectTransform keyStrip;
 
     private bool mustChoose;
     private System.Action onChosen;
@@ -265,6 +266,121 @@ public class RunMapScreen : MonoBehaviour
         footer.rectTransform.anchoredPosition = new Vector2(0f, 20f);
         footer.rectTransform.sizeDelta = new Vector2(-120f, 24f);
         footer.characterSpacing = 4f;
+
+        BuildKey();
+    }
+
+    // The KEY — what every printed symbol means, drawn where a chart puts it: a strip along the
+    // bottom margin, between the viewport and the footer line (designer-requested 2026-09-14).
+    //
+    // It is part of the PRINT, so it is brown ink only — never the red pen, which is the player's
+    // hand. Each symbol is built from the same pieces the chart uses (paper disc, ink wash, ring,
+    // glyph; recharge badges at their real size) so the key shows exactly what the chart shows, not
+    // an icon that resembles it. Node marks are scaled to ~0.6 but keep their RELATIVE sizes,
+    // because size is half the type signal on this map — a key that drew Skirmish and Elite the
+    // same size would teach the wrong thing.
+    private void BuildKey()
+    {
+        const float SCALE = 0.60f;
+        const float ROW_Y = 78f;                 // centre of the strip, above the footer (y 20..44)
+        const float NODE_SLOT = 150f, BADGE_SLOT = 136f, CAPTION_W = 58f, GAP = 26f;
+
+        RectTransform key = AddPoint(window, "Key", new Vector2(0.5f, 0f), new Vector2(0f, ROW_Y),
+                                     new Vector2(WIN_W - 160f, 56f));
+        keyStrip = key;
+
+        var nodes = new[]
+        {
+            (MapNodeType.Skirmish,  "SKIRMISH", "EASY · THIN LOOT"),
+            (MapNodeType.Fight,     "FIGHT",    "HARDER · A CHEST"),
+            (MapNodeType.Elite,     "ELITE",    "HARDEST · BEST LOOT"),
+            (MapNodeType.Boss,      "BOSS",     "OPTIONAL"),
+            (MapNodeType.FinalBoss, "THE END",  "FINAL BOSS"),
+        };
+        var recharges = new[]
+        {
+            (RechargeType.Foundry, "FOUNDRY", "REPAIR CARDS"),
+            (RechargeType.Market,  "MARKET",  "SHOP"),
+            (RechargeType.Well,    "WELL",    "HEAL + SHIFT"),
+        };
+
+        float total = CAPTION_W + nodes.Length * NODE_SLOT + GAP + recharges.Length * BADGE_SLOT;
+        key.sizeDelta = new Vector2(total + 20f, 56f);   // read by FitWindowToCanvas for the narrow fit
+        float x = -total * 0.5f;
+
+        // "KEY" caption with a short rule under it — the same engraver's convention as the title.
+        TextMeshProUGUI cap = AddText(key, "Caption", "KEY", 13f, Parchment.Ink, TextAlignmentOptions.Left);
+        cap.rectTransform.anchoredPosition = new Vector2(x + CAPTION_W * 0.5f - 6f, 4f);
+        cap.rectTransform.sizeDelta = new Vector2(CAPTION_W, 20f);
+        cap.characterSpacing = 6f;
+        Image capRule = AddImage(key, "CaptionRule", FlatUI.FadedRule(), Fade(Parchment.Ink, 0.7f), false);
+        capRule.rectTransform.anchoredPosition = new Vector2(x + CAPTION_W * 0.5f - 12f, -9f);
+        capRule.rectTransform.sizeDelta = new Vector2(34f, 2f);
+        x += CAPTION_W;
+
+        foreach (var (type, name, gloss) in nodes)
+        {
+            float size = MapGlyphs.SizeFor(type) * SCALE;
+            float mark = size + 22f * SCALE;
+            float cx = x + mark * 0.5f + 6f;
+
+            RectTransform m = AddPoint(key, "Mark", new Vector2(0.5f, 0.5f), new Vector2(cx, 0f),
+                                       new Vector2(mark + 6f, mark + 6f));
+            Image wash = AddImage(m, "Wash", Parchment.Blot(), Fade(Parchment.InkPale, 0.20f), false);
+            wash.rectTransform.sizeDelta = new Vector2(mark - 3f, mark - 3f);
+            Image ring = AddImage(m, "Ring", Parchment.InkRing(false), Fade(Parchment.Ink, 0.80f), false);
+            ring.rectTransform.sizeDelta = new Vector2(mark, mark);
+            Image glyph = AddImage(m, "Glyph", MapGlyphs.ForNode(type), Parchment.Ink, false);
+            glyph.rectTransform.sizeDelta = new Vector2(size, size);
+
+            KeyLabel(key, cx + mark * 0.5f + 8f, name, gloss);
+            x += NODE_SLOT;
+        }
+
+        // A hairline between the two families — floors on the left, attachments on the right.
+        Image sep = AddImage(key, "Sep", FlatUI.FadedRule(), Fade(Parchment.Ink, 0.55f), false);
+        sep.rectTransform.anchoredPosition = new Vector2(x + GAP * 0.5f - 6f, 0f);
+        sep.rectTransform.sizeDelta = new Vector2(40f, 2f);
+        sep.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        x += GAP;
+
+        foreach (var (type, name, gloss) in recharges)
+        {
+            const float badge = 21f;             // exactly the chart's badge size
+            float mark = badge + 12f;
+            float cx = x + mark * 0.5f + 6f;
+
+            RectTransform b = AddPoint(key, "Badge", new Vector2(0.5f, 0.5f), new Vector2(cx, 0f),
+                                       new Vector2(mark, mark));
+            Image disc = b.gameObject.AddComponent<Image>();
+            disc.sprite = Parchment.Blot();
+            disc.color = Fade(Parchment.Paper, 0.95f);
+            disc.raycastTarget = false;
+            Image bring = AddImage(b, "BadgeRing", Parchment.InkRing(false), Fade(Parchment.Ink, 0.75f), false);
+            bring.rectTransform.sizeDelta = new Vector2(mark, mark);
+            Image bm = AddImage(b, "Mark", MapGlyphs.ForRecharge(type), Parchment.Ink, false);
+            bm.rectTransform.sizeDelta = new Vector2(badge, badge);
+
+            KeyLabel(key, cx + mark * 0.5f + 8f, name, gloss);
+            x += BADGE_SLOT;
+        }
+    }
+
+    // Name over a one-line gloss, left-aligned beside its symbol. Pivoted LEFT so the offset means
+    // "start here", not "centre here" — the text-pivot trap from the node labels.
+    private void KeyLabel(RectTransform parent, float left, string name, string gloss)
+    {
+        TextMeshProUGUI n = AddText(parent, "KeyName", name, 12.5f, Fade(Parchment.Ink, 0.88f), TextAlignmentOptions.Left);
+        n.rectTransform.pivot = new Vector2(0f, 0.5f);
+        n.rectTransform.anchoredPosition = new Vector2(left, 8f);
+        n.rectTransform.sizeDelta = new Vector2(120f, 16f);
+        n.characterSpacing = 3f;
+
+        TextMeshProUGUI g = AddText(parent, "KeyGloss", gloss, 10.5f, Fade(Parchment.InkSoft, 0.9f), TextAlignmentOptions.Left);
+        g.rectTransform.pivot = new Vector2(0f, 0.5f);
+        g.rectTransform.anchoredPosition = new Vector2(left, -7f);
+        g.rectTransform.sizeDelta = new Vector2(120f, 14f);
+        g.characterSpacing = 1.5f;
     }
 
     // Two vertical creases and one horizontal — the way a pocket map is actually folded.
@@ -425,6 +541,16 @@ public class RunMapScreen : MonoBehaviour
         float w = Mathf.Min(WIN_W, r.width - MARGIN);
         float h = Mathf.Min(WIN_H, r.height - MARGIN);
         window.sizeDelta = new Vector2(w, h);
+
+        // The key is a fixed-width row of symbols with nothing to reflow, so on a sheet narrower
+        // than it was drawn for it shrinks uniformly (never above 1) rather than spilling off the
+        // deckle. The chart itself reflows and needs no such thing.
+        if (keyStrip != null)
+        {
+            float need = keyStrip.sizeDelta.x + 60f;
+            float s = w < need ? Mathf.Max(0.6f, w / need) : 1f;
+            keyStrip.localScale = new Vector3(s, s, 1f);
+        }
     }
 
     // Unfolding, not fading in. The sheet arrives slightly small and settles, which is the closest a

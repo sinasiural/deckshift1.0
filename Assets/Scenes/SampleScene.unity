@@ -1631,8 +1631,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 448187557}
-  - component: {fileID: 448187558}
-  - component: {fileID: 448187559}
   m_Layer: 5
   m_Name: HandController
   m_TagString: Untagged
@@ -1649,7 +1647,7 @@ RectTransform:
   m_GameObject: {fileID: 448187556}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.8, y: 0.8, z: 0.8}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1806883982}
@@ -1659,46 +1657,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: -3.6499634}
   m_SizeDelta: {x: 0, y: 100}
   m_Pivot: {x: 0.5, y: 0}
---- !u!114 &448187558
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 448187556}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Padding:
-    m_Left: 0
-    m_Right: 0
-    m_Top: 0
-    m_Bottom: 0
-  m_ChildAlignment: 4
-  m_Spacing: 50
-  m_ChildForceExpandWidth: 1
-  m_ChildForceExpandHeight: 0
-  m_ChildControlWidth: 1
-  m_ChildControlHeight: 1
-  m_ChildScaleWidth: 0
-  m_ChildScaleHeight: 0
-  m_ReverseArrangement: 0
---- !u!114 &448187559
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 448187556}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_HorizontalFit: 2
-  m_VerticalFit: 0
 --- !u!1 &498330507
 GameObject:
   m_ObjectHideFlags: 0
@@ -4296,7 +4254,15 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 6176739808bedcc4e8bac1bfe479058a, type: 2}
   - {fileID: 11400000, guid: 84c39893ddb502e418274d91be7b698e, type: 2}
   - {fileID: 11400000, guid: 5aa353438259d5a45b5b0cd62b5b78bf, type: 2}
+  - {fileID: 11400000, guid: 523cee4ce9c65d749ba3e978c44ae531, type: 2}
+  - {fileID: 11400000, guid: 84c39893ddb502e418274d91be7b698e, type: 2}
+  - {fileID: 11400000, guid: a16d94c42ae7497ebcf2faf64c862ec9, type: 2}
+  - {fileID: 11400000, guid: 4ed05ca2f31dc07448877e4390a4ee60, type: 2}
+  - {fileID: 11400000, guid: f9f9c514781f8a94681c0e4854777871, type: 2}
+  - {fileID: 11400000, guid: 7714926994241fe46b0e14f010dcb23c, type: 2}
+  - {fileID: 11400000, guid: 6176739808bedcc4e8bac1bfe479058a, type: 2}
   staggerCardData: {fileID: 11400000, guid: 05d4bd0adf108bd46b120738ac1c1c36, type: 2}
+  salvagedShurikenCardData: {fileID: 11400000, guid: 21de1f4887b0b7b4cb0f20b799addabc, type: 2}
   handCapacity: 3
 --- !u!4 &1329495661
 Transform:
@@ -4390,9 +4356,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardUIPrefab: {fileID: 1348322462062635029, guid: fe02ae68f50b6ec4fb5e2778d2693f30, type: 3}
   handContainer: {fileID: 448187557}
+  cardScale: 0.8
+  cardPitch: 166
+  maxSpread: 1000
+  tiltStep: 0
+  maxTilt: 14
+  arcDrop: 0
+  baselineY: -120
+  hoverLift: 145
   drawPilePosition: {fileID: 2105270694}
-  cardFlySpeed: 20
-  dealDelay: 0.05
+  dealFlyTime: 0.28
+  dealStagger: 0.06
+  popInTime: 0.14
   drawSound: {fileID: 8300000, guid: 90f19d82f9c8ca441a523a8df23c4b29, type: 3}
   soundVolume: 0.5
 --- !u!1 &1361928414
@@ -4440,10 +4415,12 @@ MonoBehaviour:
   - {fileID: 7246367665097476663, guid: 22013b5d339ad5c4094097d62d2c2d52, type: 3}
   bossRoomPrefabs:
   - {fileID: 5541417418447933751, guid: ff595fd158fe26a43874b0d5a704a9c9, type: 3}
+  - {fileID: 5690726939509648437, guid: f8fbe4a0fbbda224586e7456b5ef8e98, type: 3}
+  - {fileID: 2878295946641621518, guid: 88d320750502e9d4eb2a42acefa1577b, type: 3}
   finalBossRoomPrefab: {fileID: 5541417418447933751, guid: ff595fd158fe26a43874b0d5a704a9c9, type: 3}
-  foundryRoomPrefab: {fileID: 0}
-  marketRoomPrefab: {fileID: 0}
-  wellRoomPrefab: {fileID: 0}
+  foundryRoomPrefab: {fileID: 1383104556657681250, guid: c44a01256f84fe44eb4153a0ecf66ae3, type: 3}
+  marketRoomPrefab: {fileID: 4474822822311175245, guid: a8d0405d28bc6734ea6284262fb3959f, type: 3}
+  wellRoomPrefab: {fileID: 1834098059339314543, guid: 2d3496bd72b75e54b84661965fc9e1c0, type: 3}
   outOfBoundsMargin: 14
 --- !u!4 &1361928416
 Transform:
@@ -6098,11 +6075,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   handContainer: {fileID: 448187557}
-  hiddenY: -150
-  visibleY: -25
+  restY: -9
+  lockedY: -320
   slideSpeed: 15
-  isHovered: 0
-  isCardDragging: 0
   isLocked: 0
 --- !u!114 &1806883984
 MonoBehaviour:
@@ -6498,6 +6473,23 @@ MonoBehaviour:
     showMax: 1
     numberColor: {r: 0.86, g: 0.84, b: 1, a: 1}
     maxNumberColor: {r: 0.62, g: 0.6, b: 0.78, a: 1}
+  armourGap: 4
+  armourBarHeight: 12
+  armourBarReference: 10
+  armourStyle:
+    segmented: 1
+    unitsPerSegment: 5
+    segmentGap: 3
+    pipMode: 0
+    fill: {r: 0.74, g: 0.8, b: 0.88, a: 1}
+    empty: {r: 0.16, g: 0.17, b: 0.2, a: 1}
+    chip: {r: 1, g: 0.66, b: 0.3, a: 1}
+    low: {r: 0.74, g: 0.8, b: 0.88, a: 1}
+    lowThreshold: 0
+    warnWhenLow: 0
+    showMax: 0
+    numberColor: {r: 0.88, g: 0.92, b: 1, a: 1}
+    maxNumberColor: {r: 0.6, g: 0.64, b: 0.72, a: 1}
 --- !u!1 &2073182258
 GameObject:
   m_ObjectHideFlags: 0

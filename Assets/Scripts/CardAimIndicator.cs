@@ -393,7 +393,7 @@ public class CardAimIndicator : MonoBehaviour
         if (!shurikenRoot.activeSelf) shurikenRoot.SetActive(true);
 
         Vector2 origin = player.ShurikenOrigin;
-        Vector2 aim = (Vector2)c.ScreenToWorldPoint(Input.mousePosition) - origin;
+        Vector2 aim = (Vector2)c.ScreenToWorldPoint(GameInput.MousePosition) - origin;
         if (aim.sqrMagnitude < 0.0001f) aim = new Vector2(player.isFacingRight ? 1f : -1f, 0f);
         aim.Normalize();
 
@@ -712,7 +712,7 @@ public class CardAimIndicator : MonoBehaviour
         if (cam == null) cam = Camera.main;
         if (cam == null) return;
 
-        Vector2 mouse = cam.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 mouse = cam.ScreenToWorldPoint(GameInput.MousePosition);
         portalGhost.transform.position = new Vector3(mouse.x, mouse.y, 0f);
 
         // Before the first placement the bubble is around the PLAYER (portalPlaceRange); once the
@@ -785,7 +785,7 @@ public class CardAimIndicator : MonoBehaviour
         Camera c = player.mainCamera != null ? player.mainCamera : cam;
         if (c == null) return;
 
-        Vector2 mouse = c.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 mouse = c.ScreenToWorldPoint(GameInput.MousePosition);
         platformRoot.transform.position = new Vector3(mouse.x, mouse.y, 0f);
 
         Color pc = platformGhostColor;

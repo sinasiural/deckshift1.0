@@ -61,30 +61,40 @@ not on free ones. Confirm which tier produced these and write the answer here.
 
 ## 3. ⚠️ THE SHOPPING LIST — what is silent right now
 
-Found by scanning every `AudioClip` field on every prefab: **103 empty slots.** Collapsed to
-the distinct sounds actually missing, on the prefabs that ship:
+✅ **NOTHING ON THE RUN'S PATH IS SILENT ANY MORE (re-audited 2026-09-24).** Every slot below is
+filled with a **procedural placeholder** baked to `Assets/Audio/Procedural/*.wav` by
+`Deckshift → Fill Silent Audio Slots`. These are placeholders, so the list is still the
+**shopping list**: drop a real clip into the slot and it replaces the placeholder. The tool
+only ever writes to empty slots, so it never overwrites a clip you picked.
 
-| Sound needed | Slot | Affects |
+| Sound (placeholder in use) | Slot | Affects |
 |---|---|---|
-| Zombie melee swing | `MeleeEnemyAI.attackSound` on **Shambler** and **Rotbrute** | ~27 enemies, the largest group in the game |
-| Spit / retch | `ZombieSpitterAI.spitSound` on **Spitter** | 7 enemies |
-| Altar payment accepted | `ShiftAltar.paySound` | every altar |
-| Altar refuses (can't afford) | `ShiftAltar.refuseSound` | every altar |
-| Wall/bookshelf shattering | `BreakableWall.breakSound` | every breakable |
-| Boss death | `MossKnightBoss.deathSound` | the run's finale has no death sound |
-| Boss ground pound | `MossKnightBoss.poundSound` | |
-| Boss leap | `MossKnightBoss.leapSound` | |
-| Glass Parry | `PlayerController.glassParrySound` | a card |
-| Freefall Blade | `PlayerController.freefallBladeSound` | a card |
+| Zombie melee swing (`ZombieSwing`) | `MeleeEnemyAI.attackSound` | ~27 enemies |
+| Spit / retch (`SpitterSpit`) | `ZombieSpitterAI.spitSound` | 7 enemies |
+| Altar pays / refuses (`AltarPay`, `AltarRefuse`) | `ShiftAltar.paySound` / `refuseSound` | every altar |
+| Wall shattering (`WallBreak`) | `BreakableWall.breakSound` | every breakable |
+| Glass Parry, Freefall Blade | `PlayerController.glassParrySound` / `freefallBladeSound` | two cards |
+| **Boss death (`BossDeath`)** | `deathSound` on **MossKnightBoss, NinjaBoss, KagemushaBoss** | all three bosses; **every boss death was silent until 2026-09-24** |
+| **Moss Knight stomp / leap (`BossStomp`, `BossLeap`)** | `MossKnightBoss.poundSound` / `leapSound` | the awakening and the leap |
+| Drinking from the Well | `RestWell.drinkSound` (runtime fallback `ProcSfx.WellDraw`/`WellSurge`) | every Well |
+| **Portal opening** | `Portal.openSound` = the existing **`Portal.mp3`** (a real file, not a placeholder) | Portal card |
+| **Walking through a portal** | `Portal.traverseSound` (empty; runtime fallback `ProcSfx.PortalPass`) | Portal card |
 
-**Eleven sounds.** That is the whole gap, and it is a much smaller job than "the audio needs
-work" suggested.
+⚠️ **`BossDeathVFX` falls back to `ProcSfx.BossDeath` in code** when a boss passes it an empty
+slot. Every boss death goes through it, so a new boss can never be silent at death, even
+before anyone runs the filler.
 
-⚠️ `PF Knight - Moss` also lists nine empty slots — that is the **raw Cainos prefab**, not the
-encounter (`MossKnightBoss` is). Ignore it.
+⚠️ **`Portal.mp3` is on OPENING, not traversal, on purpose.** It takes 0.5s to peak and fades out
+by 1.5s. Traversal is instant, so a sound that is still rising after you arrive feels laggy.
+Traversal wants something short and punchy.
 
-⚠️ `Assets/Audio/SFX/Cards/Portal.mp3` exists but **the `Portal` component has no AudioClip
-field at all**, so there is nowhere to assign it. Needs a code hook before it can be used.
+⚠️ **The filler's boss entries are keyed `Type.field`** (`MossKnightBoss.deathSound`), not the
+bare field name, so a future small enemy with an empty `deathSound` doesn't get a boss-sized death.
+
+**Still empty, not on the run's path:** `sinasiBigLevel` (Chest, RangedEnemyAI, CrusherTrap —
+this room is not in `roomPrefabs`), and the Moss Knight's roar/cleave/charge/slam/lob/hurt
+on the unused `YeniLeveller/PF Knight - Moss` copy only (the real encounter has them).
+The portal **placement** (first click) plays no sound.
 
 **Already fixed during this pass:** `SlimeAI.attackSound` was empty on every slime *while
 `SlimeAttack.wav` sat in the project unreferenced* — the right file had been downloaded and

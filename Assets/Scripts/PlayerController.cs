@@ -535,18 +535,20 @@ public class PlayerController : MonoBehaviour
 
         if (currentState == PlayerState.InCannon) return;
 
+        // Player inputs read through GameInput so a script (TrailerDirector) can stand in for the
+        // keyboard; with nothing driving it is a plain pass-through to Input.
         if (isPhasing)
         {
-            moveInput = Input.GetAxisRaw("Horizontal");
-            verticalInput = Input.GetAxisRaw("Vertical");
+            moveInput = GameInput.Horizontal;
+            verticalInput = GameInput.Vertical;
         }
         else if (isSwimming)
         {
             // Free 8-directional swim. Jump kicks upward to break the surface.
-            moveInput = Input.GetAxisRaw("Horizontal");
-            verticalInput = Input.GetAxisRaw("Vertical");
+            moveInput = GameInput.Horizontal;
+            verticalInput = GameInput.Vertical;
 
-            if (Input.GetButtonDown("Jump")) PerformSwimJump();
+            if (GameInput.JumpDown) PerformSwimJump();
 
             if (moveInput > 0 && !isFacingRight) Flip();
             else if (moveInput < 0 && isFacingRight) Flip();
@@ -558,7 +560,7 @@ public class PlayerController : MonoBehaviour
             else coyoteTimer -= Time.deltaTime;
 
             // Jump buffering: the press is remembered rather than consumed on the frame it arrives.
-            if (Input.GetButtonDown("Jump")) jumpBufferTimer = jumpBufferTime;
+            if (GameInput.JumpDown) jumpBufferTimer = jumpBufferTime;
             else jumpBufferTimer -= Time.deltaTime;
 
             // Retried every frame while the buffer is live, and cleared only when a jump ACTUALLY
@@ -573,7 +575,7 @@ public class PlayerController : MonoBehaviour
             HandleBossRelicInput();
 
             if (currentState == PlayerState.Idle || currentState == PlayerState.Running || currentState == PlayerState.Jumping)
-                moveInput = Input.GetAxisRaw("Horizontal");
+                moveInput = GameInput.Horizontal;
             else
                 moveInput = 0;
 
@@ -605,7 +607,7 @@ public class PlayerController : MonoBehaviour
                 }
                 rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fall - 1) * Time.deltaTime * gravitySign;
             }
-            else if (rb.linearVelocity.y * gravitySign > 0 && !Input.GetKey(KeyCode.Space))
+            else if (rb.linearVelocity.y * gravitySign > 0 && !GameInput.JumpHeld)
             {
                 rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime * gravitySign;
             }
@@ -1044,7 +1046,7 @@ public class PlayerController : MonoBehaviour
             // expense in the game, and decrementing the field directly skipped the quest hook that
             // hangs off SpendShift — so the Featherweight oath ("spend 8 Shift or less in a room")
             // was silently not counting jumps at all.
-            if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
+            if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())
             {
                 // A Ghost Step jump spends the charge instead of the Shift. Consumed here rather
                 // than at the check above so a jump that never happens cannot burn one.
@@ -1481,12 +1483,12 @@ public class PlayerController : MonoBehaviour
     private void TryGrapnel()
     {
         if (currentShift < grapnelShiftCost
-            && (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())) return;
+            && (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())) return;
 
         Camera cam = Camera.main;
         if (cam == null) return;
 
-        Vector3 mouse = cam.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 mouse = cam.ScreenToWorldPoint(GameInput.MousePosition);
         Vector2 origin = (Vector2)transform.position + Vector2.up * 0.85f;   // chest, not feet
         Vector2 dir = ((Vector2)mouse - origin).normalized;
         if (dir.sqrMagnitude < 0.01f) return;
@@ -1496,7 +1498,7 @@ public class PlayerController : MonoBehaviour
         RaycastHit2D hit = Physics2D.Raycast(origin, dir, grapnelRange, terrainLayer);
         if (hit.collider == null) return;
 
-        if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
+        if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())
             SpendShift(grapnelShiftCost);
 
         StartCoroutine(GrapnelRoutine(hit.point));
@@ -1584,7 +1586,7 @@ public class PlayerController : MonoBehaviour
     {
         if (currentShift <= 0) return false;
 
-        if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
+        if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())
             SpendShift(1);
 
         Flip();
@@ -1710,7 +1712,7 @@ public class PlayerController : MonoBehaviour
         if (mainCamera == null) return;
 
         Vector2 origin = ShurikenOrigin;
-        Vector2 aim = (Vector2)mainCamera.ScreenToWorldPoint(Input.mousePosition) - origin;
+        Vector2 aim = (Vector2)mainCamera.ScreenToWorldPoint(GameInput.MousePosition) - origin;
         if (aim.sqrMagnitude < 0.0001f) aim = new Vector2(isFacingRight ? 1f : -1f, 0f);
         aim.Normalize();
 
@@ -1739,7 +1741,12 @@ public class PlayerController : MonoBehaviour
         // like the star spawned beside him.
         Vector2 origin = ShurikenOrigin;
 
-        SfxManager.PlayOn(audioSource, shurikenThrowSound);
+        // ⚠️ THE PROCEDURAL CLIP IS THE DEFAULT NOW, and the Inspector field is an OVERRIDE.
+        // The old assigned whoosh was a generic swing — the designer rejected it (2026-08-22) — and
+        // the reason it never sounded like a shuriken is that a shuriken's identity is the SPIN, not
+        // the speed. `ProcSfx.ShurikenThrow` chops the air stream at 62 Hz for exactly that. The
+        // field is left in place so a bought or recorded clip can still win without a code change.
+        SfxManager.PlayOn(audioSource, shurikenThrowSound != null ? shurikenThrowSound : ProcSfx.ShurikenThrow);
         HideHeldWeapon(0.28f);
         Shuriken.Spawn(origin + aim * 0.3f, aim, damage, src, shurikenSprite);
 
@@ -1897,7 +1904,8 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     public void ScoreRoomRelics()
     {
-        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub()) return;
+        // Hub and recharge rooms cost nothing to cross, so they must not pay Nest Egg.
+        if (LevelManager.instance != null && !LevelManager.instance.IsCurrentRoomCombat()) return;
         if (RelicManager.instance == null || !RelicManager.instance.HasRelic("NestEgg")) return;
         if (shiftSpentThisRoom > NestEggShiftCeiling) return;
 
@@ -2022,7 +2030,7 @@ public class PlayerController : MonoBehaviour
         if (portalPrefab == null) return false;
         if (mainCamera == null) return false;
 
-        Vector2 mousePos = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 mousePos = mainCamera.ScreenToWorldPoint(GameInput.MousePosition);
 
         // Out of range or inside rock: refuse without cost and keep the card. The aim indicator has
         // already been showing this spot as invalid, so a refusal here is never a surprise.
@@ -2758,7 +2766,7 @@ public class PlayerController : MonoBehaviour
         // The trade itself is a resource change, so the umbrella hub rule covers it: in the sandbox
         // the flail happens, nothing is bought and nothing is paid — including the escalation, which
         // is permanent run state and so must not advance there either.
-        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub()) return;
+        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox()) return;
 
         float cost = NextStaggerCost;
         staggerCount++;
