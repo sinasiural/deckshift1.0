@@ -23,9 +23,15 @@ public class RunMapSettings
     // It also widens the boss maths comfortably: optional bosses start at floor 3 and need 2 floors
     // between them, so the placeable slots run 3, 5, 7 … 18 — nine of them, against a 2–5 range, so
     // the generator has spare legal spots even after avoidability rejections.
-    [Tooltip("Total rows INCLUDING the hub row and the final boss row. 20 = hub + 18 combat floors " +
-             "+ the final boss. The map screen scrolls, so this is not limited by screen height.")]
-    public int floors = 20;
+    //
+    // ⚠️ TEMPORARILY 10 FOR THE PLAYTEST DEMO (designer, 2026-09-24). 20 floors outran the 11 combat
+    // rooms, so every run repeated layouts; 10 = hub + 8 combat floors + the final boss, which the pool
+    // covers without repeats and plays in roughly 20-25 minutes. Measured over 300 seeds at 10: zero
+    // invalid maps, 0-3 optional bosses (avg 1.9). Put it back to 20 once more rooms exist.
+    [Tooltip("Total rows INCLUDING the hub row and the final boss row. 10 = hub + 8 combat floors " +
+             "+ the final boss (demo length; the full run is 20). The map screen scrolls, so this is " +
+             "not limited by screen height.")]
+    public int floors = 10;
 
     [Tooltip("Widest the act can get, in columns.")]
     public int width = 5;

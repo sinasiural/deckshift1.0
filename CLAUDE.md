@@ -596,6 +596,33 @@ All guards use the pattern: `if (LevelManager.instance == null || !LevelManager.
 
 **When adding new player-resource consumption code,** check whether it should also be gated by `IsCurrentRoomSandbox()`. The pattern is: at every consumption site, ask "should this be free in a sandbox?" — almost always yes.
 
+### The Tutorial room (built 2026-09-24, for the playtest demo)
+
+**Flow:** the main menu's TUTORIAL button, or the "First time here?" prompt (`FirstTimePrompt`) on
+the very first PLAY, calls `TutorialMode.Begin()`: it loads SampleScene as the **Wizard**, and
+`LevelManager` spawns `tutorialRoomPrefab` INSTEAD of the hub as the first room. The tutorial's exit
+calls `TutorialMode.Finish()`, which returns to the main menu (designer's choice) and records
+`PlayerPrefs["Deckshift.TutorialDone"]` so the prompt never asks again. Skipping the prompt records
+it too. Delete that key to see the prompt again when testing.
+
+⚠️ **`TutorialMode` is a REQUEST CONSUMED ONCE, not a mode left switched on.** `LevelManager` reads it
+on its first spawn and clears it; after that the ROOM answers `IsCurrentRoomTutorial()` (a
+`TutorialRoom` on its root). A long-lived flag would survive a tutorial abandoned from the pause menu
+and drop the player's next PLAY back into the tutorial.
+
+⚠️ **The tutorial is NEITHER a sandbox NOR combat.** Jumps, Recall and altars cost Shift there, by
+design: the player must see the counter fall. What it waives instead are the two things that could
+strand a new player: **card charges** are never spent (`DeckManager`, the `keepCharges` flag), and
+**death** respawns the player at the last sign, healed, with Shift topped up to at least 10
+(`PlayerHealth` + `TutorialRoom`). Not combat, so leaving it pays no flawless clear, oath step or
+Nest Egg. The room is also the one approved exception to Level Design Law 1: two gates open only on
+a kill (`TutorialGate`) and one wall needs Create Platform.
+
+**Authoring:** edit `Assets/LevelTexts/Tutorial.txt` (layout, and the `!signN` lines holding each
+chalk sign's keys and caption), then run **Deckshift → Build Tutorial Room**. It rebuilds the prefab
+from scratch AND re-wires SampleScene, so **never hand-edit `Tutorial.prefab`**; the next build
+replaces it. Full detail in `/deckshift-levels` → Tutorial Room.
+
 ### What Hub Does NOT Hide
 
 UI is intentionally unchanged in hub. The shift counter, card hand, recall button — all visible and operate normally. Only the underlying mechanics are gated. This is so the hub can act as a tutorial space where the player sees the UI react.
@@ -1276,6 +1303,10 @@ PlayerController overrides, and footstep wiring that was never committed had bee
 - Expand the Glass and Vampiric archetypes.
 - ⚠️ **ACTS ARE GONE (designer, 2026-08-21). Do not plan around them.** A run is now ONE map of
   **20 floors** with **2–5 OPTIONAL boss nodes** the player routes into or around, ending at a
+  single unique **FinalBoss**. ⚠️ **TEMPORARILY 10 FLOORS for the playtest demo (2026-09-24)**
+  (`RunMapSettings.floors`): 20 outran the 11 combat rooms, so every run repeated layouts. At 10 a
+  map carries 0–3 optional bosses. Put it back to 20 once there are enough rooms. The rest of this
+  entry describes the full-length design: a run ending at a
   single unique **FinalBoss**. `MapNodeType.Boss` is a mid-map node standing in a column like any
   other; `MapNodeType.FinalBoss` is the terminus. Every optional boss is *proven* avoidable
   (`RunMap.IsAvoidable`, enforced in `Validate`). A boss REPLACES a floor rather than adding one, so
@@ -1305,11 +1336,9 @@ PlayerController overrides, and footstep wiring that was never committed had bee
   acid arena. The memory note "bosses are characters" says the Moss Knight is meant to become an
   elite, since every boss should be a character. The **Ninja boss** (`BossDesign_Ninja.md`; its
   low-HP phase, name and relic are unbuilt) and **Kagemusha** (`BossDesign_Samurai.md`; its Body
-  Double relic, sound family and arena props are unbuilt) are playable. ⚠️ **As of 2026-09-24 the
-  Ninja boss's files are UNTRACKED in git** (`NinjaBoss.cs`, `NinjaBoss.prefab`, `NinjaArena.prefab`,
-  `BossShuriken.cs`, `BossKatana.cs`, the Borrowed Steel card, the design doc), as are the recharge
-  rooms, `RoomCamera`, `GameInput` and others the committed code depends on. A fresh clone would not
-  compile until they are committed.
+  Double relic, sound family and arena props are unbuilt) are playable. (Their files sat untracked in
+  git until the 2026-09-24 checkpoint commit `c66b4c3`; **commit new work as you go** — a fresh clone
+  of the repo would not have compiled.)
   - ⚠️ **`LevelManager.bossRoomPrefab` NO LONGER EXISTS.** It is `bossRoomPrefabs` (a List, drawn
     without repeating within a run) plus a separate `finalBossRoomPrefab`.
   - ⚠️ **A boss relic does NOT imply a keybind.** `Rarity.Boss` is an acquisition channel;

@@ -33,6 +33,11 @@ public class LevelManager : MonoBehaviour
     [Tooltip("Shift and healing. Leave empty and no Well is ever drawn on the map.")]
     public GameObject wellRoomPrefab;
 
+    [Header("Tutorial")]
+    [Tooltip("Spawned INSTEAD of the hub when the main menu starts the tutorial (TutorialMode). Its " +
+             "exit returns to the main menu. Built by Deckshift → Build Tutorial Room.")]
+    public GameObject tutorialRoomPrefab;
+
     private GameObject currentRoom;
     private bool hasSpawnedFirstRoom = false;
 
@@ -151,6 +156,9 @@ public class LevelManager : MonoBehaviour
             pendingRecharge = RechargeType.None;
             mapMgr.BeginRun(SpawnableRecharges());
             mapMgr.EnterStart();
+            // The tutorial stands in for the hub as the first room. The map is still generated, so
+            // the tutorial's "press M" sign opens a real map rather than nothing.
+            if (TutorialMode.ConsumeRequest() && tutorialRoomPrefab != null) return tutorialRoomPrefab;
             return roomPrefabs[0];
         }
 
@@ -321,6 +329,7 @@ public class LevelManager : MonoBehaviour
         {
             hasSpawnedFirstRoom = true;
             BuildLevelQueue();
+            if (TutorialMode.ConsumeRequest() && tutorialRoomPrefab != null) return tutorialRoomPrefab;
             return roomPrefabs[0];
         }
 
@@ -371,6 +380,13 @@ public class LevelManager : MonoBehaviour
     // required) — so opening it with nothing clickable would be an unescapable screen.
     public void AdvanceToNextRoom()
     {
+        // The tutorial is a room with no run behind it: its exit goes back to the main menu.
+        if (IsCurrentRoomTutorial())
+        {
+            TutorialMode.Finish();
+            return;
+        }
+
         RunMapManager mgr = RunMapManager.instance;
 
         if (mgr == null || !mgr.HasMap || mgr.AvailableNext().Count == 0)
@@ -570,7 +586,18 @@ public class LevelManager : MonoBehaviour
     public bool IsCurrentRoomCombat()
     {
         if (currentRoom == null) return false;
-        return !IsCurrentRoomHub() && !IsCurrentRoomRecharge();
+        return !IsCurrentRoomHub() && !IsCurrentRoomRecharge() && !IsCurrentRoomTutorial();
+    }
+
+    // True in the tutorial room (TutorialRoom on its root). ⚠️ Deliberately NOT a sandbox: the designer
+    // wants jumps to cost Shift there so the player sees the counter fall and learns it does not come
+    // back. What the tutorial waives instead is card CHARGES (DeckManager) and DEATH (PlayerHealth), the
+    // two things that could strand a new player in a room they cannot finish. Not combat either, so
+    // leaving it pays no flawless clear, oath step or Nest Egg.
+    public bool IsCurrentRoomTutorial()
+    {
+        if (currentRoom == null) return false;
+        return currentRoom.GetComponent<TutorialRoom>() != null;
     }
 
     // THE UMBRELLA RULE'S TEST. True in the hub AND in a recharge room (designer, 2026-09-14:

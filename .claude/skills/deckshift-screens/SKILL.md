@@ -28,6 +28,29 @@ SampleScene's main Canvas contains:
 
 **When adding new full-screen UI panels**, hide GameplayHUD when they open by adding a `[SerializeField] GameObject gameplayHUD;` reference and toggling SetActive. ShopManager and QuestBoardScreen already follow this pattern.
 
+### The tutorial's two surfaces (2026-09-24)
+
+**`FirstTimePrompt`** — "First time here?", asked once on the first PLAY. A plank board on chains
+(`SalvageScreen.BuildBoard`, the pause screen's object) dropped over the main menu, with two CLONES
+of the menu's own PLAY plaque: **"Play tutorial" / "Skip tutorial"**. The designer rejected "Show me
+how" / "Just play": **a button must name exactly what it does.** Enter plays the tutorial; Escape backs
+out without answering (it will ask again).
+- ⚠️ **THE MAIN MENU'S PLAQUES ARE ROTATED 180° AND FLIPPED BACK BY A -1.05 SCALE.** It cancels out on
+  screen, so nothing looks wrong until you copy one: resetting only the scale turned the label upside
+  down. Reset both rotation and scale on any clone.
+- ⚠️ **The plaque sprite (`button2_0`) is Simple with no 9-slice border**, so its end ornaments stretch
+  with its width and each covers about a quarter of it. Labels are inset by a FRACTION of the width
+  (0.30) and shrunk deterministically to fit; fixed pixel insets kept letting the text touch the arrows.
+- The clone carries the template's PERSISTENT `PlayGame` call: replace `onClick` with a fresh event.
+  `RemoveAllListeners` does not remove persistent calls.
+
+**`TutorialSign`** — chalk writing on the room's wall: hand-drawn key boxes over a caption, the
+`ExitMarker` material (Salvage.Chalk, a value, not a hue). A world-space canvas at the room's Z behind
+the play plane, so actors walk in front of it. Default sorting layer, order 0: above the Background
+backdrop, below the Ground tiles. Faint (0.30) from across the room, full (0.92) up close, so the next
+sign reads as waiting ahead. Type sizes are UIType roles × `100 / (1080/14)`, so a role renders at the
+same on-screen size in the world as on a menu.
+
 ### `FlatUI.cs` — the new UI direction (2026-08-03)
 
 **The designer has disliked the ornate stone-and-gold chrome "since the beginning."** `FlatUI.cs` is the replacement, prototyped on the Scrap Forge screen.

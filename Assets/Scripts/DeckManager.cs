@@ -258,10 +258,15 @@ public class DeckManager : MonoBehaviour
                 player.ExecuteAction(data.actionType, actionValue, out bool _);
             }
             bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
+            // The tutorial keeps charges too, though it is not a sandbox (it charges Shift): a new
+            // player who wasted Create Platform's charges would otherwise be stuck under the wall it
+            // teaches, with no way to finish the room.
+            bool keepCharges = inHub
+                || (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomTutorial());
             // Blompo: several blessings can skip the charge (Sleight of Hand, Slow Burn, the first
             // Teacher's Pet play each room). `- 1` because this card's own play was just counted.
             bool spendCharge = CardEnhancements.ShouldSpendCharge(playedCard, cardsPlayedThisRoom - 1);
-            if (!playedCard.isInfinite && !inHub && spendCharge) playedCard.currentUses--;
+            if (!playedCard.isInfinite && !keepCharges && spendCharge) playedCard.currentUses--;
 
             // ⚠️ STAGGER ENTERS NO PILE. It is not a card the player owns — it is conjured into the
             // hand whenever Shift hits zero and evaporates when spent. Letting it fall through to
@@ -297,7 +302,7 @@ public class DeckManager : MonoBehaviour
             {
                 hand.Add(playedCard);
             }
-            else if (inHub || (playedCard.isInfinite || playedCard.currentUses > 0) && (!data.singleUse || playedCard.isInfinite))
+            else if (keepCharges || (playedCard.isInfinite || playedCard.currentUses > 0) && (!data.singleUse || playedCard.isInfinite))
             {
                 discardPile.Add(playedCard);
             }

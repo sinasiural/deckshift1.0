@@ -205,6 +205,17 @@ public class PlayerHealth : MonoBehaviour
 
         if (currentHealth <= 0)
         {
+            // The tutorial has no game over: a lethal hit (or an unaffordable Stagger bill) puts the
+            // player back at the last sign they passed, healed. Losing the whole tutorial to one
+            // zombie would teach nothing except that the tutorial is a chore.
+            if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomTutorial())
+            {
+                currentHealth = maxHealth;
+                FallAndRespawn();
+                StartCoroutine(GrantInvincibility(1f));
+                return;
+            }
+
             // Phoenix Cog: once per run, a lethal hit leaves you at 1 HP and erupts instead.
             if (RelicManager.instance != null && RelicManager.instance.TryConsumePhoenixCog())
             {

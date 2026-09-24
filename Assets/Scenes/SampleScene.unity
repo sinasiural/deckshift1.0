@@ -1923,6 +1923,7 @@ MonoBehaviour:
   target: {fileID: 5274940026035738714}
   offset: {x: 0, y: 0}
   focusSmoothTime: 0.28
+  handRailPx: 170
 --- !u!114 &519420036
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4421,6 +4422,7 @@ MonoBehaviour:
   foundryRoomPrefab: {fileID: 1383104556657681250, guid: c44a01256f84fe44eb4153a0ecf66ae3, type: 3}
   marketRoomPrefab: {fileID: 4474822822311175245, guid: a8d0405d28bc6734ea6284262fb3959f, type: 3}
   wellRoomPrefab: {fileID: 1834098059339314543, guid: 2d3496bd72b75e54b84661965fc9e1c0, type: 3}
+  tutorialRoomPrefab: {fileID: 4964909901573821141, guid: dadadd3adcf90bf418e855cef2947f76, type: 3}
   outOfBoundsMargin: 14
 --- !u!4 &1361928416
 Transform:

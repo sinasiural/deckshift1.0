@@ -34,6 +34,40 @@ one to the pool.**
 
 9. ⚠️ **PROVISIONAL — the designer said this was written up wrong and will restate it ("we can see about that later on", 2026-08-08). Do not treat it as settled; ask before designing to it.** The rough shape, from GenLevel8 where they placed a Blompo on such a platform themselves: a ledge reachable only by dropping onto it, or only along one narrow guarded approach, wants **something on it to claim** — loot, a shop, Blompo, an NPC — which is what makes the player accept the narrow path with an enemy in it. What is NOT yet confirmed is how far that generalises.
 
+### TUTORIAL ROOM (built 2026-09-24) — the first room a new player sees
+
+`Assets/LevelTexts/Tutorial.txt` → **Deckshift → Build Tutorial Room** (`Editor/TutorialRoomBuilder`)
+→ `Assets/LevelGenerated/Tutorial.prefab`, wired into `LevelManager.tutorialRoomPrefab`. How it is
+reached and what it waives (charges, death) is in CLAUDE.md → Hub Mode → The Tutorial room.
+
+**The builder owns the prefab.** It deletes it, re-imports the `.txt` through `LevelTextImporter`
+(by reflection; `Build` is private), dresses the result, and re-wires the scene reference every time.
+That last step is why the usual "a re-import nulls every scene reference into the room" trap does not
+apply here. The flip side: **hand edits to the prefab are lost on the next build.**
+
+**What the builder adds, and the rules it follows:**
+- **Digits 1-9 in the grid are SIGN ANCHORS.** The importer ignores them (air, with an "unknown
+  marker" warning); the builder puts a `TutorialSign` (chalk keys + caption) there. Each `!signN` line
+  is `KEYS | caption`, KEYS optional and space-separated (`1 2 3 4 CLICK R-CLICK`). Place the anchor
+  on a STANDING cell: its bottom edge is the floor, and the sign doubles as the respawn checkpoint.
+- ⚠️ **Keep anchors ≥ 5 tiles from a gate.** An open gate's arch is wider than its one cell and draws
+  over the chalk; sign 7 lost its first word that way.
+- **Every gate no altar/lever drives becomes a kill-gate** (`TutorialGate`), watching the enemies up
+  to 14 tiles in front of it. It warns if it would watch none (it would then never open).
+- **The camera zone is clamped to the exact grid**, not the importer's grid+4 (min 20 tall), so the
+  first screen never shows void past the outer wall. Safe because the frame is solid and there are
+  3 rows of rock under the floor, more than the ~2.2 units the hand rail covers.
+
+**Layout rules learned building it:**
+- ⚠️ **Pen each zombie behind a 2-wide, 2-deep TRENCH.** `MeleeEnemyAI` refuses a drop deeper than
+  ~1.1 tiles (edge ray of depth 1), so it stops at the lip, while a Fireball flies straight across at
+  the same floor height. A raised dais does not work: a Fireball flies horizontally from wand height
+  (~1.26) and hits the dais face. A 1-tall bump does not work either: the Fireball's capsule reaches
+  down to 0.30 above the floor and detonates on it.
+- **Walls above gates are 2 tiles thick.** One tile thick paints as a thin brick chimney.
+- `LevelValidator` reports a LAW 1 fail on this room. That is the approved exception (the 8-tall
+  wall), not a bug; everything before the wall should still show as reachable.
+
 ### RECHARGE ROOMS — Foundry / Market / Well (BUILT 2026-09-14)
 
 **All three exist now and are assigned on `LevelManager` in SampleScene**, so the map draws
