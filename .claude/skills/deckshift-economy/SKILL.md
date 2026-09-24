@@ -86,9 +86,9 @@ It carries an `InteractPrompt` child (the "press E" keycap) at local **(0, 3.45)
 
 ⚠️ **The hub's floor is at y = 10.65; the old chimney hung on the WALL at 12.59.** Reusing the old prop's position put the whole forge in mid-air. Measure the floor with a downward raycast on the Ground layer — don't inherit a decorative prop's transform.
 
-**Still true: this is the only forge in the game, and it is in the hub** — the first room of every run, visited once, before you have any scrap or any damaged cards. Scrap therefore still has nowhere to be spent mid-run. Now that it's a prefab, fixing that is a drag-and-drop into combat rooms, or into the unbuilt Foundry recharge room (`LevelManager.foundryRoomPrefab`, still empty).
+**The forge now has a mid-run home (2026-09-14):** besides the hub, a `ScrapForge` stands in the **Foundry** recharge room (`LevelManager.foundryRoomPrefab` → `Assets/LevelGenerated/Foundry.prefab`), so scrap finally has somewhere to be spent after the first room. The Foundry is only reachable off Fight/Elite routes, by design. (Before that, the hub forge was the only one, visited once before the player had any scrap.)
 
-### Card Effect Conflict Class of Bug (KNOWN)
+### Card Effect Conflict Class of Bug (RESOLVED 2026-07-06 — misfiled here; it is a card-system topic)
 
 Discovered when hub mode allowed free card spamming: playing multiple state-modifying cards in close succession (e.g., Floor is Lava + Adrenaline + Phase) can leave the player in a permanently broken state (flying, frozen gravity, etc.). Each card's effect captures "original" state at start and restores it at end, but **none of them know about each other**. Card A captures the current state (already modified by still-active Card B), then later restores to that mid-effect snapshot — corrupting baseline.
 
@@ -157,16 +157,16 @@ Design rules baked in, each because the obvious alternative is wrong:
 ⚠️ **`Scrooge` is deliberately NOT in `allQuests`.** Its `rewardAmount` is 0, so it would appear on the board as a contract that pays nothing. It is waiting on **Rich Man's Dagger** (the card whose damage scales with held gold) and on `GoldAccumulate` becoming a peak/hold check rather than a running total.
 
 **Payout rule (designer-set):** *quests pay in things the shop doesn't sell.* Gold is the buying currency, so paying gold is just handing out a discount — it's reserved for the lightest contracts, if at all. The tighter form is **pay in the thing the oath was made of**: gave up cards → paid a card; gave up Recall and spending → paid Shift capacity; avoided Stagger (which charges HP) → paid HP.
-- **Four quest assets exist** at `Assets/Quests/` (re-verified 2026-07-18 — an earlier version of this file said three):
-  - `New Quest 1` — "Invincible" — NoDamageRoom (1) → 300 Gold. **Objective type not wired, won't progress yet.**
+- **The four non-oath quest assets** at `Assets/Quests/` (8 assets in total with the oaths; re-verified 2026-09-24):
+  - `New Quest 1` — "Invincible" — NoDamageRoom (1) → 300 Gold. Works: `ExitDoor` reports it on a flawless combat-room clear.
   - `New Quest 2` — "Hit a Clip" — AirKill (3) → +10 ShiftCharge. Fully functional.
   - `New Quest 3` — "Bounty Hunter" — KillEnemy (3) → 100 Gold. Fully functional.
-  - `Scrooge` — "Scrooge" — GoldAccumulate (800) → Gold **0**. ⚠️ Two problems: `GoldAccumulate` is still an unwired objective type (won't progress), AND its `rewardAmount` is 0, so it would pay nothing even if completed. Looks unfinished.
+  - `Scrooge` — "Scrooge" — GoldAccumulate (800) → Gold **0**. ⚠️ `GoldAccumulate` is reported as a running total of gold picked up (not the peak/hold check it needs), and `rewardAmount` is 0. Unfinished, and deliberately not offered.
 
 ### QuestSystem Singleton
 
 Located on a `QuestSystem` GameObject in SampleScene. Holds:
-- `allQuests` — list of QuestData assets the board can pull from (⚠️ **3 of the 4 assets are wired in** — `Scrooge` is not in the list).
+- `allQuests` — list of QuestData assets the board can pull from (**7 of the 8 assets**: the three originals and the four oaths; `Scrooge` is left out on purpose).
 - `activeQuests` — `List<ActiveQuest>` (inner serializable class). Each `ActiveQuest` has `data` (QuestData), `currentAmount` (int), `isCompleted` (bool).
 - **No serialized UI fields any more** — see Quest Board UI.
 
@@ -191,7 +191,7 @@ public event System.Action<ActiveQuest> OnQuestCompleted;  // fired after isComp
 
 ⚠️ **THE PAINTED BOARD IS GONE.** The designer disliked the artwork, so `QuestBoardOverlay` (and its `Panel`/`QuestContainer`/`LeaveButton` hierarchy), `QuestItemTemplate.prefab`, `QuestPaper.cs` and `QuestBoardFX.cs` were all **deleted**, along with QuestSystem's `overlayPanel` / `container` / `paperPrefab` fields. **QuestSystem now holds no UI references at all** — `ToggleBoard()`/`CloseBoard()` are one-liners onto the procedural screen, which builds itself on demand under the Canvas. Do not re-create a scene-placed quest board. (The old background sprite `Slide_16_9_-_5_0` still exists as an asset; nothing points at it.)
 
-The theme is **Bulletin** — see UI System → Themes for why it's the one screen whose value structure is inverted. Mechanically:
+The theme is **Bulletin** (since moved onto Salvage) — see the Themes table in `/deckshift-screens` for why it's the one screen whose value structure is inverted. Mechanically:
 
 - **The rotation pivot of each slip sits under its TACK** (`SLIP_PIVOT_Y = 0.94`), not at its centre. That is the whole reason the sway reads as paper hanging from a pin rather than a card wobbling in space, and it costs one line.
 - **Hovering a slip STOPS its sway** and lifts it off the board. Stillness is the selection signal — it's the only motionless thing on the board, which is clearer than any highlight. (No flip-flop risk: the slip grows on hover, so the cursor stays inside it.)
@@ -247,7 +247,7 @@ What exists today:
 
 **Passive recomputation rule (important):** `RecomputePassives()` recalculates stat relics from the player's BASE stats every time the loadout changes, so selling reverses exactly. **Never add/subtract stats incrementally** — that breaks the moment relics stack (Reinforced Plating + Glass Heart) or are sold out of order.
 
-Still open (see deferred work): rebalancing the 19 relics *for* a slot economy — they were authored as small always-on Slay-the-Spire bonuses, which is the wrong shape for a 5-slot loadout where each pick should be a real decision.
+Still open: the balance pass in **`RelicRedesign.md`**. The roster is 49 now. That doc found the tier ordering inverted: a few Commons carry large numbers, worst of all **Hot Streak at +2 Shift per kill**, which is still live in code. Its proposed fixes are designer decisions, not yet applied. It also corrects the old claim here that small passives are the wrong shape; they are the right shape for Common.
 
 ### Card offer pool — `CardCatalogue` + `CardPool` (2026-08-09)
 
@@ -293,31 +293,17 @@ Grant paths:
 
 Fields: `relicID` (string, used for `HasRelic` polling), `relicName`, `description`, `relicArt` (Sprite, used by the HUD), `rarity` (enum).
 
-**Relic roster — 19 relics as of 2026-08-11 (GeckoGloves added), all wired.** (An earlier version of this file listed only 7, including `New Relic 1` / "Oops! All 7's" and `Helly` — those are gone, and the "only 5 are functional" claim was badly stale.) The roster was renamed to the playful house voice (see Tone & Voice), so **asset filename ≠ display name ≠ `relicID`** — always poll by `relicID`:
+**Relic roster — 49 relics, all wired** (re-read from the assets 2026-09-24: 15 Common, 12 Rare, 18 Epic, 1 Legendary, 3 Boss). It grew from 19 on 2026-08-21; the Legendaries were left for the designer to write. Where the display name differs from the ID, the relic was renamed to the playful house voice (see Tone & Voice), so **asset filename ≠ display name ≠ `relicID`**. Always poll by `relicID`. Where the display name is the ID with spaces, only the ID is listed.
 
-| Asset file | `relicID` | Display name | Rarity |
-|---|---|---|---|
-| ExecutionersSeal | `ExecutionersSeal` | Executioner's Seal | Epic |
-| FluxRegulator | `FluxRegulator` | First One's Free | Common |
-| FoundryRights | `FoundryRights` | Melt It Down | Epic |
-| GlassHeart | `GlassHeart` | Glass Heart | Epic |
-| **Kinetic** | **`KineticCapacitor`** ⚠️ | Hot Streak | Common |
-| LavaBoots | `LavaBoots` | Hot Steppers | Common |
-| MeteorGreaves | `MeteorGreaves` | Meteor Greaves | Epic |
-| MidasRecoil | `MidasRecoil` | Blood Money | Rare |
-| OverclockedRecall | `OverclockedRecall` | Offering | Epic |
-| PhoenixCog | `PhoenixCog` | Phoenix Cog | Legendary |
-| PocketBattery | `PocketBattery` | Pocket Lightning | Common |
-| Pogo Boots | `PogoBoots` | Pogo Boots | Rare |
-| ReclaimersClamp | `ReclaimersClamp` | Sticky Fingers | Rare |
-| ReinforcedPlating | `ReinforcedPlating` | Bubble Wrap | Common |
-| ScrapMagnet | `ScrapMagnet` | Loot Goblin | Common |
-| **SpikedCarapac** | **`SpikedCarapace`** ⚠️ | Do Not Pet | Rare |
-| VampireTooth | `VampireTooth` | Snack Fangs | Common |
-| Whetstone | `Whetstone` | Whetstone | Common |
-| GeckoGloves | `GeckoGloves` | Gecko Gloves | Rare |
+| Rarity | Asset file → `relicID` (display name, where different) |
+|---|---|
+| **Common** | CoinPurse · `FluxRegulator` (First One's Free) · Haggler · IronLung · **Kinetic → `KineticCapacitor`** ⚠️ (Hot Streak) · `LavaBoots` (Hot Steppers) · Magpie · `PocketBattery` (Pocket Lightning) · `ReinforcedPlating` (Bubble Wrap) · `ScrapMagnet` (Loot Goblin) · SecondNature · SecondWind · SharpPractice · `VampireTooth` (Snack Fangs) · Whetstone |
+| **Rare** | AirBrake · BounceHouse · Crowbar · GeckoGloves · GhostStep · MatchedSet · `MidasRecoil` (Blood Money) · Pawnbroker · **Pogo Boots → `PogoBoots`** · QuickHands · `ReclaimersClamp` (Sticky Fingers) · **SpikedCarapac → `SpikedCarapace`** ⚠️ (Do Not Pet) |
+| **Epic** | AceUpTheSleeve · BlankCheque · DebtCollector · EstateSale · ExecutionersSeal · Flywheel · `FoundryRights` (Melt It Down) · GlassHeart · LongFuse · MeteorGreaves · NestEgg · OddSocket · `OverclockedRecall` (Offering) · PaperSkin · RunningOnFumes · `StandIn` (Stand-In) · TunnelVision · WeightClass |
+| **Legendary** | PhoenixCog |
+| **Boss** (`isArt`, bind a key) | DeadDrop · Grapnel · Stopgap |
 
-⚠️ **Two filename/ID traps:** the asset named `Kinetic` has `relicID` **`KineticCapacitor`**, and `SpikedCarapac` (no trailing "e") has `relicID` **`SpikedCarapace`** (with "e"). Using the filename in `HasRelic()` will silently never match.
+⚠️ **Three filename/ID traps** (checked across all 49): the asset named `Kinetic` has `relicID` **`KineticCapacitor`**, `SpikedCarapac` (no trailing "e") has `relicID` **`SpikedCarapace`** (with "e"), and `Pogo Boots` (with a space) has `relicID` **`PogoBoots`**. Using the filename in `HasRelic()` will silently never match.
 
 **How each is wired** (verified): most via `RelicManager.HasRelic("<id>")` — including a damage-modifier path `RelicManager.ModifyPlayerDamage(...)` used by Fireball / Bite / Freefall that reads **Whetstone, MidasRecoil, GlassHeart**. Two are wired differently and will NOT show up if you grep for `HasRelic`: **LavaBoots** via `HazardZone.requiredRelicID` (default `"LavaBoots"`, also set by `AcidBlobProjectile`), and **ScrapMagnet** via the static `ScrapMagnet` class (`ScrapMagnet.Attract`, called from `GoldPickUp` and `Shift Crystal`).
 

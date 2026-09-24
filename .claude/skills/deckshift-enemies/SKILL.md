@@ -17,9 +17,33 @@ All card and enemy numbers derive from the anchor table in **`CardAnchors.md`** 
 
 **Enemy move-speed retune (2026-07-17):** the AIs (`MeleeEnemyAI`/`ZombieSpitterAI`) leave `MonsterController.inputMoveModifier` false, so an enemy's effective ground speed is the max for its `defaultMovement` mode. Final values, all **Walk** mode: **all three zombies = 1.2** (`walkSpeedMax`, deliberately uniform per designer), **MeleeEnemy = 1.4** (buffed a hair above the zombies so it stays the stronger threat), **RangedEnemy = 1.2** (untouched). MeleeEnemy is a prefab **variant** sharing a base with RangedEnemy, so its 1.4 is a variant override and does NOT move RangedEnemy — verify with the effective-value dump (`GetComponentInChildren<MonsterController>()`) if you touch either. Caveat: the Cainos animator has NO speed-scaled playback (only a walk/run blend), so pushing these speeds much higher foot-slides badly — an earlier Run-mode ~3.x pass felt too fast and was reverted. Tune the per-prefab `walkSpeedMax` in the Inspector.
 
-**Spitter projectile — green-goo `SpitGlob` (2026-07-17):** the spitter used to reuse the turret's red bolt `Mermi.prefab` (still the turret's), which read as ugly/placeholder. It now fires `Assets/Prefabs/SpitGlob.prefab` — a dedicated acid-glob whose visual is **procedural** (`Assets/Scripts/SpitGlob.cs`, house pattern: runtime-built goo sprite, squash-stretch wobble, tapering `TrailRenderer` goo streak; no art). SpitGlob sits on the **Projectile layer (8)** — REQUIRED for its trigger to hit the player; if you clone it, keep that layer. Movement/damage still come from the shared global `Projectile` component. NOTE: there are **three** `Projectile` types (global + two Cainos namespaces), so MCP component-add by short name is ambiguous and fails — add it via `execute_code` (`using`-scoped to the global one) or clone an existing prefab.
+**Spitter projectile — green-goo `SpitGlob` (2026-07-17):** the spitter used to reuse the turret's red bolt `Mermi.prefab` (still the turret's), which read as ugly/placeholder. It now fires `Assets/Prefabs/SpitGlob.prefab` — a dedicated acid-glob whose visual is **procedural** (`Assets/Scripts/SpitGlob.cs`, house pattern: runtime-built goo sprite, squash-stretch wobble, tapering `TrailRenderer` goo streak; no art). SpitGlob sits on the **Projectile layer (8)** — REQUIRED for its trigger to hit the player; if you clone it, keep that layer. Movement/damage still come from the shared global `Projectile` component. NOTE: there are **three** `Projectile` types (global + two Cainos namespaces), so adding it by short name is ambiguous and fails. Add it via `eval` with `typeof(global::Projectile)` (`eval` does not allow `using` lines), or clone an existing prefab.
 - **ShieldEnemy has no sprite** → it's unused in levels. Compose one from the Cainos packs (armored humanoid + shield prop) when convenient. The enemy *logic* works; it's purely missing art.
 - ~~**Fireball sails over short enemies**~~ **FIXED 2026-07-16.** The Fireball prefab's tiny 0.137 `CircleCollider2D` is now a vertical `CapsuleCollider2D` reaching from wand height down to ~0.30 above the floor (world hitbox F+0.30→F+1.55), so it hits slimes/mimics without detonating on ground tiles. Launch height unchanged; sprite still casts from the wand. See `CardAnchors.md` §7.
+
+### Bosses — three built, each documented in its own design doc
+
+| Boss | Script / prefab | Arena | Doc |
+|---|---|---|---|
+| Moss Knight | `MossKnightBoss` (`Assets/YeniLeveller/MossKnightBoss.prefab`) | `Assets/LevelSinasi/BossRoom.prefab` (also `finalBossRoomPrefab`) | `BossDesign_MossKnight.md` |
+| Ninja (name TBD) | `NinjaBoss` (`Assets/Prefabs/NinjaBoss.prefab`) | `Assets/LevelGenerated/NinjaArena.prefab` | `BossDesign_Ninja.md` |
+| Kagemusha (the Samurai's) | `KagemushaBoss` (`Assets/Prefabs/KagemushaBoss.prefab`) | `Assets/LevelGenerated/KagemushaHall.prefab` | `BossDesign_Samurai.md` |
+
+**Read the boss's own doc before touching it**; each one carries its moveset, what is unbuilt, and the
+testing traps it paid for. The rules shared by all of them:
+- **Every boss is a playable character's mirror** (the Moss Knight is slated to become an elite).
+  `CharacterData.bossRoom` makes that arena the played character's finale, and `IMirrorBoss` tells the
+  boss it is the finale, so it can escalate.
+- **Each boss is a standalone script**, never derived from a previous boss; only generic pieces are
+  shared (e.g. `LaneTelegraph`, extracted from Kagemusha for the next boss).
+- **Every boss gives a card-free way to hurt it and a Shift income**, because a 0-Shift player with no
+  attack cards must still be able to win (Kagemusha: break his shadow before he sheathes; the Ninja:
+  pick up and throw back his shurikens as Borrowed Steel).
+- ⚠️ **Killing a boss in the same code call that spawned its room proves nothing**: `Start()` has not
+  run yet. Spawn in one call, act in the next (or use `wait_for`).
+- ⚠️ **A locked arena is centred ABOVE the hand rail**; see the levels skill.
+- ⚠️ `EnemyHealth.Die()` destroys the boss in the same frame it fires `OnDied`; anything that must
+  outlive the death needs its own object (`BossDeathVFX`, `BossRewardCue`).
 
 ### ⚠️ Melee hits go through `EnemyMelee`, never through a distance check (rebuilt 2026-08-11)
 
@@ -101,7 +125,7 @@ silently disable line of sight entirely.** `EnemySenses.ResolveBlockers` therefo
 Ground, so a forgotten Inspector slot degrades to CORRECT behaviour rather than to no behaviour.
 
 ⚠️ **TESTING TRAP that produced two false results in a row.** `Physics2D.simulationMode` is
-`FixedUpdate`, so **`Physics2D.Simulate()` called from `execute_code` does nothing** — a push test
+`FixedUpdate`, so **`Physics2D.Simulate()` called from a one-shot code call (`eval`, formerly `execute_code`) does nothing** — a push test
 using it reported 0.0000 for both the old and new mass and looked like proof. And placing the test
 player by offsetting from an enemy buries them inside terrain, so every LOS check returns false and
 looks like the feature is broken. **Stand the test player on a real floor found by raycast, and
@@ -190,7 +214,7 @@ Entry needs: the relic · airborne · **falling** (you catch a wall on the way d
 
 ### Head Bounce (Pogo Boots Relic) — REBALANCED 2026-08-10
 
-⚠️ **It used to grant `AddShift(1)` on every bounce, which this file never recorded.** With a 0.3s cooldown that made Pogo Boots **the only free Shift regeneration in the game** — in a game whose stated identity is that Shift does not regenerate on its own and carries over for the whole run. It quietly turned any room with enemies into a refuelling station: a 40 HP melee enemy is five bounces at 8 damage, so a room of six was worth roughly half a full Shift bar for nothing. The designer flagged the relic as overpowered; this was the mechanism.
+⚠️ **It used to grant `AddShift(1)` on every bounce, which this file never recorded.** With a 0.3s cooldown that made Pogo Boots a large free Shift regeneration (⚠️ this file used to call it **the only one**; that was wrong. **Hot Streak, a Common relic, grants +2 Shift per kill and is bigger**, and it is still live; see `RelicRedesign.md`) — in a game whose stated identity is that Shift does not regenerate on its own and carries over for the whole run. It quietly turned any room with enemies into a refuelling station: a 40 HP melee enemy is five bounces at 8 damage, so a room of six was worth roughly half a full Shift bar for nothing. The designer flagged the relic as overpowered; this was the mechanism.
 
 Three changes, meant to work together (see `PlayerController.TriggerHeadBounce`):
 - **No Shift refund at all.** The boots are a movement toy; movement is what they pay in.

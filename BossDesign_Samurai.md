@@ -644,7 +644,7 @@ brought two decoys to an empty room and has to send them home.)
   `PlayerController.OnNewRoomEnter` only when `LevelManager.IsCurrentRoomCombat()`, read via the
   live `character` (never copied). Whether a hit chips or shatters is one branch in `ApplyDamage`
   behind a flag, so §12.2 can be flipped by the designer in the Inspector during testing.
-- **Testing traps already paid for, all apply:** spawn the room in one `execute_code` call and act
+- **Testing traps already paid for, all apply:** spawn the room in one `eval` (formerly `execute_code`) call and act
   in the NEXT (`Start()` has not run; `CurrentHealth` is 0); a live `LevelManager` with a null
   static `instance` is a domain reload, not a bug; `Time.timeScale = 0` freezes `deltaTime` fades
   before you photograph them; never read `collider.bounds` in the frame you moved the transform.

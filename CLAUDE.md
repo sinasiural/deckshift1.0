@@ -10,28 +10,23 @@ This file is loaded automatically into Claude Code at the start of every session
 
 **Core concept:** "Movement is a Resource." Jumping consumes **Shift**, which does not regenerate on its own — and **Shift CARRIES OVER between rooms** (designer-confirmed 2026-07-13: it is a run-long resource, and this persistence is "the whole identity of the game" — spending Shift now means having less for the rest of the run). Do NOT describe or implement Shift as a per-room resource. Most other actions (attacks, special movement, utility) are delivered via cards. Cards have **charges**; when charges deplete the card moves to the exhaust pile and must be recovered via scrap.
 
-**Current state:** Act 1 (Oxidation District) prototype. **11 combat levels in the run pool** (+ hub + boss room; ~15 more contract-valid rooms exist unused — see Room Pool), **18 CardData assets in `Assets/Cards/`, 19 relics, and 8 quest assets** (cards re-counted 2026-08-16; note 2 of the 18 are not normal reward cards — `Stagger` is the fail-state card and `AnaKartVeritabanı` is the card *database* asset, so the real playable pool is **16**). **2 playable characters** in `Assets/Resources/Characters/` (see Characters). Two acts (Vapor Stratum, Final Forge) planned but not started. Target: 45-50 minute run length, 60+ cards total at content-complete. **24 Blompo blessings** as of 2026-08-14 — the card *pool* is still the bottleneck, but the enhancement multiplier on it is now built.
+**Current state (re-counted 2026-09-24):** one long run through the Oxidation District — **acts were cut on 2026-08-21** (see Content) — and it is a prototype. **11 combat levels in the run pool**, plus the hub, **3 boss arenas** (`BossRoom` for the Moss Knight, `NinjaArena`, `KagemushaHall`) and **3 recharge rooms** (Foundry / Market / Well). About 15 more rooms meet the room contract but are unused (see `/deckshift-levels` → Room Pool). **20 CardData assets in `Assets/Cards/`**; 2 of them are not reward cards (`Stagger` is the fail-state card, `AnaKartVeritabanı` is the card *database* asset), so the real playable pool is **18**. **49 relics** (15 Common / 12 Rare / 18 Epic / 1 Legendary / 3 Boss). **8 quest assets, 7 of them offered.** **3 playable characters** in `Assets/Resources/Characters/` (see Characters). Target: a 45–50 minute run and 60+ cards at content-complete. **24 Blompo blessings** as of 2026-08-14: the card *pool* is still the bottleneck, but the enhancement multiplier on it is built.
 
-⚠️ **`DeckManager.startingDeck` is currently 3 cards (Phase, Freefall Blade, Second Thoughts) and that is the designer using it as a TESTING TOOL, not the intended starting deck.** Do not balance against it, and do not "fix" it. It does have one live side effect worth knowing: the `Only Child` blessing keys off a deck under 10 cards, so it currently fires for the whole run.
+⚠️ **The run's deck comes from the chosen CHARACTER (`CharacterData.startingDeck`, 4 cards each). `DeckManager.startingDeck` is only a FALLBACK** for a character whose deck is empty. It currently holds 10 cards the designer uses for testing; do not balance against it and do not "fix" it. One live side effect worth knowing: the `Only Child` blessing keys off a deck under 10 cards, and every character starts with 4, so it fires until the deck grows past that.
 
-📐 **TWO LOADABLE SKILLS HOLD THE DETAIL. This file is the always-on summary; they are the working references.**
-
-- **`/deckshift-ui`** — the **Salvage** material system (see below), linear-colour-space calibration, uGUI traps, the wiring contract, a pre-delivery checklist, and a catalogue of every screen that exists. Invoke before building, restyling or debugging **any** screen, panel, HUD element, card face, world-space marker or UI VFX.
-- **`/deckshift-levels`** — the Level Design Laws with their reasoning, the ASCII importer and its tile-painting rules, the validator's measured movement budget, doors and gates, the room pool inventory, and the run map. Invoke before authoring, importing, validating or debugging a room, or before touching `LevelManager`, tiles, gates or the exit door.
-
-⚠️ **These were split OUT of this file on 2026-08-20 because it had grown to ~75k tokens and was being loaded in full for every session, including ones that never touched a screen or a room.** Between them the two sections were 41% of the file. **When you learn something new about UI or levels, write it into the SKILL, not back into here** — otherwise this grows again and the split buys nothing. Only add here what must be true even when you are working on something else entirely.
+📐 **FIVE LOADABLE SKILLS HOLD THE DETAIL** (table under File / Path Reference). This file is the always-on summary; the skills are the working references. The UI and level sections were split out on 2026-08-20, and enemies, the economy and the screen catalogue on 2026-08-22, because this file was being loaded in full for every session, including ones that never touched those areas. **When you learn something new about one of those areas, write it into the SKILL, not back into here** — otherwise this grows again and the split buys nothing. Only add here what must be true even when you are working on something else entirely.
 
 ⚠️ **PRIORITY, RESET BY THE DESIGNER 2026-08-20: POLISH AND FEEL COME BEFORE MORE CONTENT.** This file said for months that "content is the project's real bottleneck" — that was written when the run map and Blompo were unbuilt and explicitly gated on room and card count. **Both shipped.** The claim outlived its reason and kept steering sessions toward authoring.
 
 **The framing that replaced it: polish debt blocks JUDGING the game; content blocks FINISHING it.** You cannot tell whether the game is fun through placeholder audio, enemies that swing backwards and a bat that never attacks — all three were real and all three were found in a single day. Feel, visuals and audio come first, because everything else is unevaluable until they do.
 
-⚠️ **Audio is the designer's stated top priority, and the real problem is not what it looked like.** It is not that the procedural clips are weak (they are, and `ProcSfx` should be read as a **sound-design brief** rather than a source — see `AudioInventory.md`). It is that **a large fraction of the game is literally SILENT**: an audit found **103 empty `AudioClip` slots**, including every zombie's swing, every spitter, every Shift Altar, every breakable wall, and the boss's death. Some were silent *while the correct file already sat in the project unreferenced*. **Read `AudioInventory.md` before touching audio** — it holds the layout, the licence record, and the eleven-sound shopping list.
+⚠️ **Audio is the designer's stated top priority, and the real problem is not what it looked like.** It is not that the procedural clips are weak (they are, and `ProcSfx` should be read as a **sound-design brief** rather than a source — see `AudioInventory.md`). It was that **a large fraction of the game was literally SILENT** (103 empty `AudioClip` slots, including every zombie's swing and every boss death). **As of 2026-09-24 nothing on the run's path is silent**: every such slot holds a procedural placeholder baked by `Deckshift → Fill Silent Audio Slots`, and `BossDeathVFX` falls back to one in code. The placeholders are the shopping list: replace them with real clips. **Read `AudioInventory.md` before touching audio** — it holds the layout, the licence record, and that list.
 
-**The content gap is still real, just no longer first.** 11 combat rooms and 16 playable cards remain thin for a 45–50 minute run, the two named archetypes are the thinnest lines in the deck (Glass has 2 cards, Vampiric 1), and Acts 2–3 do not exist. Do not read "polish first" as "content is solved".
+**The content gap is still real, just no longer first.** 11 combat rooms and 18 playable cards remain thin for a 45–50 minute run, the two named archetypes are the thinnest lines in the deck (Glass has 2 cards, Vampiric 1), and 3 bosses are built of the ~10 wanted. Do not read "polish first" as "content is solved".
 
 The player character was recently swapped from the skeleton rig (`PF Skeleton - Mage`) to `PF Pixel Character - Mage M` from the Cainos Customizable Pixel Character pack. The wizard identity is now the canonical character. The skeleton remains in the Player prefab disabled, intended for future use as an enemy. **Renderer facts (verified in-editor 2026-07-17): the Mage M body is 16 `SkinnedMeshRenderer` parts (Body, Hair, Hat, Cloth… — Cainos "Alpha Cut"/Body/Hair shaders); only the magic staff is a `SpriteRenderer`.** Any code that snapshots/copies the player's look must handle SkinnedMeshRenderers (e.g. `SkinnedMeshRenderer.BakeMesh`, as `CardAimIndicator`'s dash trail does) — a SpriteRenderer-only pass silently produces a staff-only ghost.
 
-**Active scene:** `Assets/Scenes/SampleScene.unity` (build index 2). Other scene files exist (`GameScene`, `MasterLevel`, `Hub`) but are inactive/legacy. When debugging "is this in the scene?" issues, always check SampleScene first.
+**Active scene:** `Assets/Scenes/SampleScene.unity`. It is **position 2 in the Build Settings list but runtime `buildIndex` 1**, because the disabled `Hub` entry above it is not counted (see "Starting a run" under Characters for why that matters). Other scene files exist (`GameScene`, `MasterLevel`, `Hub`) but are inactive/legacy. When debugging "is this in the scene?" issues, always check SampleScene first. ⚠️ The Editor often has `MainMenu` open rather than SampleScene; check which scene is loaded before concluding something is missing.
 
 ---
 
@@ -90,6 +85,34 @@ not a hand-kept list — adding a character is dropping in an asset, with nothin
 |---|---|---|
 | **Wizard** | Fireball ×2, Create Platform, Dash | *Big Sleeves* — +1 hand |
 | **Ninja** | Shuriken ×2, Dash, Leap | *Fast Hands* — Recall never escalates, **−1 hand** |
+| **Samurai** (2026-09-17) | Through and Through ×2, Glass Parry, Leap | *Full Plate* — +5 **armour** on entering each COMBAT room; armour carries over |
+
+**Every playable character is also a boss** (designer, 2026-09-17; see memory "bosses are characters"):
+`CharacterData.bossRoom` is the arena where that character is the boss. `LevelManager` uses it as the
+PLAYED character's finale (a mirror match), filters it out of that run's mid-map boss pool, and tells
+the boss it is the finale through `IMirrorBoss`. It falls back to `finalBossRoomPrefab` when empty.
+Built so far: the **Ninja boss** (`NinjaBoss`, `NinjaArena`; design and status in `BossDesign_Ninja.md`)
+and **Kagemusha**, the Samurai's (`KagemushaBoss`, `KagemushaHall`; `BossDesign_Samurai.md`). Each boss
+gets its own standalone script, never derived from a previous boss.
+
+### Armour — a game system, not a Samurai feature (2026-09-17)
+
+A second pool on top of HP that empties first, with **no cap and no regeneration**, drained in the one
+place damage is subtracted (`PlayerHealth`). The rules that keep it from breaking other systems:
+- ⚠️ **A hit absorbed by armour is still a HIT.** `OnDamaged` fires with the full size, so flawless
+  clears, oaths and relics keep their meaning.
+- ⚠️ **Stagger's blood price bypasses armour** (it goes through `PayHealthCost`, not `TakeDamage`).
+- ⚠️ **Full Plate skips sandbox rooms**, or the Well could be farmed for armour.
+- "Chip vs shatter" is a checkbox on `PlayerHealth` left for the designer to judge by playing.
+
+**Through and Through** (the Samurai's card, 40 damage) is an iai cut: an invulnerable dash that passes
+through enemy bodies, marks each one crossed, and damages them all at once when the blade is sheathed.
+⚠️ It passes through bodies with **per-collider `IgnoreCollision` restored in a `finally`**, NOT the
+global layer matrix: the matrix survives scene loads, and enemy layers are split (see the enemies
+skill) so the matrix would still bounce off every zombie. ⚠️ Body afterimages come from `GhostTrail`,
+because `DashAfterimage` copies SpriteRenderers only, and on the Cainos rig that is a floating weapon.
+⚠️ The Samurai's banner is hidden by **disabling its renderer**; nulling the material draws a magenta
+quad. His second katana is an `OffhandWeapon` glued to the left-hand bone.
 
 ⚠️ **A character's innate ACTIVE ability was built and then CUT. Do not re-propose it.** The first
 version gave the Wizard a free, unlimited, aimed attack on right mouse. It worked, and the designer
@@ -168,7 +191,7 @@ DISABLED in Build Settings** and disabled scenes are not counted. Verified: [0] 
 [1] SampleScene, [2] GameOverScene, [3] GameScene. **Enabling Hub would silently send PLAY to the
 wrong scene** — it looks like a build-settings tick, and it re-routes the game.
 
-### Character select — theme **Marquee** (rebuilt 2026-08-17; see UI System → Themes)
+### Character select — theme **Marquee** (rebuilt 2026-08-17; full entry in `/deckshift-screens`)
 
 Opens on PLAY from the main menu; the designer chose "always ask" over "remember last pick". **The
 billing before you go on:** one character owns the frame at full size, the rest of the roster stands
@@ -188,7 +211,7 @@ it better; the second Vigil pass improved the art and changed nothing about the 
 Three inversions of what Vigil did, and all three are the design:
 
 1. **ONE HERO, NOT A ROW OF EQUALS.** Vigil gave every character the same small alcove, which with a
-   roster of two is two little figures in a lot of empty dark. The chosen one now steps forward at
+   small roster (it was two at the time) is a few little figures in a lot of empty dark. The chosen one now steps forward at
    full size; the others recede, shrink and go cold. Readable from silhouettes alone.
 2. **VELOCITY, NOT STILLNESS.** Nothing rests: streaks tear across the backdrop, figures spring
    between slots and overshoot, the name slams in. The game's stated thesis is "movement is a
@@ -207,7 +230,7 @@ instruction when hues run out (invert a different axis instead of picking a new 
 ⚠️ **Accents are PALETTE-BY-INDEX, not a field on `CharacterData`.** A new character must never be
 able to arrive with an unset colour and render black — dropping an asset into `Resources/Characters`
 is still the whole job of adding one. Ordered for maximum separation between *neighbours* (jade →
-magenta → gold → ice), because with a roster of two the player only ever compares slot 0 against 1.
+magenta → gold → ice), because the player compares each character against the ones beside it.
 
 **Still true from the old screen, do not re-learn:**
 - **Live rigs render to one RenderTexture each** (`CharacterStagePortrait`, stage at world
@@ -291,9 +314,9 @@ piece of real game art on the screen; near full value it is a bright grey field.
 
 ### PlayerController.cs
 
-This is a large script (~1,200 lines). It currently handles movement, jumping, card action execution, gravity reversal, VFX spawning, audio, gold, shift, portal state, cannon enter/exit, and respawn. **Health/damage/knockback/parry were extracted into `PlayerHealth.cs`** (same GameObject); `PlayerController.TakeDamage` is a one-line delegate to it, and RelicManager recomputes HP passives from `PlayerHealth.BaseMaxHealth`.
+This is a very large script (~3,000 lines as of 2026-09-24; it was ~1,200 when this was first written). It currently handles movement, jumping, card action execution, gravity reversal, VFX spawning, audio, gold, shift, portal state, cannon enter/exit, and respawn. **Health/damage/knockback/parry were extracted into `PlayerHealth.cs`** (same GameObject); `PlayerController.TakeDamage` is a one-line delegate to it, and RelicManager recomputes HP passives from `PlayerHealth.BaseMaxHealth`.
 
-**Refactor status: the `CardActionExecutor` extraction is DONE.** `ExecuteAction()` is now a one-line delegate to `CardActionExecutor.TryExecute()`. All card actions live in `Assets/Scripts/CardActions/Actions/` as `CardAction` subclasses, registered in a dictionary in `CardActionExecutor.Awake()`. There is no switch statement anymore — do not look for one. The conflict-flag half of the system is only partially built; see "Card Effect Conflict Class of Bug" below for the audited current state.
+**Refactor status: the `CardActionExecutor` extraction is DONE.** `ExecuteAction()` is now a one-line delegate to `CardActionExecutor.TryExecute()`. All card actions live in `Assets/Scripts/CardActions/Actions/` as `CardAction` subclasses, registered in a dictionary in `CardActionExecutor.Awake()`. There is no switch statement anymore — do not look for one. Conflict-flag enforcement is complete (2026-07-06); the audited detail is under "Card Effect Conflict Class of Bug" in `/deckshift-economy` (it is misfiled there; it belongs with cards).
 
 ### Player Prefab Specifics
 
@@ -322,7 +345,7 @@ PlayerController writes to these parameters on the Animator:
 | `MoveSpeedMul`   | Float   | `UpdateAnimations()` — `speed * animCadenceScale` clamped | Scales walk-cycle PLAYBACK to real ground speed (kills foot-slide) |
 | `VelocityY`      | Float   | `UpdateAnimations()` — `rb.linearVelocity.y`             | Jump/fall vertical state                           |
 | `IsGrounded`     | Bool    | `UpdateAnimations()`                                     | Land/airborne distinction                          |
-| `InjuredFront`   | Trigger | `TakeDamage()` on every damage hit                       | Hurt reaction                                      |
+| `InjuredFront`   | Trigger | `PlayerHealth.TakeDamage()` on every damage hit          | Hurt reaction                                      |
 | `IsDead`         | Bool    | `Die()` set to true                                      | Death state                                        |
 | `AttackAction`   | **Int** | `FireballCastRoutine` sets to **14**                     | Dispatch value selecting which attack animation    |
 | `IsAttacking`    | Bool    | `FireballCastRoutine` toggles                            | Gate for AttackAction transitions                  |
@@ -333,7 +356,7 @@ PlayerController writes to these parameters on the Animator:
 
 The Cainos Animator Controller has a "Cast" animation at `AttackAction == 14`, playing on both the "Attack Action - Arm" and "Attack Action - Body" layers simultaneously. The clip is 1.0 seconds long and self-exits at ~80% via unconditional ExitTime.
 
-`PlayerController.FireballCastRoutine` (~line 800-826):
+`PlayerController.FireballCastRoutine` (search by name; line numbers in this file drift):
 1. Sets `IsAttacking = true` and `AttackAction = 14`.
 2. Waits **0.36 seconds** — this is the `OnAttackCast` animation event timestamp authored by Cainos themselves, the designer's intended projectile release frame.
 3. Calls `PerformFireball(value)` to spawn the projectile.
@@ -360,7 +383,7 @@ The player has check Transforms parented to the player root (NOT to visualModel)
 
 ⚠️ **The disabled `PF Skeleton - Mage` child's leftover `BoxCollider2D` has been DELETED (2026-08-11).** It was solid, enabled, and inert only because the GameObject was off — re-enabling that skeleton as an enemy would have silently given the player a second solid collider. The caveat that used to live here is resolved; don't re-add it.
 
-`groundLayer` mask is **`2056` = layer 3 (`Ground`) + layer 11 (`Enemy`)** — verified against Player.prefab 2026-07-18. (An earlier version of this file claimed `2057` including layer 0 `Default`; that was WRONG — Default is NOT in the mask.) Consequences worth knowing: level geometry is on layer 3, and because layer 11 `Enemy` IS in the mask, the player can **stand on / ground-check against every Enemy-layer enemy**. See "Layer Convention Mismatch" under Enemy System for the verified per-enemy layer split — it is inconsistent and decides which enemies are walkable. This is a known issue but currently load-bearing.
+`groundLayer` mask is **`2056` = layer 3 (`Ground`) + layer 11 (`Enemy`)** — verified against Player.prefab 2026-07-18. (An earlier version of this file claimed `2057` including layer 0 `Default`; that was WRONG — Default is NOT in the mask.) Consequences worth knowing: level geometry is on layer 3, and because layer 11 `Enemy` IS in the mask, the player can **stand on / ground-check against every Enemy-layer enemy**. See "Layer Convention Mismatch" in `/deckshift-enemies` for the verified per-enemy layer split — it is inconsistent and decides which enemies are walkable. This is a known issue but currently load-bearing.
 
 ### Jump Forgiveness — coyote time + jump buffering (added 2026-08-14)
 
@@ -420,8 +443,8 @@ The gravity reversal factor compensates for the 180° Z rotation inverting the v
 2. Create a `CardAction` subclass in `Assets/Scripts/CardActions/Actions/` and register it in the dictionary in `CardActionExecutor.Awake()`. Declare an honest `ModifiedState` (ConflictFlags) for any state the action touches.
 3. Create a `CardData` asset in Unity (right-click in Project view → Create → Card Data).
 4. Set the asset's `actionType`, `maxUses`, `shiftCost`, sprite, etc. in the Inspector.
-5. Add the card to the relevant reward pools / starter deck as needed.
-6. If the card has a "where/how" (aim, range, placement, area), add a matching preview to `CardAimIndicator` (see "Card Aim Indicator System" below).
+5. Reward pools need nothing: `CardCatalogue` (`Assets/Resources/CardCatalogue.asset`) rebuilds itself and `CardPool` offers everything in it except Stagger. To start a character with it, add it to that character's `CharacterData.startingDeck`.
+6. If the card has a "where/how" (aim, range, placement, area), add a matching preview to `CardAimIndicator` (see "Card Aim Indicator System" in `/deckshift-economy`).
 
 ### Deck Structure
 
@@ -491,8 +514,9 @@ The projectile uses the pack's own shuriken sprite, sized from `sprite.bounds` r
 scale, and the held star is hidden for 0.28s during the throw so the thing that flies is the thing
 that was in his hand.
 
-**Still open: the card ART is a placeholder** borrowed from Freefall Blade. `nameIsPaintedIntoArt` is
-correctly `false`, so the title draws in code and reads right — only the illustration is wrong.
+**Card art:** real art (`Assets/Art/shuriken.png`, shared with Borrowed Steel) replaced the Freefall
+Blade placeholder on 2026-09-08 (not yet committed). `nameIsPaintedIntoArt` should stay `false` on any
+art that ships with an empty name plate, so the title draws in code.
 
 ### Stagger Mechanic (REDESIGNED 2026-08-09 — it is no longer a three-strikes death sentence)
 
@@ -543,7 +567,7 @@ quests, oaths, relics, `RelicPool`/`RelicCatalogue`, or shop pricing.
 
 ## Hub Mode (Sandbox)
 
-The hub is a sandbox room where the player tests cards, jumps freely, and experiments without consequence. The hub prefab is at `Assets/LevelEfeS/hub.prefab`. **It is currently the always-first room in every run** (see "First-Room Logic" under Level System).
+The hub is a sandbox room where the player tests cards, jumps freely, and experiments without consequence. The hub prefab is at `Assets/LevelEfeS/hub.prefab`. **It is currently the always-first room in every run**: it is `LevelManager.roomPrefabs[0]` and the run map starts there (see `/deckshift-levels` → Room Pool and Run Map).
 
 ### HubMarker Component
 
@@ -566,9 +590,11 @@ Specifically gated:
 - Stagger card injection (`CheckForStaggerCondition`)
 - ~~Fall damage~~ — no longer applicable: fall damage has been removed from the game entirely (`FallAndRespawn` only teleports; see Resolved bugs)
 
-All guards use the pattern: `if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub()) { ... do the consumption ... }`.
+All guards use the pattern: `if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox()) { ... do the consumption ... }`.
 
-**When adding new player-resource consumption code,** check whether it should also be gated by `IsCurrentRoomHub()`. The pattern is: at every consumption site, ask "should this be free in a sandbox?" — almost always yes.
+⚠️ **`IsCurrentRoomSandbox()`, NOT `IsCurrentRoomHub()` (2026-09-14).** The designer made the recharge rooms (Foundry / Market / Well) sandboxes too — "they should not waste anything, just like the hub" — so the umbrella rule's test is now `IsCurrentRoomSandbox()` = hub **or** `RechargeRoomMarker`. Every consumption site was switched. `IsCurrentRoomHub()` still exists for the few things that are genuinely hub-only (the first-room logic); do not use it for a consumption gate. `IsCurrentRoomCombat()` is the third test — "does leaving this room count as clearing one?" — used by the exit door's payouts (flawless clear, oaths, Nest Egg).
+
+**When adding new player-resource consumption code,** check whether it should also be gated by `IsCurrentRoomSandbox()`. The pattern is: at every consumption site, ask "should this be free in a sandbox?" — almost always yes.
 
 ### What Hub Does NOT Hide
 
@@ -605,7 +631,7 @@ Because "the system exists in code but isn't in the scene" is this project's #1 
 - **NOT in SampleScene:** `MusicManager` and `SfxManager`. Both exist as MonoBehaviours but live elsewhere (MainMenu boot flow). Consequence: **entering Play mode directly in SampleScene gives you no MusicManager**, so no BGM — that's expected, not a bug. `SfxManager`'s entry points are `static` and work fine without a scene instance, which is why SFX still play.
 - ⚠️ **Leftover `CinemachineCamera` GameObject still sits in SampleScene, INACTIVE, carrying a second `CameraShake` component.** Harmless while inactive (Awake never runs, so it can't hijack the singleton), but it is Cinemachine-era cruft and a trap if anyone activates it — that would create a duplicate CameraShake singleton. Part of the same pending Cinemachine cleanup as the dead `using Unity.Cinemachine;` directives.
 
-**Build settings (verified):** `MainMenu`(0), `Hub`(1, disabled), **`SampleScene`(2)**, `GameOverScene`(3), `GameScene`(4).
+**Build settings list (re-verified 2026-09-24):** `MainMenu`(0), `Hub`(1, disabled), **`SampleScene`(2)**, `GameOverScene`(3), `GameScene`(4). Those are list positions. At runtime disabled scenes are skipped, so `buildIndex` is MainMenu 0, **SampleScene 1**, GameOverScene 2, GameScene 3.
 
 ### Pause Counter System
 
@@ -638,11 +664,12 @@ Exceptions that intentionally bypass the counter:
 
 ## UI System
 
-📐 **UI work has its own loadable skill: `.claude/skills/deckshift-ui/SKILL.md`.** House style and the
-inversion rule, the theme table, linear-colour-space calibration, uGUI traps, the wiring contract, a
-pre-delivery checklist, **and (§8) the full catalogue of every screen that exists** and the traps each
-one paid for. **Invoke it (`/deckshift-ui`) before building, restyling, reviewing or debugging any
-screen, panel, HUD element, card face, world-space marker or UI VFX.** What follows is only what must
+📐 **UI work has its own loadable skill: `.claude/skills/deckshift-ui/SKILL.md`.** House style
+(Salvage), the superseded theme table, linear-colour-space calibration, uGUI traps, the wiring
+contract and a pre-delivery checklist. **Invoke it (`/deckshift-ui`) before building, restyling,
+reviewing or debugging any screen, panel, HUD element, card face, world-space marker or UI VFX.** The
+catalogue of every screen that already exists, and the traps each one paid for, is a separate skill:
+**`/deckshift-screens`**. What follows is only what must
 be true even when you are not doing UI work.
 
 ### ⚠️ SALVAGE — the one material system (2026-08-20). It replaced the nine-theme rule.
@@ -674,8 +701,11 @@ banners, chains and fireplaces and still reads as one world. **Consistency lives
 5. **Wear** — used **and repaired**. The repair currency is literally called scrap.
 
 Variety comes from **what the object is**, not from a colour: a hung sheet, a notice board, a
-workbench, a banner. **Migrated so far: `PauseScreen` only** (the Hanging Board). Everything else still
-renders in the superseded themes until converted.
+workbench, a banner. **On Salvage as of 2026-09-24 (measured by which screens build from `Salvage`
+/ `SalvageSurfaces`):** Pause and Settings (one hanging board), the Scrap Forge, the Quest Board, and
+the Boss Reward banner; Blompo borrows the Forge's Salvage surfaces and colours. **Not migrated yet:**
+the Shop, Run Map, Character Select, card chests, and the relic Swap/Manage panels. They still
+render in the superseded themes until converted.
 
 ⚠️ **`Assets/Cainos/Pixel Art Icon Pack - RPG` has 107 icons and 89 are referenced NOWHERE.** Same
 artist, same PPU, same palette. Use them before drawing another procedural sigil.
@@ -798,8 +828,11 @@ the camera never clamps, so at wide aspects you see straight past the art into u
 `LevelManager.roomPrefabs`** — ~15 contract-valid rooms exist unused, and several near-misses do not
 satisfy it.
 
-⚠️ **`LevelManager.roomPrefabs` HAS BEEN WIPED FOUR TIMES, and it does not announce itself.** Element
-0 must be the hub; 1..n are the combat rooms; the boss has its own `bossRoomPrefab` slot. When the
+⚠️ **`LevelManager.roomPrefabs` HAS BEEN WIPED FIVE TIMES, and it does not announce itself.** (The
+fifth was found 2026-09-06, down to a single scratch room that was not even the hub.) Element
+0 must be the hub; 1..n are the combat rooms. Bosses are NOT in this list: they live in
+`bossRoomPrefabs` (a list) plus `finalBossRoomPrefab`, and the recharge rooms in
+`foundryRoomPrefab` / `marketRoomPrefab` / `wellRoomPrefab`. When the
 list is short or holds a scratch room, there is **no hub** (so no sandbox first room, no quest board,
 no forge), every room in the run is the same room, and if the stand-in lacks `CameraBounds` the camera
 stops clamping. The only console clue is one Turkish line, `CameraBounds objesi bulunamadı!`, which
@@ -940,11 +973,11 @@ This is the mechanism behind two rules already in this file — "atmosphere effe
 
 ### "A UI raycast test must let a FRAME PASS after building the UI" (2026-08-09)
 
-`GraphicRaycaster` skips any graphic whose **`Graphic.depth == -1`**, and `depth` is only assigned when the canvas performs a render pass. So a UI built (or shown) inside an `execute_code` call is **invisible to `EventSystem.RaycastAll` in that same call** — every hit test returns `<nothing>`, including against a full-screen backdrop that plainly covers the point.
+`GraphicRaycaster` skips any graphic whose **`Graphic.depth == -1`**, and `depth` is only assigned when the canvas performs a render pass. So a UI built (or shown) inside a single `eval` call (formerly `execute_code`; any one-shot code call behaves the same) is **invisible to `EventSystem.RaycastAll` in that same call** — every hit test returns `<nothing>`, including against a full-screen backdrop that plainly covers the point.
 
 This produced a completely convincing false negative while verifying the pause menu's rows: five MISSes with correct geometry, correct `blocksRaycasts`, correct sibling order, nothing culled. The tell was `depth == -1` on a graphic that was demonstrably on screen.
 
-**Open the screen in one tool call and raycast in the NEXT** — the same split already required for `ScreenCapture.CaptureScreenshot`, and for the same underlying reason. Re-run after the split: all five rows hit.
+**Open the screen in one tool call and raycast in the NEXT**: a frame has to render in between. Re-run after the split: all five rows hit. (`wait_for` can also hold until a condition is true without splitting calls; see Workflow Notes → Unity MCP.)
 
 (This does NOT retire the standing rule that pointer behaviour must be verified geometrically rather than by invoking `OnPointerEnter` yourself — see the card-flip entry. Both traps are live; this one is about *when* you measure, that one about *what* you measure.)
 
@@ -988,7 +1021,7 @@ The historical per-prop fix below is now redundant but harmless; keep it as the 
 
 ### "camera.Render() to a RenderTexture can sort DIFFERENTLY than the real game view"
 
-When capturing a frame to inspect it (see Workflow Notes → Visual inspection), a throwaway `Camera.Render()` into a RenderTexture does NOT necessarily match what the URP pipeline actually draws — it gave a *false* "the door is behind the player" image while the real game still showed the door on top. **Trust only the real framebuffer** (`ScreenCapture.CaptureScreenshot(path)`), never a manual `camera.Render()`, when verifying sorting/lighting/pipeline-dependent visuals.
+When capturing a frame to inspect it (see Workflow Notes → Unity MCP), a throwaway `Camera.Render()` into a RenderTexture does NOT necessarily match what the URP pipeline actually draws — it gave a *false* "the door is behind the player" image while the real game still showed the door on top. **Trust only the real framebuffer** when verifying sorting/lighting/pipeline-dependent visuals: the MCP tool `capture_game_view` with **`source: "screen"`** (Play mode only), or `ScreenCapture.CaptureScreenshot(path)` from code. ⚠️ `capture_game_view`'s DEFAULT, `source: "camera"`, renders a camera just like the manual `camera.Render()` here, and it also drops every Screen Space Overlay canvas (the whole HUD and every menu). Treat it as a rough world grab only.
 
 ---
 
@@ -1075,29 +1108,59 @@ aborts on the first broken screen reports one problem per run.
 
 ⚠️ **The close path is reflection onto a private `Hide()`/`Close()`.** Every screen owns its own
 dismissal and none expose a public close, so the tool reaches in. `ScreenDef.DestroyOnClose` exists for
-screens whose `Hide()` is not a full teardown. **If a shared screen base class ever lands, this whole
-section collapses into one virtual call** — that is the strongest argument for building it.
+screens whose `Hide()` is not a full teardown. **The shared base class now exists (`GameScreen`, 2026-08-16),
+but only a few screens extend it** (`QuestBoardScreen`, `BossRewardScreen`, `RelicManagePanel`). Once
+every screen does, this reflection collapses into one virtual call.
 
 **A leaking screen is the failure mode to fear, so it is checked explicitly.** `CameraCensus` records
 every enabled camera drawing to the screen before the run and warns if a screen leaves a new one behind.
 A screen that leaks something *rendering* does not fail loudly — it composites itself into every capture
 that follows and the run finishes "successfully" with wrong pictures.
 
-### Visual inspection via MCP screenshots (2026-07-18)
+### Unity MCP — driving the live Editor (switched 2026-09-24)
 
-Claude Code CAN see the running game — this is the fix for "I can't judge how it looks." The reliable recipe (via `execute_code`):
-1. Enter Play mode (`manage_editor play`) so levels/entities actually spawn; edit mode is sparse (rooms instantiate at runtime).
-2. `ScreenCapture.CaptureScreenshot("<abs path>")` — **async**, captures the REAL framebuffer (full URP render + all Screen-Space-Overlay UI/HUD) after the next frame renders.
-3. In a LATER tool call (a frame has passed), `Read` the PNG. Reading it in the SAME call fails — the file isn't written yet.
-4. Stop Play mode (`manage_editor stop`) to leave the editor clean.
+**The connection is Unity's official one:** the Unity CLI (`C:\Users\pc\AppData\Local\Unity\bin\unity.exe`)
+plus the `com.unity.pipeline` package, registered in the repo-root `.mcp.json` as **`unity-editor-mcp`**.
+It replaced the community "MCP for Unity" bridge (removed in commit 9a8973f). Its tools only appear
+while the Editor is open, and **not at all if the project has compile errors** (the Editor boots into
+Safe Mode, where packages don't load; `unity pipeline list` confirms it). Update both halves with
+`unity self-update` and `unity pipeline upgrade`.
 
-Gotchas learned the hard way:
-- `ScreenCapture.CaptureScreenshotAsTexture()` returns null/invalid from `execute_code` (it must run at end-of-frame, which `execute_code` can't hit). Use the async file method.
-- A manual `Camera.Render()` into a RenderTexture is synchronous and handy, but **can sort differently than the real pipeline** — do NOT trust it for sorting/lighting checks (see Common Pitfalls). It's fine only for a rough world grab.
-- To zoom on something (e.g. the spawn), move the REAL `Camera.main` onto the target and shrink `orthographicSize` **after disabling `CameraFollow.enabled`** (it re-clamps every LateUpdate), then use the async framebuffer capture. Play-mode changes revert on stop, so no restore needed.
-- `execute_code` safety checks block `System.IO.File.Delete` and `AssetDatabase.DeleteAsset` (pass `safety_checks:false` when a delete is truly intended); `using` directives are illegal in its method body (fully-qualify types); and there are **three `Projectile` types** so component-add by short name is ambiguous (see Enemy System).
+**Old tool names you will still meet in older notes and design docs:** `execute_code` → **`eval`**
+(or `run_script` for a whole `.cs` file); `manage_editor play/stop` → **`editor_play` / `editor_stop`**;
+reading the console → **`console`** (its `groundTruth` block also says whether compilation failed).
 
-Use this liberally to verify visual changes, diagnose "it looks wrong" reports, and fact-check the docs against reality — it caught a wrong sorting fix this session before it shipped.
+**Seeing the running game** is the fix for "I can't judge how it looks." The recipe:
+1. `editor_play` so rooms and entities actually spawn (edit mode is sparse; rooms instantiate at runtime).
+   Check `list_open_scenes` first: the Editor is often sitting in `MainMenu`, not SampleScene.
+2. `capture_game_view` with **`source: "screen"`** and a `save_path`. That is the real composited
+   framebuffer, HUD and menus included. **The file exists as soon as the call returns**, so `Read` it
+   straight away; the old "capture, then wait a tool call" dance is gone.
+3. `editor_stop` to leave the Editor clean. Play-mode changes revert on stop.
+
+Traps, each verified 2026-09-24:
+- ⚠️ **`save_path` is relative to `Assets/`, not the project root.** `Temp/shot.png` lands in
+  `Assets/Temp/shot.png`, gets imported, and would get committed. Save under a folder you then delete
+  with `delete_asset`, or use `screenshot` with an absolute `output` path outside `Assets/`.
+- ⚠️ **`source: "camera"` (the default) drops every Screen Space Overlay canvas** and renders like a
+  manual `camera.Render()`, which can sort differently from the real pipeline (see Common Pitfalls).
+  Never judge UI, sorting or lighting from it.
+- ⚠️ **`eval` does not allow `using` lines.** Fully qualify types (`System.Linq.Enumerable.Select(...)`,
+  `UnityEngine.Object.FindFirstObjectByType<...>()`). Project types such as `PlayerController` resolve
+  without qualification.
+- `eval`'s default timeout is 5 seconds; pass a larger `timeout` for anything heavy. One call timed out
+  on the main thread once and simply succeeded on retry.
+- **Unity still needs a frame to pass** for deferred `Destroy`, UI raycast depth, and physics
+  (`Physics2D.Simulate()` from a code call does nothing, since the simulation mode is `FixedUpdate`).
+  Either split into two tool calls, or use **`wait_for`**, which waits inside Unity until a condition is
+  true and can take the screenshot on that exact frame (`on_met.capture`).
+- There are **three `Projectile` types**, so adding one by short name is ambiguous; use
+  `typeof(global::Projectile)` in `eval` or clone an existing prefab.
+- To zoom on something (e.g. the spawn), move the REAL `Camera.main` onto the target and shrink
+  `orthographicSize` **after disabling `CameraFollow.enabled`** (it re-clamps every LateUpdate), then
+  capture with `source: "screen"`.
+
+Use this liberally to verify visual changes, diagnose "it looks wrong" reports, and fact-check the docs against reality.
 
 ---
 
@@ -1105,17 +1168,17 @@ Use this liberally to verify visual changes, diagnose "it looks wrong" reports, 
 
 ### Architecture (planned, highest priority)
 
-- ~~CardActionExecutor conflict-flag enforcement~~ — **DONE (2026-07-06).** The ExecuteAction() extraction, all per-effect flag registration (incl. ReverseGravity via `SetManualFlag`), AND enforcement in `TryExecute` (Blocked on flag overlap) are complete. The card-effect-conflict bug class is resolved. Only remaining nuance: the Echo Chamber double-cast no-ops on stateful cards (see Card System → Known interaction) — flagged, not urgent.
+- ~~CardActionExecutor conflict-flag enforcement~~ — **DONE (2026-07-06).** The ExecuteAction() extraction, all per-effect flag registration (incl. ReverseGravity via `SetManualFlag`), AND enforcement in `TryExecute` (Blocked on flag overlap) are complete. The card-effect-conflict bug class is resolved. Only remaining nuance: the Echo Chamber double-cast no-ops on stateful cards (see "Known interaction" in `/deckshift-economy` → Card Effect Conflict) — flagged, not urgent.
 - ~~CameraPeek rebuild~~ — **done**; rebuilt without Cinemachine (see Camera System).
 - **Manager dependency graph** — undocumented. Long-term docs task.
 - ~~QuestSystem DontDestroyOnLoad inconsistency~~ — **resolved 2026-06-10**: removed; QuestSystem is scene-local like every other manager, and quests are per-run by design. Quest meta-progression, if ever wanted, should go through the save system (PlayerPrefs, like AchievementManager), not DontDestroyOnLoad.
 
-### Future: Slot-Constrained Relic Redesign (MAJOR DESIGN DIRECTION)
+### Relics: the slot system is BUILT; what remains is balance
 
-✅ **THE MECHANICAL REDESIGN IS DONE (corrected 2026-07-26).** This section spent months describing a "future direction" that had in fact already shipped. What actually exists now is documented under **Relic System** above: 5 slots, rarity-based sell values, `TryGrantRelic` + the forced full-slot swap screen, a manage panel, and hover tooltips. **Do not re-plan or re-build any of that.**
+✅ **THE MECHANICAL REDESIGN IS DONE (corrected 2026-07-26).** This section spent months describing a "future direction" that had in fact already shipped. What actually exists now is documented in `/deckshift-economy` → Relic System: 5 slots, rarity-based sell values, `TryGrantRelic` + the forced full-slot swap screen, a manage panel, and hover tooltips. **Do not re-plan or re-build any of that.**
 
 **What genuinely remains is BALANCE, not code:**
-- **Rebalance the 19 relics for a slot economy.** They were authored as small always-on Slay-the-Spire bonuses (+5 HP on kill, +2 Shift on kill). In a 5-slot loadout where every pick costs you another relic, small passive trickles are the wrong shape — slot-constrained systems want **bigger, more interactive, more build-defining** effects that change how you play, not just numbers that tick up. This is the real outstanding work and it is a **design pass, not an engineering one**.
+- **The roster grew 19 → 49 on 2026-08-21** (30 new relics at slot-worthy power, plus the Boss tier), and every one is wired. The paper balance pass is in **`RelicRedesign.md`**. Its headline finding is still unfixed in code: **Hot Streak (Common, `KineticCapacitor`) grants +2 Shift per kill**, roughly +100 Shift over a run against a 40 starting pool. That makes it the biggest free Shift source in the game, at the cheapest rarity. That doc also corrects this file's old claim that small passives are the wrong shape: they are the right shape for Common, and the bug is a few Commons carrying large numbers. The proposed fixes there are designer decisions, not yet applied.
 - **Economy tuning** — sell refunds are currently flat by rarity (150/90/50/25) and untuned against a 45-50 min run and the actual rate relics are offered.
 - **Possibly** distinguish acquisition sources (shop vs. pack vs. voucher).
 
@@ -1127,13 +1190,13 @@ Use this liberally to verify visual changes, diagnose "it looks wrong" reports, 
 
 ### Quest System Expansion (deferred)
 
-- Wire `NoDamageRoom` quest type — needs an event fired from PlayerController's damage path that resets a per-room "no damage" flag; on level end, if flag is true, fire `ReportEvent(QuestType.NoDamageRoom, 1)`.
-- Wire `GoldAccumulate` and `UseCardCount` quest types similarly.
+- ~~Wire `NoDamageRoom`~~ — **done**: `ExitDoor` reports it on a flawless combat-room clear (`TookDamageThisRoom`).
+- `GoldAccumulate` is reported, but as a **running total of gold picked up**, not a peak or hold check; `Scrooge` waits on that change. `UseCardCount` is still not reported anywhere.
 - Add card-reward type. Currently only Gold/Heal/ShiftCharge are supported.
 - **Rich Man's Dagger card** — a card that deals damage based on current player gold. Was discussed as a quest reward. Needs design pass: damage formula, balance against scaling gold pools, mid-fight gold loss interaction.
 - Defer reward delivery to **level-end** instead of firing immediately on quest completion (see also Quest banking, below).
 - ~~Randomize the offer~~ · ~~enforce the 3-quest cap~~ · ~~visual feedback on accept~~ — **all done 2026-08-10** with the board rebuild.
-- **AUTHOR MORE QUESTS.** Only 4 assets exist, one of them (`Scrooge`) is unfinished — it pays `rewardAmount` 0 and isn't in `allQuests`. The board is built to offer more contracts than you can carry, which is what makes taking one a decision; with three assets it can't. This is now the quest system's binding constraint, not the UI.
+- **AUTHOR MORE QUESTS.** 8 assets exist and 7 are offered (three originals + the four oaths); `Scrooge` is unfinished (pays `rewardAmount` 0, not in `allQuests`). The board is built to offer more contracts than you can carry, which is what makes taking one a decision; while `BoardSlots` and `MaxActiveQuests` are both 3, it can't. Quest content is now the system's binding constraint, not the UI.
 - Wire the "press E" prompt GameObject on the QuestBoard's `SimpleInteract.prompt` field (currently null — no hover hint appears).
 
 ### Scene Flow (deferred)
@@ -1144,13 +1207,15 @@ Use this liberally to verify visual changes, diagnose "it looks wrong" reports, 
 
 ### Bugs (deferred)
 
-- ~~Card effect conflict class of bug~~ — **RESOLVED (2026-07-06).** `TryExecute` now refuses (Blocked) any card whose `ModifiedState` overlaps a live effect's flags; blocked plays cost nothing and stay in hand. Stacking Floor is Lava + Adrenaline + Phase can no longer corrupt player state. See Card System for detail.
+- ~~Card effect conflict class of bug~~ — **RESOLVED (2026-07-06).** `TryExecute` now refuses (Blocked) any card whose `ModifiedState` overlaps a live effect's flags; blocked plays cost nothing and stay in hand. Stacking Floor is Lava + Adrenaline + Phase can no longer corrupt player state. Detail in `/deckshift-economy` → Card Effect Conflict.
 - ~~**Phase card wall-stuck**~~ — **RESOLVED 2026-08-11** (it recurred; the designer got stuck inside rock and could not move). `PhaseRoutine` still extends Phase up to 1 extra second while embedded, but the old fallback — nudge 0.5 units along the gravity axis and hope — is replaced by `EjectFromGeometry()`: a **ring search outward for a position the capsule actually FITS in**, nearest first, directions ordered from straight-up outward so the player surfaces on top of geometry. Falls back to the room entry point if nothing is free within 7 units, so a run can never be lost to this. Velocity is zeroed on eject, or a fast downward fall tunnels straight back in.
   - **Measured:** 368 of 368 stuck positions across a room recovered, zero failures; deepest burial found was **6 units**, against the old fix's 0.5 — so the old nudge was failing on nearly every real case.
   - ⚠️ **AND THE REASON THE FIRST ATTEMPT SILENTLY FAILED IS WORTH KEEPING:** it tested candidates using `capsuleCollider.bounds`. **`Physics2D.autoSyncTransforms` is OFF by default**, so a collider's `bounds` still report the player's PREVIOUS position until the next physics step — and this code tests positions the player hasn't moved to yet, then moves and re-checks. The search "found" a clear spot, teleported there, and left the player just as embedded. Both `IsPositionClear` and `IsCollidingWithGround` now derive the box from `transform.position + capsuleCollider.offset` (exact, because the player root is guaranteed scale (1,1,1)). **Never read a collider's `bounds` in the same frame you moved its transform.**
 - ~~**Comet Dive identity loss**~~ — **RESOLVED (verified 2026-07-26).** Comet Dive was redesigned into an AoE **dive-blast** (`StartCometDive`/`LandCometDive`: fast downward slam → `Physics2D.OverlapCircleAll` damage at `cometRadius`/`cometDamage`, with a `CometDiveVFX` telegraph while falling). It is no longer the single-target head-bounce; the two are distinct.
-- ~~**Head bounce + gravity reversal**~~ — **RESOLVED (verified 2026-07-26).** All head-bounce branches now flip on `isGravityReversed` (see Head Bounce section). Head-bouncing works upside-down.
-- ~~**Duplicate ExitDoor possible in some room prefabs**~~ — **RESOLVED 2026-08-19.** It was never "some rooms": the duplicate was baked into `Assets/Prefabs/ExitDoor.prefab` itself, so **37 of 39 rooms had it**, and one keypress ran `PerformExit()` twice. See Level System → Doors.
+- ~~**Head bounce + gravity reversal**~~ — **RESOLVED (verified 2026-07-26).** All head-bounce branches now flip on `isGravityReversed` (see Head Bounce in `/deckshift-enemies`). Head-bouncing works upside-down.
+- ~~**Duplicate ExitDoor possible in some room prefabs**~~ — **RESOLVED 2026-08-19.** It was never "some rooms": the duplicate was baked into `Assets/Prefabs/ExitDoor.prefab` itself, so **37 of 39 rooms had it**, and one keypress ran `PerformExit()` twice. See Doors in `/deckshift-levels`.
+- **AnimationEventReceiver may resurrect on prefab reimport.** It is now fully REMOVED from the Mage M Animator child (was previously just disabled). If OnFootstep NullRefs reappear in the console, a pack reimport probably restored it — remove it again. (The "'OnFootstep' has no receiver!" *warning* spam is absorbed by `PlayerAnimEventSink` on that same GameObject, now serialized in Player.prefab; see Visual Model Internals.)
+- ~~**Gravity reversal warning flash may be invisible**~~ — **RESOLVED (screenshot-verified 2026-07-26).** `WarningFlashRoutine` now strobes `_Alpha` across all 16 SkinnedMeshRenderers (whole-body blink) + red-tints the staff. The prior versions no-op'd (`_Color` unsupported by the Alpha Cut shader) or flashed only the staff. See Gravity Reversal System.
 
 ### ⚠️ Runtime spawns must not outlive their room (fixed 2026-08-11)
 
@@ -1160,9 +1225,7 @@ Use this liberally to verify visual changes, diagnose "it looks wrong" reports, 
 
 **`EnemyHealthBar` also owns its own lifetime** (`followTarget == null` → self-destruct), which is the more important half: the bar is parentless by design, and that one line covers every way an enemy can vanish, including paths that don't exist yet. It's guarded by an `initialized` flag because `Initialize()` arrives a beat after instantiation.
 
-⚠️ **Testing this needs a frame boundary.** Unity's `Destroy` is deferred to end of frame, so `FindObjectsByType` in the *same* `execute_code` call still returns everything you just destroyed — it reads as a total failure of the fix. Check in the NEXT tool call. Same family as the deferred-`Destroy` trap already documented for `RunMapScreen`'s buttons.
-- **AnimationEventReceiver may resurrect on prefab reimport.** It is now fully REMOVED from the Mage M Animator child (was previously just disabled). If OnFootstep NullRefs reappear in the console, a pack reimport probably restored it — remove it again. (The "'OnFootstep' has no receiver!" *warning* spam is absorbed by `PlayerAnimEventSink` on that same GameObject, now serialized in Player.prefab; see Visual Model Internals.)
-- ~~**Gravity reversal warning flash may be invisible**~~ — **RESOLVED (screenshot-verified 2026-07-26).** `WarningFlashRoutine` now strobes `_Alpha` across all 16 SkinnedMeshRenderers (whole-body blink) + red-tints the staff. The prior versions no-op'd (`_Color` unsupported by the Alpha Cut shader) or flashed only the staff. See Gravity Reversal System.
+⚠️ **Testing this needs a frame boundary.** Unity's `Destroy` is deferred to end of frame, so `FindObjectsByType` in the *same* `eval` call still returns everything you just destroyed — it reads as a total failure of the fix. Check in the NEXT tool call, or use `wait_for`. Same family as the deferred-`Destroy` trap already documented for `RunMapScreen`'s buttons.
 
 ### Resolved bugs (verified by code audit 2026-06-10 — do NOT re-fix)
 
@@ -1173,27 +1236,17 @@ These were previously listed as open in this file; the audit (`audit_report.md`)
 - ✅ **Fall damage** — removed entirely; `FallAndRespawn` teleports to the room entry point and fires `OnFallRespawn`, no damage is applied.
 - ✅ **CameraPeek** — fully rebuilt without Cinemachine as a `peekOffset` consumed by `CameraFollow.LateUpdate` (see Camera System).
 
-### CardTemplate prefab rebuild (BLOCKED on art)
+### Card prefab scale corruption — RESOLVED
 
-The `CardTemplate` prefab has fundamental scale corruption: root scale is non-uniform (0.119, 0.568, 0.92) and ShiftCostContainer compensates with inverse scale (7.40, 1.55, 0.96). On-screen layout works only because the scales partially cancel; any position/spacing change looks broken because the cancellation is non-uniform.
+The card prefab (now `Assets/Prefabs/CardUI_Template.prefab`) used to carry non-uniform scales that
+cancelled each other (root 0.119/0.568, ShiftCostContainer 7.40/1.55), so any spacing change broke.
+**Every scale in it is (1, 1, 1) as of 2026-09-24** (the hand rebuild of 2026-09-07 also removed a 0.55
+container scale), and `CardFace` draws every card face including the hand. A few code comments (e.g. in
+`CardUI`) still describe the prefab as corrupted and "blocked on art"; they are stale.
 
-**Measurements taken from a 1024×1536 sample card art** (deckshift_card_03):
-- Shift slot painted centers: PNG pixels (411, 138), (511, 138), (610, 138) — 99px horizontal spacing.
-- Charge slot painted center: PNG pixels (245, 150) — slightly lower and left.
-- Honest Point Spacing in a 120×180 card rect: ~11.72 units (current Inspector value is 20, also wrong).
-
-**Plan:** rebuild from scratch with all scales at (1, 1, 1), Width 120 / Height 180, all positioning via RectTransform Width/Height/Position only. **Blocked: user is hiring an artist for new card art. Not all current cards are the same exact size. Rebuilding now means rebuilding again once consistent art is back.** Hold until then.
-
-### Resolved this session (Player prefab audit, 2026-07-16)
-
-(Kept for short-term reference; can be deleted once stale.)
-- ✅ **Scene→prefab tuning drift eliminated.** The scene Player carried 12 uncommitted PlayerController overrides (moveSpeed 8 vs prefab's stale 5, jump 11 vs 10, run pose, real jump SFX, aura VFX, dash tint). All applied into `Player.prefab`; the prefab is now the source of truth. The only scene overrides left are root position/rotation + name (correct). **Rule going forward: tune the PREFAB (or apply overrides after tuning in scene), never leave player tuning scene-only.**
-- ✅ Removed three leftover Cainos bone colliders (Rig Spine1/Spine2 capsules, Rig Head circle) — solid, animation-driven, attached to the player's Rigidbody2D. The root capsule is now the only solid player collider.
-- ✅ Removed the magic staff's Kinematic Rigidbody2D + trigger PolygonCollider2D (Cainos leftovers; its `Weapon` script is a passive visual helper and stays).
-- ✅ Restored `PlayerAnimEventSink` + `footstepClips` (3 Walk mp3s) — this time saved into the prefab, not scene-only (the old wiring had never been committed and was silently lost, breaking footstep SFX and re-triggering "no receiver" spam).
-- ✅ Removed duplicate `CameraPeek` from the Player root (lives on Main Camera only).
-- ✅ Assigned `warningSoundClip` (breaker-switch SFX, designer may swap) — the gravity-reversal warning had become fully silent.
-- ✅ AudioSource `playOnAwake` disabled; prefab root transform reset to identity; 17 stale skeleton-receiver overrides cleaned from the scene instance.
+**Tuning rule that outlived that entry:** tune the PLAYER PREFAB, or apply scene overrides into it
+after tuning; never leave player tuning scene-only. A 2026-07-16 audit found 12 scene-only
+PlayerController overrides, and footstep wiring that was never committed had been silently lost.
 
 ### Started but not finished (2026-08-21) — read before picking a thread
 
@@ -1205,8 +1258,10 @@ The `CardTemplate` prefab has fundamental scale corruption: root scale is non-un
 - **Cards cannot be priced by rarity** because `CardData` has no rarity field — it exists only as
   paint on the artwork. `ShopPricing.ForCard` prices off charges and Shift cost meanwhile. Adding
   the field also unblocks icon-only card faces (below).
-- **The card-art unblock (designer's constraint, 2026-08-21):** new card art is stalled on an
-  unavailable artist, and that is blocking card DESIGN, which does not need art. The intended fix is
+- **The card-art unblock (designer's constraint, 2026-08-21):** new card art was stalled on an
+  unavailable artist, and that was blocking card DESIGN, which does not need art. (Update: new art
+  arrived 2026-09-08 for Adrenaline, Comet Dive, Shuriken/Borrowed Steel and Second Thoughts, plus an
+  unused `redpact.png`. It is **not committed yet**.) The intended fix is
   a systematic icon-only face using the Cainos RPG icon pack on the canonical Freefall Blade frame
   (whose name plate is already drawn in code), so cards can be built and balanced now and
   illustrated later, one field each.
@@ -1217,17 +1272,18 @@ The `CardTemplate` prefab has fundamental scale corruption: root scale is non-un
 
 ### Content (TODO)
 
-- Scale to 60+ cards (currently **18 assets in `Assets/Cards/`, 16 genuinely playable** — `Stagger` is the fail-state card, `AnaKartVeritabanı` is the database asset). **This is the single biggest content gap and it gates both the map system and card enhancements.** The two archetypes the GDD names are the thinnest lines in the deck: **Glass has 2 cards** (Glass Wail, Glass Parry) and **Vampiric has 1** (Vampiric Bite), against 6 movement / 4 attack / 3 utility.
-- Glass archetype: cards exist in theory, not implemented.
-- Expand Vampiric archetype.
+- Scale to 60+ cards (currently **20 assets in `Assets/Cards/`, 18 genuinely playable** — `Stagger` is the fail-state card, `AnaKartVeritabanı` is the database asset). The map and Blompo it used to gate are both built. The two archetypes the GDD names are the thinnest lines in the deck: **Glass has 2 cards** (Glass Wail, Glass Parry) and **Vampiric has 1** (Vampiric Bite).
+- Expand the Glass and Vampiric archetypes.
 - ⚠️ **ACTS ARE GONE (designer, 2026-08-21). Do not plan around them.** A run is now ONE map of
   **20 floors** with **2–5 OPTIONAL boss nodes** the player routes into or around, ending at a
   single unique **FinalBoss**. `MapNodeType.Boss` is a mid-map node standing in a column like any
   other; `MapNodeType.FinalBoss` is the terminus. Every optional boss is *proven* avoidable
   (`RunMap.IsAvoidable`, enforced in `Validate`). A boss REPLACES a floor rather than adding one, so
-  run length stays put while intensity and reward vary. **Content gap: 1 boss room exists of ~10
-  wanted, and the unique finale is not built.**
-- ~~**Run map system**~~ — **BUILT 2026-08-06, working end to end.** See "Run Map — BUILT AND WORKING END TO END" under Level System for the implementation and its traps. What remains is CONTENT and TUNING, not engineering: the three recharge room prefabs (Foundry / Market / Well) don't exist, so no recharge rooms appear yet; rooms are untagged so every room still serves every tier; and the shift-infused / buffed-enemy half of Elite tiers is not built. The settled design, kept for reference:
+  run length stays put while intensity and reward vary. **Content gap: 3 boss arenas exist of ~10
+  wanted.** The finale is the played character's own boss (`CharacterData.bossRoom`, see
+  Characters); `finalBossRoomPrefab` (currently the Moss Knight's `BossRoom`) is the fallback for a
+  character with no boss yet, which today means the Wizard.
+- ~~**Run map system**~~ — **BUILT 2026-08-06, working end to end.** See "Run Map — BUILT AND WORKING END TO END" in `/deckshift-levels` for the implementation and its traps. What remains is CONTENT and TUNING, not engineering: ~~the three recharge room prefabs don't exist~~ — **Foundry / Market / Well were BUILT and assigned 2026-09-14** (see the levels skill → Recharge Rooms; the Well is a new `RestWell` interactable, +40 HP / +8 Shift once per visit, and `RechargeRoomMarker` stops the exit door paying oaths/Nest Egg/flawless clears in them); rooms are untagged so every room still serves every tier; and the shift-infused / buffed-enemy half of Elite tiers is not built. The settled design, kept for reference:
   - **Shape: a Slay-the-Spire branching graph, the whole RUN visible**, so the player plans a route rather than picking one door at a time. **Opened with the `M` key** — meaning it's also viewable in the hub, for quest planning. ⚠️ At 20 floors the chart no longer fits the sheet: it has a fixed floor pitch and **scrolls** inside a `RectMask2D` viewport (wheel / drag / held W-S), opening centred on the player.
   - **Difficulty IS the node type, not a second axis on top of it.** Three combat nodes — **Skirmish / Fight / Elite** — ascending cost and reward. Layering easy/med/hard *onto* Fight/Shop/Event would give ~15 icon combinations and an unreadable map; one node = one icon = one promise.
   - **Per-tier content rules (designer-specified):**
@@ -1237,23 +1293,31 @@ The `CardTemplate` prefab has fundamental scale corruption: root scale is non-un
   - **The governing law: a room's loot scales to the Shift it costs to cross.** Drainy layout ⇒ bigger payout. Self-balancing; write new rooms to it.
   - **Two axes, two sources:** platforming difficulty is **authored into the room prefab** (geometry can't change at runtime without violating Level Design Law #1); combat difficulty is a **runtime spawn table**. Cheapest extra lever: author *optional* enemy/hazard groups in a prefab and have the tier switch them on.
   - **No Shift cost on map paths** (decided against, for now). It isn't needed: **the danger is the cost.** Skirmish routes are cheap to survive but never resupply; Elite routes are expensive but are the only path to recharge rooms. That loop is the economy.
-  - **Recharge rooms** — extra rooms hanging off a route, **not counted as floors**, and **only ever reachable from Fight/Elite nodes, never Skirmish** (that restriction IS the economy above). **Each is specialised, never a do-everything room** — one room that fixes every problem is never a decision. Design them by *which player problem they solve*: a Foundry (scrap → repair/salvage, Blompo), a Market (shop), a Well (Shift + healing). **The map must show which one is on which branch before the player commits**, or it's a coin flip instead of a choice.
+  - **Recharge rooms** (✅ built 2026-09-14) — extra rooms hanging off a route, **not counted as floors**, and **only ever reachable from Fight/Elite nodes, never Skirmish** (that restriction IS the economy above). **Each is specialised, never a do-everything room** — one room that fixes every problem is never a decision. Design them by *which player problem they solve*: a Foundry (scrap → repair/salvage, Blompo), a Market (shop), a Well (Shift + healing). **The map must show which one is on which branch before the player commits**, or it's a coin flip instead of a choice.
   - ⚠️ **Two things that must be visible, not silent:** (1) if an enemy is buffed, **it must LOOK different** — a Shambler that quietly has 20 HP instead of 12 reads to the player as "my Fireball is broken", and corrodes the `CardAnchors.md` anchor that fodder dies to one Fireball. (2) The single most sensitive number in the system is how much Shift a shift-infused enemy drops: too generous and Elite is always correct, too stingy and it's never taken. **Target: an Elite room should be net-negative Shift for an average player and net-positive only for a good one.** Keep it a single tunable value, not baked across prefabs.
-  - **Dependency status:** the old "BLOCKED on level count" framing is softer than it looked. Shop/Blompo/quest board are **NPCs placed in rooms**, not dedicated room prefabs, so those node types are near-free. ~15 contract-valid rooms already exist unused (see Room Pool) and need correction passes, not authoring from scratch. Still, tiers are baked into layout, so each room serves ONE tier — roughly 4 Skirmish / 4 Fight / 3 Elite are needed for one repeat-free act.
+  - **Dependency status:** the old "BLOCKED on level count" framing is softer than it looked. Shop/Blompo/quest board are **NPCs placed in rooms**, not dedicated room prefabs, so those node types are near-free. ~15 contract-valid rooms already exist unused (see `/deckshift-levels` → Room Pool) and need correction passes, not authoring from scratch. Still, tiers are baked into layout, so each room serves ONE tier, and a 20-floor run needs noticeably more rooms per tier before routes stop repeating rooms.
 
-- **Quest banking — designed 2026-08-03, not built.** Quest rewards should stop paying out instantly and instead **accumulate**, to be collected at a quest board **at the start of the next act** (post-boss). Quests are taken at run start, so they act as *route-shaping objectives* — "kill 3 elites" pushes you onto dangerous paths, "collect 500 gold" into exploration detours. The existing run loop already does this shape (`LevelManager` goes hub → levels → boss → back to hub, and the hub already has the board), so the structural work is small. **The board does NOT need its own map node yet** — only four quest assets exist (one pays zero), which is too thin to carry a node; put it inside the Market or Well for now. When the map exists, show it *while* the player picks quests, so quest selection isn't a blind bet.
+- **Quest banking — designed 2026-08-03, not built.** Quest rewards should stop paying out instantly and instead **accumulate**, to be collected at a quest board later in the run. It was designed as "at the start of the next act"; **acts are gone**, so the collection point (after a boss? at a recharge room?) is an open design question. Quests are taken at run start, so they act as *route-shaping objectives* — "kill 3 elites" pushes you onto dangerous paths, "collect 500 gold" into exploration detours. **The board does NOT need its own map node yet** — 7 offered quests are too thin to carry a node; put it inside the Market or Well for now. The map now exists and opens with `M` in the hub, so the player can already look at it while picking quests.
 - ~~Card enhancements via "Blompo"~~ — **BUILT. 24 blessings as of 2026-08-14** (see Card System → Card Enhancements). This entry described it as "NOT started" for weeks after it shipped with seven; do not plan from that.
-- **Bosses: ~10 wanted, 1 built.** The Moss Knight is a complete encounter (moveset, gated fight
+- **Bosses: ~10 wanted, 3 built.** The **Moss Knight** is a complete encounter (moveset, gated fight
   start, awaken cinematic, SFX, boss health bar, a death celebration dropping real collectible gold
-  and shift crystals, and now the reward banner). Full doc: `BossDesign_MossKnight.md`; still open
-  there is the acid arena.
+  and shift crystals, and the reward banner); doc `BossDesign_MossKnight.md`, still open there is the
+  acid arena. The memory note "bosses are characters" says the Moss Knight is meant to become an
+  elite, since every boss should be a character. The **Ninja boss** (`BossDesign_Ninja.md`; its
+  low-HP phase, name and relic are unbuilt) and **Kagemusha** (`BossDesign_Samurai.md`; its Body
+  Double relic, sound family and arena props are unbuilt) are playable. ⚠️ **As of 2026-09-24 the
+  Ninja boss's files are UNTRACKED in git** (`NinjaBoss.cs`, `NinjaBoss.prefab`, `NinjaArena.prefab`,
+  `BossShuriken.cs`, `BossKatana.cs`, the Borrowed Steel card, the design doc), as are the recharge
+  rooms, `RoomCamera`, `GameInput` and others the committed code depends on. A fresh clone would not
+  compile until they are committed.
   - ⚠️ **`LevelManager.bossRoomPrefab` NO LONGER EXISTS.** It is `bossRoomPrefabs` (a List, drawn
     without repeating within a run) plus a separate `finalBossRoomPrefab`.
   - ⚠️ **A boss relic does NOT imply a keybind.** `Rarity.Boss` is an acquisition channel;
     `RelicData.isArt` marks the few that bind a key, and `RelicPool` refuses to offer a second Art
     while one is held — so the game is capped at ONE extra key however many bosses are killed. With
     ~10 bosses that means roughly **seven of the ten relics must be passives at boss power**, which
-    is a different design job from the three verb-shaped ones already built.
+    is a different design job from the three verb-shaped ones already built (Dead Drop, Grapnel,
+    Stopgap).
 - Chunk-based level system (currently hand-crafted levels).
 - **Starting relic system** + **Fireball relic** for the wizard identity (auto-fires fireball every 10s). Deferred when the broader relic redesign was prioritized — may be revisited as a small early demo polish.
 
@@ -1276,8 +1340,9 @@ A character-driven gambling NPC. ⚠️ The slot machine it was meant to replace
 
 - Active scene: `Assets/Scenes/SampleScene.unity`
 - Player prefab: `Assets/Prefabs/Player.prefab`
-- Scripts: `Assets/Scripts/` (75+ files, flat structure)
-- Level prefabs: `Assets/LevelSinasi/*.prefab` and `Assets/LevelEfeS/*.prefab` (hub)
+- Scripts: `Assets/Scripts/` (~240 `.cs` files as of 2026-09-24: ~200 flat in the root, plus `CardActions/Actions/`, `Editor/` and `Trailer/`)
+- Level prefabs: spread across `Assets/LevelEfeS/` (hub), `Assets/LevelEfeVrl/`, `Assets/LevelSinasi/` (incl. `BossRoom`), `Assets/LevelGenerated/` (GenLevels, boss arenas, recharge rooms) and `Assets/YeniLeveller/`. The ASCII sources for imported rooms are in `Assets/LevelTexts/`.
+- Character assets: `Assets/Resources/Characters/` · boss design docs: `BossDesign_*.md` at the project root
 - Quest assets: `Assets/Quests/`
 - Relic assets: `Assets/Relics/`
 - Card assets: `Assets/Cards/`

@@ -35,7 +35,7 @@ SampleScene's main Canvas contains:
 **It took two passes, and the first one's failure is the useful part.** Pass 1 delivered the literal brief ("soothing, simple, understandable, but also cool") as flat slate-blue panels, uniform rounded corners, neutral greys, one accent. The designer's verdict: **"it screams AI."** That was right — it was the house style of every dev dashboard, and crucially it had no *place* in it. Simple and generic are not the same thing.
 
 **Pass 2 keeps the restraint but points every choice at the world: a sheet of iron on a workbench, lit by the forge.**
-- **Warm charcoal, not slate-blue.** Act 1 is the *Oxidation District* — rust, not brushed steel. This single palette shift did most of the work.
+- **Warm charcoal, not slate-blue.** The district is the *Oxidation District* — rust, not brushed steel. This single palette shift did most of the work. (History: Salvage law 3 later measured the dungeon stone as cool-neutral `#444548`; see `/deckshift-ui`.)
 - **Chamfered corners, not rounded.** Cut plate reads as a made object; a uniform corner radius reads as a web card. Biggest silhouette cue.
 - **Directional light.** A lit top lip plus an ember glow rising off the *bottom* edge (firelight under the bench), instead of a uniform glowing border. Uneven light = physical object in a place.
 - **Rivets and faint scuffs.** Small, dark, functional — fasteners, not jewels. Imperfection is what kills the "generated" feel.
@@ -175,6 +175,8 @@ be switchable off, that is a row in `SettingsScreen` plus a consumer in `LateUpd
 4. **PROGRESS IS ANNOTATION.** The chart is printed in brown ink; where you've been and what you may take next is marked over it in **red pen**. Printed trails are mechanically tiled and neat; the player's are individual strokes with per-stroke wobble — **two different hands, deliberately**. Every state is signalled by that fiction with no colour key.
 
 `Parchment.cs` holds the procedural paper, grain, ink strokes, hand-drawn rings and compass rose. It claims **tan/paper + oxblood** and gives back verdigris.
+
+**The KEY (added 2026-09-14, designer-requested).** A strip along the bottom margin between the viewport and the footer (`BuildKey`, centre y = 78): "KEY" with a short rule, the five node marks, a hairline, the three recharge badges — each with a name and a one-line gloss ("EASY · THIN LOOT", "HEAL + SHIFT"). Three choices worth keeping: it is **printed brown ink only, never the red pen** (the pen is the player's hand; a key is part of the print); every symbol is **built from the same pieces the chart uses** (wash, ring, glyph; badges at their exact chart size) so it shows what is drawn, not an icon resembling it; and node marks are scaled to 0.6 but **keep their relative sizes**, because size is half the type signal — a key drawing Skirmish and Elite equal would teach the wrong thing. It is a fixed 1262px row with nothing to reflow, so `FitWindowToCanvas` scales it uniformly (never above 1) on a sheet narrower than it; at 4:3 the sheet is 1400 wide and it still fits unscaled.
 
 ⚠️ **LIGHT GROUND INVERTS THE CALIBRATION RULES.** Everything in §2 of the `deckshift-ui` skill assumes a dark plate. On paper:
 - The fold **highlight** had to drop 0.20 → **0.055**. A bright line has almost no headroom above bright paper, so any visible value instantly reads as a drawn rule — the sheet came out with three glowing lines across it.

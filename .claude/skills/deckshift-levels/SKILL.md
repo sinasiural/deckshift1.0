@@ -1,6 +1,6 @@
 ---
 name: deckshift-levels
-description: Deckshift's rooms — the seven Level Design Laws, the ASCII level importer and its tile-painting rules, the level validator and movement budget, doors/gates, the room pool and its contract, and the run map. Use when authoring, importing, validating, debugging or placing anything in a room prefab, or when touching LevelManager, the run map, tiles, gates or the exit door.
+description: Deckshift's rooms — the eight Level Design Laws, the ASCII level importer and its tile-painting rules, the level validator and movement budget, doors/gates, the room pool and its contract, and the run map. Use when authoring, importing, validating, debugging or placing anything in a room prefab, or when touching LevelManager, the run map, tiles, gates or the exit door.
 ---
 
 # Deckshift Levels
@@ -29,18 +29,91 @@ one to the pool.**
 4. **NO one-way (`=`) platforms in levels** (designer 2026-07-14: "they feel wrong and also work bad and buggy, and there is no visual clearance for them"). The importer still supports `=` but don't place it — use solid 1-thick `#` strips (the `Extra_112/113/114` platform-strip look) and route jumps AROUND them, zig-zag ladder style on alternating shaft walls.
 5. **Turrets (`t`) only on walls or ceilings** — that's how the hand-made levels use them, so they're hard to kill. The importer can only floor-ground them, so generated levels must NOT use `t` at all; use a melee (`m`) or ranged (`r`) enemy instead. (Designer 2026-07-14, after GenLevel5's exposed floor turret.)
 6. The player has **no wall-breaking attack** (fireballs don't break walls) — never design a secret that requires destroying terrain. Card-gated secrets = Phase through a 1-thick wall, Portal, or an 8+ tile rise.
-8. **THE SPAWN IS A SAFE BEACH** (designer 2026-08-07). The player must be able to arrive, look around, read their deck and decide *before* anything can touch them. **No enemies on the platform the player spawns on, and nothing able to target them there** — ranged/flying enemies must not have line of sight to the spawn. Enforced by `LevelValidator` (LAW 8): it finds the spawn's contiguous ground run and fails on any enemy standing on it, then ray-checks ranged (`r s t`) and flying (`b`) enemies within 26 tiles and melee within 10. Line of sight, not raw distance — a spitter 20 tiles down a clear corridor is aiming at you; one 6 tiles away behind rock is not.
 7. **Entry and exit must be far apart in the map** (designer 2026-07-14, after GenLevel6 v1 put the exit directly above the spawn behind a 2-thick slab): a Phase/Portal card must never be able to skip the level. Keep the spawn and the ExitDoor in different regions — roughly 20+ tiles apart, separated by whole chambers of solid rock, never by a thin wall or single floor slab.
+8. **THE SPAWN IS A SAFE BEACH** (designer 2026-08-07). The player must be able to arrive, look around, read their deck and decide *before* anything can touch them. **No enemies on the platform the player spawns on, and nothing able to target them there** — ranged/flying enemies must not have line of sight to the spawn. Enforced by `LevelValidator` (LAW 8): it finds the spawn's contiguous ground run and fails on any enemy standing on it, then ray-checks ranged (`r s t`) and flying (`b`) enemies within 26 tiles and melee within 10. Line of sight, not raw distance — a spitter 20 tiles down a clear corridor is aiming at you; one 6 tiles away behind rock is not.
 
 9. ⚠️ **PROVISIONAL — the designer said this was written up wrong and will restate it ("we can see about that later on", 2026-08-08). Do not treat it as settled; ask before designing to it.** The rough shape, from GenLevel8 where they placed a Blompo on such a platform themselves: a ledge reachable only by dropping onto it, or only along one narrow guarded approach, wants **something on it to claim** — loot, a shop, Blompo, an NPC — which is what makes the player accept the narrow path with an enemy in it. What is NOT yet confirmed is how far that generalises.
 
+### RECHARGE ROOMS — Foundry / Market / Well (BUILT 2026-09-14)
+
+**All three exist now and are assigned on `LevelManager` in SampleScene**, so the map draws
+recharge icons (measured on one seed: 12 recharge attachments across 62 nodes). Verified in play
+mode end to end: hub → Fight (floor 1) → Well (floor STILL 1, map not advanced) → Fight (floor 2).
+
+| room | prefab | source | furniture | fixes the problem of |
+|---|---|---|---|---|
+| **Well** | `LevelGenerated/Well.prefab` | `LevelTexts/Well.txt` | `H` RestWell | being worn down — **+40 HP, +8 Shift, once per visit** |
+| **Foundry** | `LevelGenerated/Foundry.prefab` | `LevelTexts/Foundry.txt` | `f` ScrapForge + `B` Blompo | a damaged deck — scrap and blessings |
+| **Market** | `LevelGenerated/Market.prefab` | `LevelTexts/Market.txt` | `$` Shopkeeper + `Q` QuestBoard | gold with nothing to buy; taking on work |
+
+**Rules every recharge room follows — and why:**
+
+- **NO ENEMIES.** Nothing is at stake. It is a rest stop.
+- ⚠️ **FLAT FROM SPAWN TO EXIT: ZERO MANDATORY JUMPS.** The room gives Shift back; taxing a jump
+  to reach the service or the door works against the room. The first Well draft had a 2+2 rise to
+  the exit — that is 2 Shift charged against an 8-Shift payout. Elevation comes only from a spawn
+  ledge you **drop** off (drops are free).
+- **ONE JOB PER ROOM.** The Well is the well and nothing else — no crystals, no chests, no NPCs.
+  A room that fixes every problem is never a decision. ⚠️ **The shop still sells a `+3 Shift` and
+  a heal service** (`ShopManager.shiftAmount` / `healAmount`), which overlaps the Well's whole
+  identity. Left in place deliberately this session; removing them is the obvious next step once
+  the Well has been playtested.
+- **`!recharge: on` in the `.txt` is what makes it a recharge room.** The importer stamps
+  `RechargeRoomMarker` on the root (same shape as `HubMarker`), and `LevelManager` exposes
+  `IsCurrentRoomRecharge()`, `IsCurrentRoomCombat()` (= not hub, not recharge) and
+  **`IsCurrentRoomSandbox()`** (= hub OR recharge).
+- ⚠️ **THEY ARE SANDBOXES, LIKE THE HUB (designer, same day: "they should not waste anything").**
+  Every umbrella-rule consumption site — jump Shift, card Shift and charges, Recall, Grapnel,
+  Stagger, altars, blessing payouts, Dead Weight's room-end payout — now gates on
+  `IsCurrentRoomSandbox()`. Verified: a jump in the Well costs 0 Shift. `RelicManager.OnRoomStart`
+  additionally skips recharge rooms (its per-room gifts already paid on the combat room).
+- ⚠️ **THE MAP DOES NOT OPEN BETWEEN A COMBAT ROOM AND ITS RECHARGE ROOM.** `AdvanceToNextRoom`
+  spawns straight through when `pendingRecharge` is set and its prefab exists: the recharge room
+  is next whatever the player picks, so asking was a lie (reported as "pick a node, then walk into
+  a Well instead"). The map opens on the recharge room's exit, where the choice is real. Verified
+  through the real `ExitDoor` path both ways.
+
+⚠️ **WITHOUT THE MARKER, EVERY RECHARGE ROOM WAS A SILENT EXPLOIT.** `ExitDoor.PerformExit` pays
+three things on leaving "a room", all previously gated only on `IsCurrentRoomHub()`: a **flawless
+clear** (achievement + `NoDamageRoom` quest), a **step on every per-room oath** (`EndRoom`), and
+**Nest Egg's +2 max Shift** (`ScoreRoomRelics`). A room with no enemies passes all three for free.
+All three now gate on `IsCurrentRoomCombat()`. `RelicManager.OnRoomStart` (Pocket Battery / Flux
+Regulator / Second Wind) also skips recharge rooms — the node's combat room already paid them.
+Verified: `QuestSystem.roomActive` stays `true` through a recharge-room exit (EndRoom not called).
+
+**`RestWell` (`Assets/Scripts/RestWell.cs`, `Assets/Prefabs/RestWell.prefab`)** — IInteractable on
+layer 12 with a trigger, `InteractPrompt` child, the Cainos `PF Village Props - Well` as the
+visual. `healAmount` / `shiftAmount` are Inspector fields. The mouth sits at **y 1.0** (the stone
+rim; the first placement at 1.94 was rope height).
+
+⚠️ **THE FIRST DRINK WAS REJECTED AS "BLAND AND NOT VERY IMMERSIVE", and the reason generalises:
+nothing HAPPENED.** A label changed and sixteen dots floated. The rebuild stages it — DRAW (the
+light dims, the glow contracts, loose motes are sucked back IN) → SURGE (a column of light, ripple
+rings across the surface, the light flares room-wide, a small shake) → RECEIVE (a fountain of motes
+arcs into the player; HP and Shift land in **8 ticks** so the bars visibly FILL; an aura blooms
+behind the rig) → SETTLE (light sinks to a spent ember). Two procedural clips (`ProcSfx.WellDraw`
+/ `WellSurge`, the altar's voice inverted) so it is never silent; `drinkSound` is an override.
+
+⚠️ **A REAL `Light2D` IS THE BIGGEST LEVER, AND THE PLAYER RIG IGNORES IT.** Verified: a point
+Light2D lights the well sprite, the floor tiles and the back wall (`Sprite-Lit-Default`), but the
+Cainos Customizable Pixel Character shaders take no 2D light at all. So the WORLD reacts through
+the light and the PLAYER is reached with sprites (motes, rings, an aura parented behind the rig at
+local z +0.15, which the opaque rig occludes so it reads as light around them). Nothing else in
+the project casts a local light yet — the Cainos props carry 3D `Light`s, which the URP 2D
+renderer ignores. This is the first, and it is cheap: reach for it before another particle.
+
+⚠️ **The camera in a 14-tall generated room always shows ~2 tiles of black under the floor**: the
+importer's zone is `grid + 4` with a 20-tall minimum, so the 14-unit view is always clamped 2
+past the frame. Pre-existing for every generated room; noted here because a flat rest stop makes
+it more visible than a tall shaft does. Not fixed this session.
+
 ### Level Text Importer (NEW 2026-07-13 — Stage 1)
 
-`Assets/Scripts/Editor/LevelTextImporter.cs` adds menu **Deckshift → Import Level From Text…**: it reads an ASCII grid `.txt` (legend + example: `Assets/LevelTexts/TestRoom1.txt`) and builds a room prefab into `Assets/LevelGenerated/` satisfying the room contract (`CameraBounds` zone auto-sized to the grid, `GirisNoktasi` spawn, ExitDoor). Markers: `#` ground, `S` spawn (exactly one), `X` exit, `m/r/l/M/b` enemies plus the zombie tiers `z` Shambler / `Z` Rotbrute / `s` Spitter (added 2026-07-16; `b` = `YeniLeveller/BatMan.prefab` — the real flying bat with AeroBatAI; **`Assets/Prefabs/AeroBat.prefab` is a legacy husk with NO AI**, its dead missing-script component was removed 2026-07-13 because Unity refuses to save any new prefab containing missing scripts, which broke level import), `^/T/W` hazards, `+/g/C` pickups, and mechanics (added 2026-07-13): `E` Elevator (Cainos prop, floats at cell center — tune travel in Inspector), `F` UpdraftFan (draft zone ~3 tall, liftForce 20 ≈ 5-7 tiles of lift — chain fans as relays for taller climbs), `w` AcidWater (~6 wide pool, damage+slow), `K` WreckingBall (floats at cell center, tune anchor/swing), `c` CrumblingPlatform (**do NOT use in levels — its sprites are outdated; use `T` Trapdoor instead, designer 2026-07-14**), `t` Taret turret, `$` Shopkeeper_NPC, `B` Blompo (`Assets/Prefabs/Blompo.prefab`, added 2026-08-08 — NPCs are loot, see below) (its TMP/UI scripts live in Library/PackageCache — an Assets-only guid scan wrongly flags them "missing").
+`Assets/Scripts/Editor/LevelTextImporter.cs` adds menu **Deckshift → Import Level From Text…**: it reads an ASCII grid `.txt` (legend + example: `Assets/LevelTexts/TestRoom1.txt`) and builds a room prefab into `Assets/LevelGenerated/` satisfying the room contract (`CameraBounds` zone auto-sized to the grid, `GirisNoktasi` spawn, ExitDoor). Markers: `#` ground, `S` spawn (exactly one), `X` exit, `m/r/l/M/b` enemies plus the zombie tiers `z` Shambler / `Z` Rotbrute / `s` Spitter (added 2026-07-16; `b` = `YeniLeveller/BatMan.prefab` — the real flying bat with AeroBatAI; **`Assets/Prefabs/AeroBat.prefab` is a legacy husk with NO AI**, its dead missing-script component was removed 2026-07-13 because Unity refuses to save any new prefab containing missing scripts, which broke level import), `^/T/W` hazards, `+/g/C` pickups, and mechanics (added 2026-07-13): `E` Elevator (Cainos prop, floats at cell center — tune travel in Inspector), `F` UpdraftFan (draft zone ~3 tall, liftForce 20 ≈ 5-7 tiles of lift — chain fans as relays for taller climbs), `w` AcidWater (~6 wide pool, damage+slow), `K` WreckingBall (floats at cell center, tune anchor/swing), `c` CrumblingPlatform (**do NOT use in levels — its sprites are outdated; use `T` Trapdoor instead, designer 2026-07-14**), `t` Taret turret, `$` Shopkeeper_NPC, `B` Blompo (`Assets/Prefabs/Blompo.prefab`, added 2026-08-08 — NPCs are loot, see below), and the recharge-room furniture added 2026-09-14: `f` ScrapForge, `Q` QuestBoardPrefab, `H` RestWell (all grounded; normally only in their own recharge room — see "Recharge Rooms") (its TMP/UI scripts live in Library/PackageCache — an Assets-only guid scan wrongly flags them "missing").
 
-**Interactive structure markers (2026-07-14):** `=` one-way platform tiles (own tilemap: TilemapCollider2D via CompositeCollider2D + one-way PlatformEffector2D on Ground layer; painted with the thin `_144` lip so they read differently from solid strips) · `G` gate cells (vertical G-runs become one sliding **Gate** — `Assets/Scripts/Gate.cs`, solid Ground-layer collider, slides down + fades on Open, Cainos Gate 01 sprite scaled to height — see Doors below) · `L` Lever (`YeniLeveller/Lever.prefab`; its `OnFlippedOn/Off` UnityEvents are now public) · `A` **Shift Altar** (**`Assets/YeniLeveller/ShiftAltar.prefab`** since 2026-08-09 — it used to be assembled inline by the importer, so its sprite/layer/collider were declared in editor code and existed nowhere you could look at or tweak. `Assets/Scripts/ShiftAltar.cs`: IInteractable on the Interactable layer (12), pays `shiftCost` Shift via `player.SpendShift`, free in hub per the umbrella rule, procedural floating TMP cost label, fires public `OnPaid`). ⚠️ **It is deliberately NOT in `MarkerPrefabs`** — the `'A'` branch still needs its own code path because it collects altars for the gate wiring below; it just instantiates the prefab now instead of building one. **The importer auto-wires each `L` and `A` to its NEAREST `G` gate** (lever On→Open/Off→Close, altar OnPaid→Open) via `UnityEventTools.AddPersistentListener` — rewire in Inspector if a level needs different pairing. Only header directive besides `!backwall` is `!name`. The importer pre-checks for missing scripts before saving and names the culprit object.
+**Interactive structure markers (2026-07-14):** `=` one-way platform tiles (own tilemap: TilemapCollider2D via CompositeCollider2D + one-way PlatformEffector2D on Ground layer; painted with the thin `_144` lip so they read differently from solid strips) · `G` gate cells (vertical G-runs become one sliding **Gate** — `Assets/Scripts/Gate.cs`, solid Ground-layer collider, slides down + fades on Open, Cainos Gate 01 sprite scaled to height — see Doors below) · `L` Lever (`YeniLeveller/Lever.prefab`; its `OnFlippedOn/Off` UnityEvents are now public) · `A` **Shift Altar** (**`Assets/YeniLeveller/ShiftAltar.prefab`** since 2026-08-09 — it used to be assembled inline by the importer, so its sprite/layer/collider were declared in editor code and existed nowhere you could look at or tweak. `Assets/Scripts/ShiftAltar.cs`: IInteractable on the Interactable layer (12), pays `shiftCost` Shift via `player.SpendShift`, free in hub per the umbrella rule, procedural floating TMP cost label, fires public `OnPaid`). ⚠️ **It is deliberately NOT in `MarkerPrefabs`** — the `'A'` branch still needs its own code path because it collects altars for the gate wiring below; it just instantiates the prefab now instead of building one. **The importer auto-wires each `L` and `A` to its NEAREST `G` gate** (lever On→Open/Off→Close, altar OnPaid→Open) via `UnityEventTools.AddPersistentListener` — rewire in Inspector if a level needs different pairing. Header directives are `!name`, `!backwall` and `!recharge: on` (stamps `RechargeRoomMarker`). The importer pre-checks for missing scripts before saving and names the culprit object.
 
-**Tile painting reproduces the hand-built visual language** (learned by auditing EfeVrl7's 546 painted tiles, 2026-07-13): an optional "BackWall" backdrop tilemap (**opt-in via `!backwall: on`** — the designer prefers adding backdrop/decoration by hand; when on it must be on the **"Background" sorting LAYER**, NOT Default: ExitDoor's sprite is Default order -1 and gets swallowed by a Default-layer backdrop), plus a "Ground" tilemap (layer 3, TilemapCollider2D, Default sortingOrder 1, z=1). Any 1-tile-thick run (air above AND below, wall-attached or floating) gets the `_112/_113/_114` strip treatment with caps on open ends; the gappy `_186` fill goes in exactly ONE row under a surface, deeper cells get dark `_185` (repeating `_186` looks like a broken colonnade). Frame cells (`#` connected to the grid edge) get role tiles from `Assets/LevelSinasi/biseyler/`: air-above → floor surface `_144`, air-below → ceiling face `_96`, wall faces → inner accent tiles `_188`/`_157` ONLY when backed by a real solid tile (2-thick walls), else the clean outer tiles `_189`/`_156` (the inner tiles have protruding brick nubs + bumpy collision — wrong for 1-thick walls), buried → `_153/_154` top rows, `_156/_189` outer walls, `_186/_185` floor fill. Free-standing `#` platforms: horizontal runs of 2+ get the **platform strip set `Extra_112/_113/_114`** (left cap / middle / right cap — learned from EfeVrl6's interior platforms); lone blocks and 1-wide pillars get chunky `Ground Dirt` block tiles (`#..#..#` = the hand-made stepping-stone style); buried rows of thick platforms get floor fill. NOTE: the edge-strip tiles look like sparse floating crumbs if painted in mid-air, and adjacent Dirt blocks melt into dark blobs — never tile either as strips.
+**Tile painting reproduces the hand-built visual language** (learned by auditing EfeVrl7's 546 painted tiles, 2026-07-13): a "BackWall" backdrop tilemap (⚠️ **it now defaults to ON and `!backwall: off` turns it off** — this file said "opt-in via `!backwall: on`" until 2026-08-22 and that was stale: the default flipped once the importer started assembling the real seamless 64-piece wall via `BackWallIndex`, since before that a generated backdrop was six scattered fragments and worse than nothing. Verified in `LevelTextImporter.cs` ~L842. It must be on the **"Background" sorting LAYER**, NOT Default: ExitDoor's sprite is Default order -1 and gets swallowed by a Default-layer backdrop), plus a "Ground" tilemap (layer 3, TilemapCollider2D, Default sortingOrder 1, z=1). Any 1-tile-thick run (air above AND below, wall-attached or floating) gets the `_112/_113/_114` strip treatment with caps on open ends; the gappy `_186` fill goes in exactly ONE row under a surface, deeper cells get dark `_185` (repeating `_186` looks like a broken colonnade). Frame cells (`#` connected to the grid edge) get role tiles from `Assets/LevelSinasi/biseyler/`: air-above → floor surface `_144`, air-below → ceiling face `_96`, wall faces → inner accent tiles `_188`/`_157` ONLY when backed by a real solid tile (2-thick walls), else the clean outer tiles `_189`/`_156` (the inner tiles have protruding brick nubs + bumpy collision — wrong for 1-thick walls), buried → `_153/_154` top rows, `_156/_189` outer walls, `_186/_185` floor fill. Free-standing `#` platforms: horizontal runs of 2+ get the **platform strip set `Extra_112/_113/_114`** (left cap / middle / right cap — learned from EfeVrl6's interior platforms); lone blocks and 1-wide pillars get chunky `Ground Dirt` block tiles (`#..#..#` = the hand-made stepping-stone style); buried rows of thick platforms get floor fill. NOTE: the edge-strip tiles look like sparse floating crumbs if painted in mid-air, and adjacent Dirt blocks melt into dark blobs — never tile either as strips.
 
 ### Sprite-less tiles are the designer's ERASER — do not "fix" them (2026-08-09)
 
@@ -444,11 +517,11 @@ Verified, not assumed. The tilemaps render with **`Sprite-Lit-Default` (URP 2D l
 
 ### Room Pool
 
-`LevelManager.roomPrefabs` holds the pool of room prefabs. **Element 0 must be the hub;** elements 1..n are the run's combat levels. The boss room is NOT in this list — it has its own `bossRoomPrefab` slot.
+`LevelManager.roomPrefabs` holds the pool of room prefabs. **Element 0 must be the hub;** elements 1..n are the run's combat levels. Boss and recharge rooms are NOT in this list. Bosses live in **`bossRoomPrefabs`** (a list, drawn without repeats within a run) plus **`finalBossRoomPrefab`**, and the recharge rooms in `foundryRoomPrefab` / `marketRoomPrefab` / `wellRoomPrefab`. (The old single `bossRoomPrefab` slot no longer exists.) The played character's `CharacterData.bossRoom` overrides the finale and is filtered out of that run's mid-map boss draws.
 
-**Verified pool contents (re-verified 2026-08-16):** `[0] hub, [1] efeslevel1, [2] efeslevel2, [3] efeslevel3, [4] EfeVrl4, [5] EfeVrl5, [6] EfeVrl6, [7] EfeVrl7, [8] GenLevel7, [9] GenLevel8, [10] GenLevel9, [11] GenLevel10` + `bossRoomPrefab = BossRoom`. So the run is **11 combat levels**. All satisfy the room contract (CameraBounds / GirisNoktasi / ExitDoor), and only `hub` has a `HubMarker`.
+**Verified pool contents (re-verified 2026-09-24):** `[0] hub, [1] efeslevel1, [2] efeslevel2, [3] efeslevel3, [4] EfeVrl4, [5] EfeVrl5, [6] EfeVrl6, [7] EfeVrl7, [8] GenLevel7, [9] GenLevel8, [10] GenLevel9, [11] GenLevel10`. Bosses: `bossRoomPrefabs = [BossRoom, NinjaArena, KagemushaHall]`, `finalBossRoomPrefab = BossRoom`. Recharge: `Foundry`, `Market`, `Well` (all in `Assets/LevelGenerated/`). So the run is **11 combat levels**. All satisfy the room contract (CameraBounds / GirisNoktasi / ExitDoor), and only `hub` has a `HubMarker`.
 
-⚠️ **THIS LIST HAS NOW BEEN WIPED THREE TIMES, AND THE THIRD TIME SURVIVED A WHOLE SESSION.** On
+⚠️ **THIS LIST HAS BEEN WIPED FIVE TIMES (the fifth found 2026-09-06; see CLAUDE.md). THIS ENTRY RECORDS THE THIRD, WHICH SURVIVED A WHOLE SESSION.** On
 2026-08-16 it was found holding a **single** entry — `herangibisi`, a scratch room saved into
 `Assets/Cainos/Pixel Art Monster - Dungeon/Prefab/`, with **no `CameraBounds`** and no `HubMarker`.
 Consequences, none of which announce themselves as a pool problem: there is **no hub** (so no sandbox
@@ -512,7 +585,7 @@ repeated rooms, a camera that shows the void — read this list before debugging
 
 - ⚠️ **Recharge rooms are an ATTACHMENT to a node (`MapNode.recharge`), NOT a node.** Modelling them as nodes would make them floors, which the design forbids. `LevelManager` spawns the combat room first, then the recharge room, *without advancing the map* (`pendingRecharge`).
 - ⚠️ **Only Fight and Elite may carry a recharge room, never Skirmish.** That is the entire run economy, not a tuning value — `Validate()` re-asserts it so it can't rot.
-- ⚠️ **The map never promises a room it cannot spawn.** Recharge types are generated only for the prefab slots assigned on `LevelManager` (`foundryRoomPrefab` / `marketRoomPrefab` / `wellRoomPrefab`). **All three are empty today, so acts currently draw ZERO recharge icons.** Each type starts appearing the moment its prefab is assigned — nothing else to do.
+- ⚠️ **The map never promises a room it cannot spawn.** Recharge types are generated only for the prefab slots assigned on `LevelManager` (`foundryRoomPrefab` / `marketRoomPrefab` / `wellRoomPrefab`). **All three are ASSIGNED as of 2026-09-14** (see "Recharge Rooms" above); if a type stops appearing on the map, check that its slot is still filled before debugging the generator — the scene has lost prefab references before.
 - **Untagged rooms serve every tier.** The 7 existing rooms predate `RoomTier`, so requiring tags would have meant a broken map until a chore was finished. Tagging narrows a room; not tagging costs nothing.
 - `ToAscii()`'s edge rows show **direction from the source column**, not lines to scale — a wide fan-out (the hub does this) renders as one `\|/`. Use `Validate()` or the raw `next`/`prev` lists to confirm a specific connection.
 - **`RunMapManager` is scene-local, no `DontDestroyOnLoad`** — a map is per-run and must reset on death, exactly like QuestSystem's quests.
@@ -537,6 +610,15 @@ Restored to the full 8 (hub + `efeslevel1-3` + `EfeVrl4-7`) by resolving the GUI
 
 **If the run stops advancing past the hub, check this list first** — an empty or short `roomPrefabs` looks like a map bug and isn't one. It happened again on 2026-08-08 (found as `[hub, <NULL>]`) and was restored, again by resolving the GUIDs from the scene's last commit rather than re-picking by filename.
 
+⚠️ **`Build` DOES NOT OVERWRITE — IT WRITES `Name 1.prefab` BESIDE THE ORIGINAL (2026-08-22).** Run
+the importer twice on the same `.txt` and the second run silently produces a *new* asset at a unique
+path, returning that path. The failure this produces is nasty and quiet: you believe you re-imported,
+so you carry on editing **the stale prefab**, and every check you run against it passes — against the
+old geometry. Caught on `NinjaArena` when the re-imported room's spawn read `(4.50, 2.00)`, an
+old-grid coordinate, after a re-import that had reported success. **Always read the path `Build`
+returns**, and delete the previous prefab first if you mean to replace it (see the reference-nulling
+warning immediately below for why deleting is not free once anything points at the room).
+
 ⚠️ **DELETING AND RE-IMPORTING A PREFAB SILENTLY NULLS EVERY REFERENCE INTO IT.** The `<NULL>` above was a room the designer had slotted for testing. Re-importing a level (`delete the .prefab`, then `Build` again) **keeps the asset GUID** — the `.meta` survives — but **renumbers every fileID inside the prefab**. A scene reference is `{fileID, guid}`, so the guid still resolves while the fileID matches nothing: the link looks valid in YAML and reads as `null` in the Inspector. Before deleting a generated room prefab, check whether anything points at it, and re-assign afterwards. This is why `GenLevel8` is re-tagged via `PrefabUtility.LoadPrefabContents` + `SaveAsPrefabAsset` rather than a rebuild.
 
 ### Run Order — the pre-map order, now a FALLBACK ONLY (reworked 2026-07-02, superseded 2026-08-06)
@@ -547,12 +629,33 @@ Restored to the full 8 (hub + `efeslevel1-3` + `EfeVrl4-7`) by resolving the GUI
 
 1. **First room is always the hub** (`roomPrefabs[0]`), and `BuildLevelQueue()` fills `availableRoomIndices` with indices `1..n`.
 2. **Then every other pool level, once each, in random order (no repeats)** — pulled from `availableRoomIndices` until empty.
-3. **Pool exhausted → the boss room** (`bossRoomPrefab`, gated by a `bossSpawned` flag so it only happens once).
+3. **Pool exhausted → the finale** (`PickFinaleRoom()`: the character's `bossRoom`, else `finalBossRoomPrefab`, else a draw from `bossRoomPrefabs`; gated by a `bossSpawned` flag so it only happens once).
 4. **After the boss (or if no boss is assigned) → reset the flags and loop back to the hub** for a fresh run.
 
 So a run is: **hub → each combat level once (random) → boss → (loop to hub)**. The old `RefillRoomPool()` and index-stripping logic are gone; `hasSpawnedFirstRoom` + `bossSpawned` are the state.
 
-**Inspector requirements:** assign the BossRoom prefab to the new **`Boss Room Prefab`** slot (and REMOVE it from `roomPrefabs` if it was ever in the pool). The boss room prefab must satisfy the same room contract as every other room — a **`CameraBounds`** child (zone `BoxCollider2D`s) and a **`GirisNoktasi`** entry-point child — or the camera/spawn won't set up. Leaving `Boss Room Prefab` empty just loops hub→levels→hub.
+**Inspector requirements:** boss arenas go in **`Boss Room Prefabs`** / **`Final Boss Room Prefab`**, never in `roomPrefabs`. A boss room must satisfy the same room contract as every other room — a **`CameraBounds`** child (zone `BoxCollider2D`s) and a **`GirisNoktasi`** entry-point child — or the camera/spawn won't set up. With no boss rooms assigned at all, the fallback just loops hub→levels→hub.
+
+### ⚠️ The hand rail is part of the frame — a locked arena is centred ABOVE it (2026-09-17)
+
+The cards stand permanently across the bottom ~170 canvas px of the screen. Both boss arenas
+(`NinjaArena`, `KagemushaHall`: zone 15 tall, **zone min = floor = 5**, five units of art below the
+floor unused) had their zone centred in the 20-tall view at `RoomCamera` size 10, which put the floor
+at 88% of the frame height — **directly under the cards, every foot in the fight hidden**. Designer,
+while recording trailer footage: *"the hand is basically covering up the whole ground area."*
+
+`CameraFollow.handRailPx` (170) fixes it in code: when the vertical zone is **locked** (zone + rail ≤
+view), the zone is treated as extending down by the rail's height in world units and centred in the
+space above the rail. Kagemusha Hall now shows y 0.9–20.9 instead of 2.5–22.5; the floor sits at 80%
+and the cards fall entirely into the wall strip below it. Screenshot-verified.
+
+**Scrolling rooms are deliberately untouched.** Extending the clamp too was tried and every generated
+room grew a wider black band along the bottom (the importer pads the zone 2 units past the art on all
+sides, so a lower camera shows more of nothing). There the margin is the author's job: **pad the zone
+below the lowest floor by at least the rail's height** (≈2.2 units at size 7, 3.2 at size 10). The
+importer's 2 already clears it at size 7. **A new boss arena needs no special handling** — the code
+composes it — but its art must extend at least the rail's height below the floor, or the strip
+under the cards is void.
 
 If/when proper scene flow gets built (player starts in hub from main menu, returns after death/run completion), this loop-back should be revisited.
 

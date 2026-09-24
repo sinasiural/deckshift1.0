@@ -1,6 +1,6 @@
 ---
 name: deckshift-ui
-description: Deckshift's UI design system — how to pick a screen's material and what to invert, linear-colour-space calibration, uGUI layout traps, pause/HUD wiring, and a pre-delivery checklist. Use when building, restyling, reviewing or debugging ANY screen, panel, HUD element, card face, world-space marker or UI VFX in this project.
+description: Deckshift's UI design system — the Salvage material system every screen now follows (it replaced the old one-material-per-screen rule), linear-colour-space calibration, uGUI layout traps, pause/HUD wiring, and a pre-delivery checklist. Use when building, restyling, reviewing or debugging ANY screen, panel, HUD element, card face, world-space marker or UI VFX in this project.
 ---
 
 # Deckshift UI
@@ -28,8 +28,11 @@ professional flat design is the failure state, not the goal.
 
 What fixed it was pointing every choice at the world:
 
-- **Warm charcoal, not slate-blue** — Act 1 is the *Oxidation District*. Rust,
-  not brushed steel. This single palette shift did most of the work.
+- **Warm charcoal, not slate-blue** — the district is the *Oxidation District*. Rust,
+  not brushed steel. This single palette shift did most of the work. ⚠️ **Superseded
+  for colour by Salvage law 3:** measured dungeon stone is `#444548` cool-neutral, and
+  "warm charcoal" was reasoned from the district's name. The lesson that survives is
+  "point the palette at the world", not the specific hue.
 - **Chamfered corners, not rounded** — cut plate reads as a made object; a
   uniform corner radius reads as a web card. Biggest silhouette cue.
 - **Directional light** — a lit top lip plus ember glow rising off the *bottom*
@@ -90,8 +93,12 @@ Heart, Gear, Scroll, Map, Chest, three Keys, Coins, Rune Stone, Book, Lantern,
 gems, ingots. Same artist, same 32 PPU, same palette. Reach for these before
 drawing another procedural sigil.
 
-**Migration status:** `PauseScreen` is Salvage (the Hanging Board). Everything else is
-still on the table below and reads as the old system until converted.
+**Migration status (measured 2026-09-24 by which screens build from `Salvage` /
+`SalvageSurfaces`):** on Salvage are `PauseScreen` + `SettingsScreen` (one hanging board),
+`ScrapForgeScreen`, `QuestBoardScreen` and `BossRewardScreen`; `BlompoScreen` borrows the
+Forge's Salvage surfaces and colours. Still on the old table below: `ShopScreenUI`,
+`RunMapScreen`, `CharacterSelectScreen`, `CardChestScreen`, `RelicSwapScreen` and
+`RelicManagePanel`.
 
 ---
 
@@ -644,13 +651,17 @@ warning flash was "fixed" twice this way and stayed invisible for months.
   buttons, whose listeners point at unreachable nodes — a convincing false
   "callback never fired". Filter on `activeInHierarchy`, or check in the NEXT
   tool call.
-- **Screenshot recipe:** enter Play mode → `ScreenCapture.CaptureScreenshot(abs
-  path)` → `Read` the PNG in a **later** tool call (it's async) → stop Play mode.
-  `CaptureScreenshotAsTexture()` returns null from `execute_code`.
-- ⚠️ **`Texture2D.ReadPixels` does NOT read the game framebuffer from
-  `execute_code` either** — it returned a uniform flat grey for a screen that was
-  demonstrably on display. The async file capture is the ONLY trustworthy route.
-  To sample exact pixel values, capture to a PNG and load that back as a texture.
+- **Screenshot recipe (Unity MCP, 2026-09-24):** `editor_play` → `capture_game_view`
+  with **`source: "screen"`** and a `save_path` → `Read` the PNG straight away (the
+  file exists when the call returns) → `editor_stop`. ⚠️ **`save_path` is relative to
+  `Assets/`**, so it creates imported files there; save into a scratch folder and
+  `delete_asset` it afterwards. ⚠️ The default `source: "camera"` **omits every Screen
+  Space Overlay canvas**, which is every screen in this project; it is useless for UI.
+  Full recipe and traps: CLAUDE.md → Workflow Notes → Unity MCP.
+- ⚠️ **`Texture2D.ReadPixels` and `CaptureScreenshotAsTexture()` do NOT read the game
+  framebuffer from a one-shot code call (`eval`, formerly `execute_code`)**. It returned
+  a uniform flat grey for a screen that was demonstrably on display. To sample exact
+  pixel values, capture to a PNG and load that back as a texture.
 - ⚠️ **NEVER WRITE A MEASURED CLAIM INTO A COMMENT YOU HAVE NOT MEASURED.** A
   header in `RunMapScreen` asserted that a layout change cut edge crossings from
   ~9 per act to under 1. Measured afterwards over 300 generated acts: crossings
