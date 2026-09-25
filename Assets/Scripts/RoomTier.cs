@@ -19,8 +19,9 @@ using UnityEngine;
 // LevelManager's own bossRoomPrefab slot, so neither is chosen by tier.
 public class RoomTier : MonoBehaviour
 {
-    [Tooltip("Which node type this room is built for. Skirmish = simple layout, thin loot. " +
-             "Fight = harder layout, at least one chest. Elite = hardest layouts, uncomfortable to pick.")]
+    [Tooltip("Which node type this room is built for (the map calls them Easy / Medium / Hard). " +
+             "Skirmish (Easy) = simple layout, thin loot. Fight (Medium) = harder layout, at least one chest. " +
+             "Elite (Hard) = hardest layouts, uncomfortable to pick.")]
     public MapNodeType tier = MapNodeType.Skirmish;
 
     public bool Serves(MapNodeType nodeType)

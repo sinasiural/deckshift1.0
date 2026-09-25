@@ -8,6 +8,9 @@
 // Layout: a low spawn step on the left, a long stall floor, exit on the right.
 
 !name: Market
+// Built before automatic dressing and stepped corners existed (2026-09-25). Keep it exactly as designed.
+!dress: off
+!chamfer: off
 !recharge: on
 
 ############################################

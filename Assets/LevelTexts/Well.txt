@@ -12,6 +12,9 @@
 // Layout: spawn on a ledge, drop into a sunken courtyard with the well at its centre, walk out.
 
 !name: Well
+// Built before automatic dressing and stepped corners existed (2026-09-25). Keep it exactly as designed.
+!dress: off
+!chamfer: off
 !recharge: on
 
 ############################################

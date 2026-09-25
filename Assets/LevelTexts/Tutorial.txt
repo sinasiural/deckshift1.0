@@ -19,6 +19,9 @@
 // so the importer paints them as masonry; one tile thick reads as a thin brick chimney.
 
 !name: Tutorial
+// Built before automatic dressing and stepped corners existed (2026-09-25). Keep it exactly as designed.
+!dress: off
+!chamfer: off
 !sign1: A D | Walk. Take your time: nothing in here bites yet.
 !sign2: SPACE | Jump. Every jump costs 1 SHIFT, the counter at the top left. Shift does NOT come back on its own.
 !sign3: | Grab the crystal. Crystals refill Shift. So do altars and wells. Nothing else does.

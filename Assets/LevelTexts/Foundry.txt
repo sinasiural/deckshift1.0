@@ -9,6 +9,9 @@
 // same corridor. Drop in, pass Blompo, pass the forge, leave on the left.
 
 !name: Foundry
+// Built before automatic dressing and stepped corners existed (2026-09-25). Keep it exactly as designed.
+!dress: off
+!chamfer: off
 !recharge: on
 
 ############################################

@@ -1,0 +1,57 @@
+// Two Roads  (MEDIUM, 74x26)  -  built 2026-09-25
+//
+// A broken bridge over a guardroom. The HIGH ROAD (the bridge) costs Shift and has no enemies on
+// it. The LOW ROAD (the guardroom) costs nothing to walk and is full of them. Both end at the
+// same exit, bottom right.
+//
+// THE FORK IS THE SPAWN. You arrive on a dais at the guardroom's mouth: the guardroom and its
+// first zombie straight ahead, the bridge overhead, and a ledge in the first hole's shaft as the
+// first step up. Step down and walk: low road. Climb (two rises of 4): high road, with a crystal
+// and gold on the bridge's first island as the welcome. The dais stands 2 above the guardroom
+// floor, so nothing in the guardroom can come to you while you decide.
+//
+// YOU CAN ALWAYS BAIL DOWN, NEVER CLIMB BACK. Every hole in the bridge drops into the guardroom,
+// and nothing in the guardroom climbs back up (12 tiles). A high-roader who misjudges a jump is
+// simply demoted to the low road - no death, no reset - and meets the rest of it from the middle.
+//
+// THE HIGH ROAD: the climb, 4 holes, a pillar to vault, a stepping stone across the widest gap,
+//   a raised end to leap H4 from. ~9 jumps, 3 crystals on the way to refund some. No chest.
+// THE LOW ROAD: flat, one spike bed (1 jump), zombie / slime / Rotbrute / skeleton / spitter /
+//   slime in a row, and the RELIC CHEST near the end.
+// THE MEETING: one skeleton guards the last stretch, under the bridge's end, so the high road
+//   still ends with one fight. The price of skipping is Shift, not all the danger.
+//
+// LAW 1: both roads reach the exit by walking and jumping (the low road with no jumps but the
+//   spike bed). LAW 2: gaps 5, rises 3-4, the stone splits the 9-wide hole. LAW 3: the spike bed
+//   is on flat floor, walk out of it. LAW 7: spawn (4,21) to exit (70,23) is 68 apart. LAW 8: the
+//   dais is empty and raised; the first zombie is 16 tiles off and cannot climb to it.
+!name: TwoRoads
+!tier: medium
+!theme: barracks
+
+##########################################################################
+##########################################################################
+##......................................................................##
+##......................................................................##
+##......................................................................##
+##......................................................................##
+##......................................................................##
+##......................................................................##
+##.........................................+............................##
+##......................................................................##
+##...............................##.......###........+..................##
+##...............................##................#####................##
+##...............................##................#####................##
+##..+.g.............g............##................#####.......g........##
+#########.......#########.....#########.........########.....#####......##
+#########.......#########.....#########.........########.....#####......##
+##......................................................................##
+##......................................................................##
+##.........###..........................................................##
+##......................................................................##
+##......................................................................##
+##..S..g................................................................##
+##########..............................................................##
+##########..........z...l......Z...##..^^^.g..m.s.l..C....m.....g.....X.##
+##########################################################################
+##########################################################################

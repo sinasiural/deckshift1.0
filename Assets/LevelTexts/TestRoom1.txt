@@ -5,14 +5,31 @@
 //   S  player spawn (GirisNoktasi) — exactly one required
 //   X  exit door
 //   m  MeleeEnemy    r  RangedEnemy   l  SlimeEnemy   M  Mimic   b  AeroBat
+//   z  Shambler      Z  Rotbrute      s  Spitter
 //   ^  spikers       T  Trapdoor      W  BreakableWall_Bookshelf
-//   +  ShiftCrystal  g  Gold          C  Chest
+//   +  ShiftCrystal  g  Gold          C  Relic chest   D  Card chest
+//   G  gate cell (vertical runs = one gate)   L  lever   A  Shift altar
+//        (a lever drives its NEAREST gate or crusher; an altar opens its nearest gate)
+//   ~  swimmable water — draw the whole pool; each region fills its bounding box.
+//        Swimming costs NO Shift. Loot and rock inside a pool are fine.
+//   P  crusher — put it in the cell directly under a ceiling; it drops to the floor below.
+//        Needs a lever 'L' nearby (3 tiles short of it; enemies wake at 7, so put the pack within 6).
+//   E  elevator   F  updraft fan   w  acid pool   K  wrecking ball
+//   $  Shopkeeper    B  Blompo
 //   f  ScrapForge    Q  QuestBoard    H  RestWell   (recharge-room furniture; see Well.txt)
 //
-// Directives (optional): !name   !backwall: off   !recharge: on (marks a Foundry/Market/Well)
+// Directives (optional):
+//   !name            prefab name (default: the file name)
+//   !tier: easy | medium | hard      tags the room for the map (default: serves every tier)
+//   !theme: crypt | cellar | library | barracks | prison   what the room is dressed as
+//   !dress: off | light | normal | heavy                   automatic props + lights (default normal)
+//   !chamfer: off    keep square ceiling corners (default: stepped, like the hand-made rooms)
+//   !backwall: off   !recharge: on (marks a Foundry/Market/Well)
 // Tiles are automatic: room frame gets border/floor tiles, floating '#'
 // platforms get chunky block tiles, and the whole room gets the dungeon
-// wall backdrop — same visual language as the hand-built levels.
+// wall backdrop — same visual language as the hand-built levels. Dressing (RoomDresser) adds
+// themed props, chains holding up mid-air ledges, and warm light on every candle and lamp.
+// Validate first: Deckshift > Validate Level Text(s).
 
 !name: TestRoom1
 

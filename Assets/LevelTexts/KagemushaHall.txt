@@ -42,6 +42,9 @@
 //   +  ShiftCrystal — two on the floor, reachable with no jump (the 0-Shift lifeline)
 
 !name: KagemushaHall
+// Built before automatic dressing and stepped corners existed (2026-09-25). Keep it exactly as designed.
+!dress: off
+!chamfer: off
 
 ################################################
 ################################################

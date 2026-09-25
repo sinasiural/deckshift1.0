@@ -82,6 +82,33 @@ public static class BossTestMenu
                   "). Walk RIGHT a few tiles to trip the fight trigger.");
     }
 
+    // ---- new combat rooms (2026-09-25) ----------------------------------------------------------
+    // Same one-shot hook. These rooms are NOT in LevelManager.roomPrefabs yet: the designer judges
+    // them first, and this is how to reach one without walking a run and hoping it comes up.
+    [MenuItem("Deckshift/Test/Play Room/The Descent (Easy)")]        private static void RoomDescent()  => GoToRoom("Descent");
+    [MenuItem("Deckshift/Test/Play Room/Two Roads (Medium)")]        private static void RoomTwoRoads() => GoToRoom("TwoRoads");
+    [MenuItem("Deckshift/Test/Play Room/The Cistern (Medium)")]      private static void RoomCistern()  => GoToRoom("Cistern");
+    [MenuItem("Deckshift/Test/Play Room/The Crusher Works (Hard)")]  private static void RoomCrusher()  => GoToRoom("CrusherWorks");
+
+    private static void GoToRoom(string name)
+    {
+        if (!EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("Play Room",
+                "Press Play first (in SampleScene), then pick the room again.\n\n" +
+                "It swaps the room you are standing in for this one, so the game has to be running.", "OK");
+            return;
+        }
+        string path = "Assets/LevelGenerated/" + name + ".prefab";
+        var room = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (room == null) { Debug.LogError($"[RoomTest] no room at {path}"); return; }
+        var lm = LevelManager.instance;
+        if (lm == null) { Debug.LogError("[RoomTest] no LevelManager — are you in SampleScene?"); return; }
+        lm.forcedNextRoom = room;
+        lm.SpawnNextRoom();
+        Debug.Log($"[RoomTest] Dropped into {name}.");
+    }
+
     // ---- watching a boss without dying to it ----------------------------------------------------
     // Test-only. A boss is judged by watching its whole kit, and the Kagemusha killed the first
     // tester who stood still on the trigger. This is PlayerHealth.isInvincible, the same flag the

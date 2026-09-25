@@ -215,13 +215,15 @@ public static class MapGlyphs
         }
     }
 
+    // Player-facing names are Easy / Medium / Hard (designer, 2026-09-25: the old Skirmish / Fight /
+    // Elite read as awkward). The enum keeps its original names; only this text changed.
     public static string LabelFor(MapNodeType type)
     {
         switch (type)
         {
-            case MapNodeType.Skirmish: return "SKIRMISH";
-            case MapNodeType.Fight: return "FIGHT";
-            case MapNodeType.Elite: return "ELITE";
+            case MapNodeType.Skirmish: return "EASY";
+            case MapNodeType.Fight: return "MEDIUM";
+            case MapNodeType.Elite: return "HARD";
             case MapNodeType.Boss: return "BOSS";
             case MapNodeType.FinalBoss: return "THE END";
             default: return "HUB";

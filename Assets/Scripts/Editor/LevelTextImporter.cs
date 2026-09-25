@@ -93,6 +93,19 @@ public static class LevelTextImporter
     // its look and collider live in one place instead of being re-declared here.
     private const string AltarPrefabPath = "Assets/YeniLeveller/ShiftAltar.prefab";
 
+    // '~' SWIMMABLE WATER (2026-09-25). Draw the whole pool in '~' cells; each connected region
+    // becomes ONE Cainos Pixel Water sized to the region's bounding box, surface on its top row.
+    // Swimming costs no Shift (PlayerController.EnterWater), which is what makes water a level
+    // design tool in this game: a flooded route is a FREE route. Not a hazard — acid is 'w'.
+    private const string WaterPrefabPath = "Assets/Cainos/Interactive Pixel Water/Prefab/clearwater.prefab";
+
+    // 'P' CRUSHER (2026-09-25). Place it in the cell directly UNDER a ceiling: the press hangs flush
+    // against the rock and its travel is measured down to the floor below, so it lands exactly on
+    // it. Wire it by putting an 'L' lever nearby — a lever drives its NEAREST gate or crusher. It
+    // crushes enemies (80) and the player (20), so a lever beside a crusher is a weapon the room
+    // hands you. Extracted from BossRoom's press into Assets/Prefabs/CrusherTrap.prefab.
+    private const string CrusherPrefabPath = "Assets/Prefabs/CrusherTrap.prefab";
+
     // Non-prefab structural markers, built procedurally:
     //   '=' one-way platform tiles (jump up through, land on top)
     //   'G' gate cell — vertical runs of G become one Gate: a stone arch with double doors in it
@@ -697,6 +710,17 @@ public static class LevelTextImporter
             ? dirName
             : Path.GetFileNameWithoutExtension(filePath);
 
+        // Stepped ceiling corners — see LevelGridOps. Applied to the grid BEFORE anything is
+        // built, and the validator applies the same pass, so what gets checked is what gets built.
+        // "!chamfer: off" to keep square corners.
+        var grid = new char[height][];
+        for (int r = 0; r < height; r++)
+            grid[r] = gridLines[r].PadRight(width, '.').ToCharArray();
+        int chamfered = LevelGridOps.DirectiveOn(directives, "chamfer", true)
+            ? LevelGridOps.ChamferCeilingCorners(grid, LevelGridOps.StableHash(levelName))
+            : 0;
+        for (int r = 0; r < height; r++) gridLines[r] = new string(grid[r]);
+
         // char at (col, rowFromTop); short lines count as empty
         char At(int col, int row)
         {
@@ -716,7 +740,7 @@ public static class LevelTextImporter
         var unknownChars = new HashSet<char>();
         int spawnCount = 0, exitCount = 0;
 
-        bool hasOneWay = false, hasGate = false, hasAltar = false;
+        bool hasOneWay = false, hasGate = false, hasAltar = false, hasWater = false, hasCrusher = false;
         for (int row = 0; row < height; row++)
         {
             for (int col = 0; col < width; col++)
@@ -726,6 +750,14 @@ public static class LevelTextImporter
                 if (c == '=') { hasOneWay = true; continue; }
                 if (c == 'G') { hasGate = true; continue; }
                 if (c == 'A') { hasAltar = true; continue; }
+                if (c == '~') { hasWater = true; continue; }
+                if (c == 'P')
+                {
+                    hasCrusher = true;
+                    if (!IsSolid(col, row - 1))
+                        warnings.Add($"Crusher 'P' at ({col},{row}) has no ceiling directly above it — it will hang in mid-air.");
+                    continue;
+                }
                 if (c == 'S') { spawnCount++; continue; }
                 if (c == 'X') exitCount++;
                 if (!MarkerPrefabs.ContainsKey(c)) unknownChars.Add(c);
@@ -818,6 +850,11 @@ public static class LevelTextImporter
         var altarPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(AltarPrefabPath);
         if (hasAltar && altarPrefab == null) missing.Add($"'A' -> {AltarPrefabPath}");
 
+        var waterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WaterPrefabPath);
+        if (hasWater && waterPrefab == null) missing.Add($"'~' -> {WaterPrefabPath}");
+        var crusherPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CrusherPrefabPath);
+        if (hasCrusher && crusherPrefab == null) missing.Add($"'P' -> {CrusherPrefabPath}");
+
         if (missing.Count > 0)
             throw new Exception("Prefab paths in LevelTextImporter are stale, fix them:\n" + string.Join("\n", missing));
 
@@ -841,6 +878,27 @@ public static class LevelTextImporter
                     || rechargeV.Equals("true", StringComparison.OrdinalIgnoreCase)))
             {
                 root.AddComponent<RechargeRoomMarker>();
+            }
+
+            // "!tier: easy | medium | hard" (the map's names; skirmish / fight / elite also work).
+            // Without it the room serves every tier, which is the right default for a room nobody
+            // has judged yet — see RoomTier.
+            string tierLine = null;
+            if (directives.TryGetValue("tier", out string tierV))
+            {
+                MapNodeType? tier = null;
+                switch (tierV.Trim().ToLowerInvariant())
+                {
+                    case "easy": case "skirmish": tier = MapNodeType.Skirmish; break;
+                    case "medium": case "fight": tier = MapNodeType.Fight; break;
+                    case "hard": case "elite": tier = MapNodeType.Elite; break;
+                }
+                if (tier.HasValue)
+                {
+                    root.AddComponent<RoomTier>().tier = tier.Value;
+                    tierLine = $"Tier: {MapGlyphs.LabelFor(tier.Value)}";
+                }
+                else warnings.Add($"Unknown !tier '{tierV}' — use easy, medium or hard. Room left untagged (serves every tier).");
             }
 
             var gridGo = new GameObject("Grid");
@@ -911,6 +969,8 @@ public static class LevelTextImporter
             var gateColumns = new Dictionary<int, List<int>>(); // col -> rows with 'G'
             var levers = new List<Lever>();
             var altars = new List<ShiftAltar>();
+            var crushers = new List<CrusherTrap>();
+            var waterCells = new List<Vector2Int>();   // (col, row) — grouped into pools after the loop
 
             for (int row = 0; row < height; row++)
             {
@@ -1033,7 +1093,43 @@ public static class LevelTextImporter
                         continue;
                     }
 
+                    if (c == '~')
+                    {
+                        waterCells.Add(new Vector2Int(col, row));
+                        continue;
+                    }
+
                     Vector3 worldPos = new Vector3(col + 0.5f, cellY + 0.5f, 0f);
+
+                    if (c == 'P')
+                    {
+                        var crusherGo = (GameObject)PrefabUtility.InstantiatePrefab(crusherPrefab);
+                        crusherGo.name = "CrusherTrap";
+                        crusherGo.transform.SetParent(root.transform);
+                        // The root is the chain anchor: flush against the underside of the rock above.
+                        float ceilingY = cellY + 1f;
+                        crusherGo.transform.position = new Vector3(col + 0.5f, ceilingY, 0f);
+
+                        // Travel = from the head's resting underside down to the floor below it.
+                        // The head's ORIGIN is the tip of its spikes (its collider is offset up
+                        // from there), so its resting underside is simply where the head sits.
+                        int floorRow = row;
+                        while (floorRow + 1 < height && !IsSolid(col, floorRow + 1)) floorRow++;
+                        float floorY = height - 1 - floorRow;                 // bottom of the lowest air cell
+                        var ct = crusherGo.GetComponent<CrusherTrap>();
+                        var cso0 = new SerializedObject(ct);
+                        var headRb = cso0.FindProperty("pressHead").objectReferenceValue as Rigidbody2D;
+                        float headBottomY = headRb != null ? headRb.transform.position.y : ceilingY - 1.34f;
+                        float travel = Mathf.Max(0.5f, headBottomY - floorY);
+
+                        var cso = new SerializedObject(ct);
+                        cso.FindProperty("travelDistance").floatValue = travel;
+                        cso.ApplyModifiedPropertiesWithoutUndo();
+                        crushers.Add(ct);
+                        entityCounts.TryGetValue("CrusherTrap", out int nc);
+                        entityCounts["CrusherTrap"] = nc + 1;
+                        continue;
+                    }
 
                     if (c == 'A')
                     {
@@ -1180,13 +1276,121 @@ public static class LevelTextImporter
                 }
                 return best;
             }
+            CrusherTrap NearestCrusher(Vector3 from, out float dist)
+            {
+                CrusherTrap best = null; dist = float.MaxValue;
+                foreach (var ct in crushers)
+                {
+                    float d = (ct.transform.position - from).sqrMagnitude;
+                    if (d < dist) { dist = d; best = ct; }
+                }
+                return best;
+            }
             foreach (var lever in levers)
             {
+                // A lever drives whichever is nearer: a gate (toggle) or a crusher (momentary pull
+                // with a cooldown clock — Lever's own crusher mode, which calls Activate directly).
                 var g2 = Nearest(lever.transform.position);
-                if (g2 == null) { warnings.Add("Lever placed but no 'G' gate to wire it to."); continue; }
+                float gateD = g2 != null ? (g2.transform.position - lever.transform.position).sqrMagnitude : float.MaxValue;
+                var crusher = NearestCrusher(lever.transform.position, out float crusherD);
+                if (crusher != null && crusherD < gateD)
+                {
+                    var lso = new SerializedObject(lever);
+                    lso.FindProperty("crusher").objectReferenceValue = crusher;
+                    lso.ApplyModifiedPropertiesWithoutUndo();
+                    continue;
+                }
+                if (g2 == null) { warnings.Add("Lever placed but no 'G' gate or 'P' crusher to wire it to."); continue; }
                 UnityEventTools.AddPersistentListener(lever.OnFlippedOn, g2.Open);
                 UnityEventTools.AddPersistentListener(lever.OnFlippedOff, g2.Close);
             }
+            foreach (var ct in crushers)
+            {
+                bool wired = false;
+                foreach (var lever in levers)
+                    if (new SerializedObject(lever).FindProperty("crusher").objectReferenceValue == ct) wired = true;
+                if (!wired) warnings.Add($"Crusher at {ct.transform.position} has no lever — nothing can fire it.");
+            }
+
+            // ---------- Water: each connected '~' region becomes one pool ----------
+            // Sized through PixelWater's own serialized `size` (its pivot is the BOTTOM CENTRE), then
+            // ResetCollider() fits the trigger to it. The mesh is NOT generated here: PixelWater
+            // rebuilds it in Start(), and a mesh generated in the editor would be a scene object the
+            // prefab cannot keep.
+            int pools = 0;
+            if (waterCells.Count > 0)
+            {
+                var isWater = new HashSet<Vector2Int>(waterCells);
+                var done = new HashSet<Vector2Int>();
+                foreach (var start in waterCells)
+                {
+                    if (done.Contains(start)) continue;
+                    int minC = start.x, maxC = start.x, minR = start.y, maxR = start.y, count = 0;
+                    var stack = new Stack<Vector2Int>();
+                    stack.Push(start); done.Add(start);
+                    while (stack.Count > 0)
+                    {
+                        var p = stack.Pop(); count++;
+                        minC = Math.Min(minC, p.x); maxC = Math.Max(maxC, p.x);
+                        minR = Math.Min(minR, p.y); maxR = Math.Max(maxR, p.y);
+                        foreach (var q in new[] { new Vector2Int(p.x + 1, p.y), new Vector2Int(p.x - 1, p.y), new Vector2Int(p.x, p.y + 1), new Vector2Int(p.x, p.y - 1) })
+                            if (isWater.Contains(q) && done.Add(q)) stack.Push(q);
+                    }
+                    int pw = maxC - minC + 1, ph = maxR - minR + 1;
+                    // The pool fills its whole bounding box. Rock inside it is fine (piers standing
+                    // in the water, drawn submerged) and so are markers (loot on the pool floor
+                    // is IN the water). Only an EMPTY cell inside the box means the author drew a
+                    // shape the pool can't take, because that cell will flood.
+                    int flooded = 0;
+                    for (int rr = minR; rr <= maxR; rr++)
+                        for (int cc = minC; cc <= maxC; cc++)
+                        {
+                            char wc = At(cc, rr);
+                            if (wc == '.' || wc == ' ') flooded++;
+                        }
+                    if (flooded > 0)
+                        warnings.Add($"Water region at ({minC},{minR}) is not a rectangle — {flooded} empty cell(s) inside its {pw}x{ph} box will be flooded too.");
+
+                    var waterGo = (GameObject)PrefabUtility.InstantiatePrefab(waterPrefab);
+                    waterGo.name = "Water";
+                    waterGo.transform.SetParent(root.transform);
+                    float bottomY = height - 1 - maxR;
+                    waterGo.transform.position = new Vector3(minC + pw * 0.5f, bottomY, 0f);
+                    var pixelWater = waterGo.GetComponent<Cainos.InteractivePixelWater.PixelWater>();
+                    if (pixelWater != null)
+                    {
+                        var wso = new SerializedObject(pixelWater);
+                        wso.FindProperty("size").vector2Value = new Vector2(pw, ph);
+                        wso.FindProperty("fill").floatValue = 1f;
+                        wso.ApplyModifiedPropertiesWithoutUndo();
+                        pixelWater.ResetCollider();
+                    }
+                    else warnings.Add("Water prefab has no PixelWater component — pool left at its default size.");
+                    pools++;
+                }
+                entityCounts["Water pool"] = pools;
+            }
+
+            // ---------- Dressing: themed props, chains, light (RoomDresser) ----------
+            // Runs LAST among the placement passes so it can stay clear of every gameplay object.
+            // "!dress: off | light | normal | heavy" (default normal), "!theme: crypt | cellar |
+            // library | barracks | prison" (default: picked from the room name).
+            RoomDresser.Density density = RoomDresser.Density.Normal;
+            if (directives.TryGetValue("dress", out string dressV))
+            {
+                switch (dressV.Trim().ToLowerInvariant())
+                {
+                    case "off": case "false": case "no": density = RoomDresser.Density.Off; break;
+                    case "light": density = RoomDresser.Density.Light; break;
+                    case "heavy": density = RoomDresser.Density.Heavy; break;
+                }
+            }
+            directives.TryGetValue("theme", out string themeV);
+            string dressReport = RoomDresser.Dress(new RoomDresser.Room
+            {
+                rows = grid, width = width, height = height, name = levelName,
+                theme = themeV, density = density, root = root.transform,
+            });
             foreach (var altar in altars)
             {
                 var g2 = Nearest(altar.transform.position);
@@ -1238,6 +1442,9 @@ public static class LevelTextImporter
             var report = new StringBuilder();
             report.AppendLine($"Saved: {assetPath}");
             report.AppendLine($"Size: {width} x {height} cells, {tileCount} ground tiles");
+            if (tierLine != null) report.AppendLine(tierLine);
+            if (chamfered > 0) report.AppendLine($"Stepped corners: {chamfered} cells filled");
+            report.AppendLine(dressReport);
             foreach (var kv in entityCounts)
                 report.AppendLine($"  {kv.Value} x {kv.Key}");
             if (warnings.Count > 0)

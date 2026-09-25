@@ -34,6 +34,91 @@ one to the pool.**
 
 9. ⚠️ **PROVISIONAL — the designer said this was written up wrong and will restate it ("we can see about that later on", 2026-08-08). Do not treat it as settled; ask before designing to it.** The rough shape, from GenLevel8 where they placed a Blompo on such a platform themselves: a ledge reachable only by dropping onto it, or only along one narrow guarded approach, wants **something on it to claim** — loot, a shop, Blompo, an NPC — which is what makes the player accept the narrow path with an enemy in it. What is NOT yet confirmed is how far that generalises.
 
+### THE LEVEL TOOL, 2026-09-25: dressing, stepped corners, water, crushers, tiers
+
+Designer's brief: generated rooms "look bare" and "feel samey/blocky". Measured before building:
+the seven hand-made pool rooms carry **50-100 Cainos props each**; generated rooms carried zero
+(GenLevel10 had been dressed by hand since, which is the complaint in action). The hand-made rooms
+also have **no room lighting** — every Light2D in them is a gold/crystal pickup glow.
+
+**`Editor/RoomDresser.cs` — automatic set dressing, run by the importer after every gameplay
+object is placed.** Everything lands under a `Dressing` child (Floor / Wall / Ceiling / Chains /
+Grime) so it can be edited or deleted by hand, and it is seeded by the room name, so a re-import
+reproduces it. What it reproduces from the hand-made rooms:
+- **Vignettes, not scatter** — small scenes that say what the room WAS (a table with chairs and a
+  candle on it, a shrine flanked by candlestands and banners, a row of coffins).
+- **One theme per room**: `!theme: crypt | cellar | library | barracks | prison` (default picked
+  from the name). `!dress: off | light | normal | heavy`.
+- **Structure**: every free-standing ledge gets a chain from each end up to the rock above (the
+  pack's Ceiling Chain has a TILED chain sprite, so it stretches to any length). ⚠️ Chains ignore
+  marker reservations — checking them left every loot stone floating.
+- **Light**: the pack's candles/lamps/chandeliers carry 3D `Light`s the 2D renderer ignores; each
+  becomes a `Light2D` at the same spot (max 16 per room). ⚠️ **Editor `camera.Render()` shots do
+  NOT show these lights** — judge lighting only in Play mode with `source: "screen"`.
+
+⚠️ **READABILITY LAW (enforced by exclusion): decoration must never look like something you can
+use.** Never auto-placed: Platform, Beam, Stairs, Ladder (look walkable); Spear Trap, Spike Ball,
+Swinging Blade (look dangerous); Switch, Door, Trapdoor, Chest, Elevator (look interactive); Bag and
+Coin Pile (look like gold pickups). **Rejected on screen, not guessed:** the whole `Wall Deco - *`
+series — Dents are pale grey brick patches that read as SOLID BLOCKS floating on the wall, its
+windows carry the same pale surround, and **`Outfall 01` / `Prison 01` are wooden doors a player
+walks up to expecting an exit**. The Wall Cave niches and the small arched `Window 01-03` props are
+used instead.
+
+**Stepped ceiling corners** (`Editor/LevelGridOps.cs`, `!chamfer: off` to disable): fills 1-3 cells
+in qualifying UPPER inner corners, like EfeVrl5's chambers. Upper only — a floor-corner step is a
+ledge the player must jump, which is a design decision, not a cosmetic one. ⚠️ **The validator
+applies the same pass** (same seed), so it checks the shape that gets built. Any future geometry
+transform must live in `LevelGridOps` and be called by BOTH tools.
+
+⚠️ **`!dress: off` + `!chamfer: off` were added to Tutorial, Well, Foundry, Market, NinjaArena and
+KagemushaHall**, so rebuilding those rooms reproduces them exactly as designed.
+
+**New markers:**
+- **`~` swimmable water.** Draw the whole pool; each connected region becomes ONE Cainos Pixel
+  Water sized to its bounding box (via its serialized `size` + `ResetCollider()`; PixelWater builds
+  its mesh itself in `Start`). Rock inside the box is fine (piers drawn submerged), so is loot on
+  the pool floor. **Swimming costs no Shift**, which is what makes water a design tool: a flooded
+  route is a FREE route. The validator models it (free 8-way movement; the exit kick is 9, vs 11
+  for a ground jump, ≈3 tiles above the surface).
+- **`P` crusher** — `Assets/Prefabs/CrusherTrap.prefab`, extracted from BossRoom's press and
+  rebuilt from crisp parts (the BossRoom head is a 1-tile spike plate stretched 8x). Place it in
+  the cell under a ceiling; the importer measures the drop to the floor below. **A lever drives its
+  NEAREST gate OR crusher** (crusher mode = Lever's own momentary pull + cooldown clock). It kills
+  every ordinary enemy (80) and hits the player for 20.
+  ⚠️ **Zombies wake at 7 tiles, STRICTLY** (`MeleeEnemyAI.aggroRange`; one standing at exactly 7.0
+  never came) **and walk 1.2-1.8 tiles/s.** A lever 7+ tiles short of its pack is a lever nothing
+  ever walks under. Put the lever 3 short of the press and the pack within 6 of the lever.
+- **`!tier: easy | medium | hard`** stamps `RoomTier` (skirmish / fight / elite also accepted).
+
+**Validator changes:** `G` gates and `P` crusher heads are SOLID (a gate starts closed; until now a
+room could hide its only route behind one and still pass). Water is its own node type.
+
+⚠️ **THE HAND RAIL HIDES THE BOTTOM ~2.2 TILES OF EVERY SCREEN, AND A ROOM'S KEY CHOICE MUST NOT
+LIVE THERE.** Found twice in play: the Cistern's pool surface sat behind the cards from the spawn
+(the water was the whole point of the room), and Two Roads' guardroom was 10 tiles below the camera
+from a spawn on the bridge, so the fork the room is named for was invisible. When authoring, check
+what is on screen FROM THE SPAWN at 14 tiles tall minus the rail.
+
+⚠️ **Photographing rooms: use a throwaway scene.** A capture script that grabs
+`FindFirstObjectByType<Camera>()` in SampleScene moves the real Main Camera (reload without saving
+to undo it). And keep ONE room instance in the scene per shot — the old two-rooms trap again.
+
+**Observed, not fixed (the designer wants to rework water next):** the player's rig draws IN
+FRONT of the water rather than inside it, so a swimmer looks like they are hovering over the pool.
+
+#### The four rooms built with it (2026-09-25) — NOT in `roomPrefabs` yet
+
+Sources in `LevelTexts/`, prefabs in `LevelGenerated/`. Reach them in Play mode through
+**Deckshift → Test → Play Room** (the `forcedNextRoom` one-shot; touches no pool list).
+
+| room | tier | theme | the idea |
+|---|---|---|---|
+| **Descent** | Easy | crypt | spawn at the TOP, exit at the bottom. Falling is free, so the route costs 0 Shift; loot hangs in pockets one rise-4 jump back UP, each priced to pay (a crystal is +1 and a jump costs 1, so a pocket holds more than it charges) |
+| **TwoRoads** | Medium | barracks | a broken bridge over a guardroom. Bridge = Shift, no fights; guardroom = free to walk, full of enemies, has the relic chest. Every hole drops you into the guardroom: you can always bail down, never climb back |
+| **Cistern** | Medium | cellar | a flooded hall of aqueduct piers. Hop the pier tops (6 Shift) or swim under the arches (1 Shift) past snipers; the card chest is on the pool floor |
+| **CrusherWorks** | Hard | prison | three lever-fired presses over the packs; an optional upper route over the press beams to Blompo and a Shift-altar vault |
+
 ### TUTORIAL ROOM (built 2026-09-24) — the first room a new player sees
 
 `Assets/LevelTexts/Tutorial.txt` → **Deckshift → Build Tutorial Room** (`Editor/TutorialRoomBuilder`)
@@ -596,7 +681,12 @@ repeated rooms, a camera that shows the void — read this list before debugging
 
 ### Run Map — BUILT AND WORKING END TO END (2026-08-06)
 
-**The whole system is done and verified in play mode: graph, generator, room routing, and the `M` screen.** Run order is driven by the graph, not by a shuffled pool — the section below describes the pre-map order, which survives only as a fallback.
+**The whole system is done and verified in play mode: graph, generator, room routing, and the `M` screen.**
+
+⚠️ **The player sees the combat tiers as EASY / MEDIUM / HARD** (designer, 2026-09-25: "Skirmish /
+Fight / Elite" read as awkward). Only the text changed — `MapGlyphs.LabelFor` is the one place it
+lives, and the map key reads it. The enum values (`Skirmish`, `Fight`, `Elite`) and every code
+reference keep their names; never use those words in player-facing text. Run order is driven by the graph, not by a shuffled pool — the section below describes the pre-map order, which survives only as a fallback.
 
 | File | Role |
 |---|---|

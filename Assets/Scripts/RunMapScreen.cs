@@ -291,9 +291,9 @@ public class RunMapScreen : MonoBehaviour
 
         var nodes = new[]
         {
-            (MapNodeType.Skirmish,  "SKIRMISH", "EASY · THIN LOOT"),
-            (MapNodeType.Fight,     "FIGHT",    "HARDER · A CHEST"),
-            (MapNodeType.Elite,     "ELITE",    "HARDEST · BEST LOOT"),
+            (MapNodeType.Skirmish,  MapGlyphs.LabelFor(MapNodeType.Skirmish), "THIN LOOT"),
+            (MapNodeType.Fight,     MapGlyphs.LabelFor(MapNodeType.Fight),    "A CHEST"),
+            (MapNodeType.Elite,     MapGlyphs.LabelFor(MapNodeType.Elite),    "BEST LOOT"),
             (MapNodeType.Boss,      "BOSS",     "OPTIONAL"),
             (MapNodeType.FinalBoss, "THE END",  "FINAL BOSS"),
         };
