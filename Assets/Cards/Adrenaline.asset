@@ -15,8 +15,8 @@ MonoBehaviour:
   cardName: Adrenaline
   description: Above half health, time slows down for 3 seconds. Below half, you
     heal for 30 instead and move much faster.
-  cardArt: {fileID: 1054845047586786204, guid: 85f6c60618f53ed4b94d07e35ef5c125, type: 3}
-  nameIsPaintedIntoArt: 1
+  cardArt: {fileID: 1054845047586786204, guid: ae757138abfae074f92a9916c9c7794d, type: 3}
+  nameIsPaintedIntoArt: 0
   actionType: 13
   actionValue: 30
   singleUse: 0

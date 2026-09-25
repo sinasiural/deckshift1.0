@@ -21,6 +21,12 @@ public class CardHoverFlip : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     [Tooltip("Seconds for the card to turn over.")]
     public float flipDuration = 0.22f;
 
+    // Z-lean the owner wants on top of the flip, in degrees. The hand's fan uses it to splay its
+    // cards. It lives here because this component writes localRotation every frame, so it has to be
+    // the ONE writer — a second component setting the same transform would be resolved by script
+    // execution order, which Unity does not define.
+    [HideInInspector] public float ExtraRoll;
+
     private CardBack back;
     private RectTransform hoverTarget;
     private RectTransform geometry;     // the rect that matches what the player SEES (see Bind)
@@ -110,7 +116,10 @@ public class CardHoverFlip : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         Progress = t * t * (3f - 2f * t);
 
         float angle = Progress * 180f;
-        transform.localRotation = Quaternion.Euler(0f, angle, 0f);
+        transform.localRotation = Quaternion.Euler(0f, angle, ExtraRoll);
+        // Counter-rotates the FLIP only. The roll is inherited deliberately: a Z-rotated rect still
+        // covers its own area, so the raycast is unharmed — it is the Y turn that narrows the rect
+        // to nothing and drops the pointer off the card.
         if (hoverTarget != null) hoverTarget.localRotation = Quaternion.Euler(0f, -angle, 0f);
 
         bool wantBack = Progress > 0.5f;
@@ -150,7 +159,8 @@ public class CardHoverFlip : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         hovered = false;
         t = 0f;
         Progress = 0f;
-        transform.localRotation = Quaternion.identity;
+        // Keeps the owner's lean — this resets the FACE, not the pose.
+        transform.localRotation = Quaternion.Euler(0f, 0f, ExtraRoll);
         if (hoverTarget != null) hoverTarget.localRotation = Quaternion.identity;
         if (showingBack) { showingBack = false; SetFrontVisible(true); }
         if (back != null) back.gameObject.SetActive(false);

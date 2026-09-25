@@ -1,0 +1,26 @@
+// THE MARKET — recharge room (gold). Attached to a Fight/Elite node by the run map;
+// LevelManager.marketRoomPrefab. NOT a floor.
+//
+// Same rules as Well.txt: no enemies, flat from spawn to exit, one job per room. The Market is
+// where GOLD is spent and work is taken on — the shopkeeper ('$') and the quest board ('Q').
+// The board lives here (designer, 2026-09-14) rather than in the Well so the Well stays pure rest.
+//
+// Layout: a low spawn step on the left, a long stall floor, exit on the right.
+
+!name: Market
+!recharge: on
+
+############################################
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#..........................................#
+#S.........................................#
+######.....................................#
+######........$...........Q...........X....#
+############################################

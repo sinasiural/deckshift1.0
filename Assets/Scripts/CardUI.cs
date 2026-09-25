@@ -46,6 +46,105 @@ public class CardUI : MonoBehaviour, IPointerClickHandler
     private CardBack back => flip != null ? flip.Back : null;
     private float flipT => flip != null ? flip.Progress : 0f;
 
+    // --- Slot-driven motion -----------------------------------------------------------------------
+    // Used ONLY by the hand. HandUI computes the fan and pushes each card its pose; this class adds
+    // the hover and selection on top of it.
+    //
+    // ⚠️ EVERY OTHER SCREEN THAT USES THIS PREFAB NEVER CALLS SetSlot — the deck view and the card
+    // chest lay their cards out themselves. `hasSlot` is what keeps them on the original code path;
+    // without it they would all be dragged to whatever pose the hand last wrote.
+    private const float DEAL_START_SCALE = 0.62f;
+
+    private bool hasSlot;
+    private Vector2 slotPos;
+    private float slotTilt;
+    private float slotScale = 1f;
+    private float slotHoverLift;
+
+    private Vector2 livePos;
+    private float liveScale = 1f;
+    private float liveTilt;
+
+    private bool dealing;
+    private Vector2 dealFrom;
+    private float dealDelay, dealTime, dealElapsed;
+    private CanvasGroup group;
+
+    /// <summary>How much this card is asking to be looked at — hovered or selected. The hand uses it
+    /// to decide which card draws over its neighbours.</summary>
+    public float Prominence => Mathf.Max(flipT, myCard != null && myCard.isSelected ? 1f : 0f);
+
+    /// <summary>Where the fan wants this card to sit. Snap only on the first placement.</summary>
+    public void SetSlot(Vector2 pos, float tilt, float scale, float hoverLiftAmount, bool snap)
+    {
+        hasSlot = true;
+        slotPos = pos;
+        slotTilt = tilt;
+        slotScale = scale;
+        slotHoverLift = hoverLiftAmount;
+
+        if (!snap) return;
+
+        dealing = false;
+        livePos = pos;
+        liveTilt = tilt;
+        liveScale = scale;
+        if (group != null) group.alpha = 1f;
+        ApplySlotPose();
+    }
+
+    /// <summary>Fly in from <paramref name="from"/> (rail-local) after <paramref name="delay"/>s.
+    /// Passing the card's own slot as `from` turns this into a settle-in-place instead.</summary>
+    public void BeginDeal(Vector2 from, float delay, float flyTime)
+    {
+        EnsureGroup();
+
+        dealing = true;
+        dealFrom = from;
+        dealDelay = Mathf.Max(0f, delay);
+        dealTime = Mathf.Max(0.01f, flyTime);
+        dealElapsed = 0f;
+
+        livePos = from;
+        liveScale = slotScale * DEAL_START_SCALE;
+        liveTilt = 0f;
+        group.alpha = 0f;
+        ApplySlotPose();
+    }
+
+    /// <summary>Hand this card over to whoever is animating it off the screen. Everything that writes
+    /// the transform stops, so the play animation is the only thing moving it.</summary>
+    public void DetachForPlay()
+    {
+        if (flip != null)
+        {
+            flip.ExtraRoll = 0f;
+            flip.ResetFace();      // face-up and straight: you should see the card you just played
+            flip.enabled = false;
+        }
+        Button button = GetComponent<Button>();
+        if (button != null) button.interactable = false;
+        enabled = false;
+    }
+
+    private void EnsureGroup()
+    {
+        if (group != null) return;
+        group = GetComponent<CanvasGroup>();
+        if (group == null) group = gameObject.AddComponent<CanvasGroup>();
+    }
+
+    private void ApplySlotPose()
+    {
+        if (rectTransform != null) rectTransform.anchoredPosition = livePos;
+        transform.localScale = originalScale * liveScale;
+
+        // ⚠️ ONE WRITER FOR ROTATION. CardHoverFlip writes localRotation every frame to drive the
+        // turn, so the fan's lean is handed to IT rather than written here. Two components writing
+        // the same transform would be settled by script execution order, which is undefined.
+        if (flip != null) flip.ExtraRoll = liveTilt;
+    }
+
     public RuntimeCard GetCard()
     {
         return myCard;
@@ -477,21 +576,64 @@ public class CardUI : MonoBehaviour, IPointerClickHandler
         // The flip zoom composes with the selection bump rather than replacing it, so a selected
         // card you hover does both instead of one silently winning.
         float zoom = Mathf.Lerp(1f, flipZoom, flipT);
-        Vector3 targetScale = originalScale * (isSelected ? 1.1f : 1f) * zoom;
-
-        // ⚠️ THE FLIP MUST LIFT AS WELL AS GROW, OR THE BACK'S FOOTER FALLS OFF THE SCREEN.
-        //
-        // The hand sits at the bottom edge and a card's art already overhangs it: measured, the
-        // card's bottom is 6px BELOW the screen at rest, and the 1.2x zoom grows about the root's
-        // pivot so that becomes 22px. The Shift/charges row lives in the lowest 12% of the back, so
-        // it was the part that got cut. 40 clears the overhang with ~18px to spare, and a card that
-        // rises as it turns towards you is the right read anyway.
-        float targetY = (isSelected ? selectionLiftAmount : 0f) + flipLift * flipT;
 
         // ⚠️ UNSCALED. This used to lerp on Time.deltaTime, which is ZERO on every screen that
         // pauses the game — so a reward card, the one place reading a description matters most,
         // would flip over without ever growing.
-        float speed = Time.unscaledDeltaTime * 15f;
+        float dt = Time.unscaledDeltaTime;
+
+        if (!hasSlot) { LegacyMotion(isSelected, zoom, dt); return; }
+
+        // --- In the hand: the fan owns the base pose, this adds hover and selection on top --------
+        //
+        // ⚠️ THE FLIP MUST LIFT AS WELL AS GROW, OR THE BACK'S FOOTER FALLS OFF THE SCREEN. The hand
+        // is deliberately sunk into the bottom edge, so a card read in place would be read through
+        // the screen edge. HandUI owns the lift amount because HandUI owns the sink — the two numbers
+        // are the same measurement from opposite ends, and splitting them across two files is how
+        // they drift apart.
+        float lift = (isSelected ? selectionLiftAmount : 0f) + slotHoverLift * flipT;
+        Vector2 targetPos = slotPos + Vector2.up * lift;
+        float targetScale = slotScale * (isSelected ? 1.1f : 1f) * zoom;
+
+        // A card turning towards you straightens out of the fan. The lean is charm while you are
+        // glancing at the hand and friction the moment you are reading a page of text off one.
+        float targetTilt = Mathf.Lerp(slotTilt, 0f, Mathf.Max(flipT, isSelected ? 1f : 0f));
+
+        if (dealing)
+        {
+            dealElapsed += dt;
+            if (dealElapsed >= dealDelay)
+            {
+                float p = Mathf.Clamp01((dealElapsed - dealDelay) / dealTime);
+                // Ease-out cubic: leaves the pile fast and settles into the fan, which reads as a
+                // card being DEALT. A linear slide reads as a panel opening.
+                float e = 1f - Mathf.Pow(1f - p, 3f);
+                livePos = Vector2.Lerp(dealFrom, targetPos, e);
+                liveScale = Mathf.Lerp(slotScale * DEAL_START_SCALE, targetScale, e);
+                liveTilt = Mathf.Lerp(0f, targetTilt, e);
+                if (group != null) group.alpha = Mathf.Clamp01(p * 3f);
+                if (p >= 1f) dealing = false;
+            }
+            ApplySlotPose();
+            return;
+        }
+
+        // ⚠️ Frame-rate independent approach. Lerp(a, b, speed * dt) is NOT — it settles about three
+        // times faster at 144fps than at 48, so the hand's feel would depend on the machine.
+        float k = 1f - Mathf.Exp(-16f * dt);
+        livePos = Vector2.Lerp(livePos, targetPos, k);
+        liveScale = Mathf.Lerp(liveScale, targetScale, k);
+        liveTilt = Mathf.LerpAngle(liveTilt, targetTilt, k);
+        ApplySlotPose();
+    }
+
+    // The original path, for every screen that positions its own cards (the deck view, the card
+    // chest). Untouched on purpose: those screens are not part of this change.
+    private void LegacyMotion(bool isSelected, float zoom, float dt)
+    {
+        Vector3 targetScale = originalScale * (isSelected ? 1.1f : 1f) * zoom;
+        float targetY = (isSelected ? selectionLiftAmount : 0f) + flipLift * flipT;
+        float speed = dt * 15f;
 
         transform.localScale = Vector3.Lerp(transform.localScale, targetScale, speed);
 

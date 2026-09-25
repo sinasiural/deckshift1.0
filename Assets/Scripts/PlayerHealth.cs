@@ -8,6 +8,45 @@ public class PlayerHealth : MonoBehaviour
     public float maxHealth = 100f;
     public bool isInvincible = false;
 
+    // ============================================================================================
+    // ARMOUR — a second pool that sits ON TOP of health and empties first.
+    //
+    // Introduced with the Samurai (whose "Full Plate" trait grants 5 on entering every combat room
+    // and lets it stack across rooms), but it is a GAME system, not a character one: relics, cards
+    // and blessings are expected to grant and spend it later. Rules, each load-bearing:
+    //
+    //  - No regeneration and no cap. Sources add; damage takes. Nothing refills it on its own —
+    //    the same philosophy as Shift.
+    //  - Damage order is ARMOUR -> HP, always, and it happens in ONE place (ApplyDamage) so no
+    //    future damage source can forget it.
+    //  - ⚠️ A HIT ABSORBED BY ARMOUR IS STILL A HIT. The hurt animation plays, OnDamaged fires with
+    //    the FULL incoming size, knockback applies, the flawless-clear payout is lost and oaths
+    //    break. Armour changes what a hit COSTS, never whether it happened — otherwise every
+    //    "took no damage" consumer in the project (tookDamageThisRoom, RelicManager.OnPlayerTakeDamage,
+    //    the NoDamageRoom quest type, Glass cards reading low HP) silently changes meaning the
+    //    moment anybody is holding 1 Armour.
+    //  - ⚠️ Stagger's blood price BYPASSES it — see PayHealthCost.
+    // ============================================================================================
+    [Header("Armour")]
+    [Tooltip("A hit that lands on Armour always absorbs up to the armour value. This decides what " +
+             "happens to the REMAINDER: off = chip (the rest survives, so it stacks across rooms " +
+             "for a player who is never touched); on = shatter (any hit at all empties it).")]
+    public bool armourShatters = false;
+
+    private float armour = 0f;
+    public float Armour => armour;
+
+    /// <summary>Fires whenever the armour pool changes, carrying the new total. Drives the HUD bar.</summary>
+    public event System.Action<float> OnArmourChanged;
+
+    /// <summary>Adds to the armour pool. The only way in; there is no setter and no maximum.</summary>
+    public void AddArmour(float amount)
+    {
+        if (isDead || amount <= 0f) return;
+        armour += amount;
+        OnArmourChanged?.Invoke(armour);
+    }
+
     [Header("Audio")]
     [SerializeField] AudioClip hurtSound;
     [SerializeField] AudioClip deathSound;
@@ -105,6 +144,15 @@ public class PlayerHealth : MonoBehaviour
             return;
         }
 
+        // Relic scaling on damage TAKEN (Paper Skin, Odd Socket).
+        //
+        // ⚠️ HERE, NOT IN ApplyDamage. PayHealthCost also routes through ApplyDamage, and that is
+        // Stagger's bill — a price the player CHOSE to pay, not a hit. Scaling it there would make
+        // Paper Skin quietly raise the cost of Stagger by 50%, which is not what it says it does.
+        // Sitting after the invincibility and parry returns also means a hit that deals nothing
+        // stays nothing.
+        if (RelicManager.instance != null) damage = RelicManager.instance.ModifyIncomingDamage(damage);
+
         ApplyDamage(damage);
     }
 
@@ -118,14 +166,30 @@ public class PlayerHealth : MonoBehaviour
     //
     // It can still kill, and Phoenix Cog can still save you from it: paying more than you have is
     // exactly the fail state Stagger is supposed to be.
+    // ⚠️ AND IT BYPASSES ARMOUR, for the same family of reason. Stagger's bill is the fail state —
+    // the price of having spent Shift you did not have. Paying it out of armour would make Stagger
+    // free for exactly the character who stacks armour, and "sometimes free" is worse than either.
     public void PayHealthCost(float amount)
     {
         if (isDead || amount <= 0f) return;
-        ApplyDamage(amount);
+        ApplyDamage(amount, ignoreArmour: true);
     }
 
-    private void ApplyDamage(float damage)
+    private void ApplyDamage(float damage, bool ignoreArmour = false)
     {
+        // Captured before armour eats any of it — this is what OnDamaged reports.
+        float incoming = damage;
+
+        // ARMOUR FIRST. The absorbed part never reaches health; only the remainder does.
+        // Both modes absorb identically — they differ only in what happens to what is LEFT.
+        if (!ignoreArmour && armour > 0f && damage > 0f)
+        {
+            float absorbed = Mathf.Min(armour, damage);
+            damage -= absorbed;
+            armour = armourShatters ? 0f : armour - absorbed;
+            OnArmourChanged?.Invoke(armour);
+        }
+
         currentHealth = Mathf.Max(currentHealth - damage, 0f);
 
         SfxManager.PlayOn(audioSource, hurtSound);
@@ -134,10 +198,24 @@ public class PlayerHealth : MonoBehaviour
 
         Debug.Log($"Hasar Alındı! Kalan Can: {currentHealth}");
 
-        OnDamaged?.Invoke(damage);
+        // ⚠️ Fires even when armour ate the whole hit, and carries the hit's FULL size. See the
+        // Armour header: a hit is a hit. Every consumer of this event is asking "was the player
+        // struck", not "did the health number move".
+        OnDamaged?.Invoke(incoming);
 
         if (currentHealth <= 0)
         {
+            // The tutorial has no game over: a lethal hit (or an unaffordable Stagger bill) puts the
+            // player back at the last sign they passed, healed. Losing the whole tutorial to one
+            // zombie would teach nothing except that the tutorial is a chore.
+            if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomTutorial())
+            {
+                currentHealth = maxHealth;
+                FallAndRespawn();
+                StartCoroutine(GrantInvincibility(1f));
+                return;
+            }
+
             // Phoenix Cog: once per run, a lethal hit leaves you at 1 HP and erupts instead.
             if (RelicManager.instance != null && RelicManager.instance.TryConsumePhoenixCog())
             {

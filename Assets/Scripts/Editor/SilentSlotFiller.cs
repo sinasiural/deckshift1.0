@@ -46,6 +46,16 @@ public static class SilentSlotFiller
         { "collectSound", "CrystalCollect" },
         { "glassParrySound",    "GlassParry" },
         { "freefallBladeSound", "FreefallBlade" },
+
+        // ⚠️ TYPE-QUALIFIED, the exception to the rule above. `deathSound` and `leapSound` are
+        // generic names that also exist on the player and would on any future enemy — keyed on the
+        // field alone, the next small enemy with an empty death slot would die with a boss's
+        // collapse and toll. These are checked BEFORE the bare field name.
+        { "MossKnightBoss.deathSound", "BossDeath" },
+        { "MossKnightBoss.poundSound", "BossStomp" },
+        { "MossKnightBoss.leapSound",  "BossLeap" },
+        { "NinjaBoss.deathSound",      "BossDeath" },
+        { "KagemushaBoss.deathSound",  "BossDeath" },
     };
 
     [MenuItem("Deckshift/Fill Silent Audio Slots")]
@@ -91,7 +101,15 @@ public static class SilentSlotFiller
                 //
                 // The first run of this tool did exactly that to 13 level prefabs before it was
                 // caught. Fill the SOURCE; the instances inherit for free.
-                if (PrefabUtility.IsPartOfPrefabInstance(mb.gameObject)) continue;
+                //
+                // ⚠️ TEST THE COMPONENT, NOT ITS GAMEOBJECT. A prefab VARIANT's root is always "part of
+                // an instance" (of its base), so testing the GameObject skipped every component a
+                // variant ADDS — which is where the variant's own values live and the only place they
+                // can be filled. That is how the Moss Knight stayed silent through the first run of
+                // this tool: MossKnightBoss is added onto a variant of the Cainos knight. An added
+                // component is not part of the instance, so this test fills it and still skips every
+                // component that is inherited from another prefab.
+                if (PrefabUtility.IsPartOfPrefabInstance(mb)) continue;
 
                 foreach (FieldInfo f in mb.GetType().GetFields(BindingFlags.Public |
                                                                BindingFlags.NonPublic |
@@ -102,9 +120,9 @@ public static class SilentSlotFiller
                     if (f.GetValue(mb) as AudioClip != null) continue;   // never overwrite a real choice
 
                     string key;
-                    if (!Map.TryGetValue(f.Name, out key))
+                    string label = mb.GetType().Name + "." + f.Name;
+                    if (!Map.TryGetValue(label, out key) && !Map.TryGetValue(f.Name, out key))
                     {
-                        string label = mb.GetType().Name + "." + f.Name;
                         unmapped[label] = (unmapped.ContainsKey(label) ? unmapped[label] : 0) + 1;
                         continue;
                     }

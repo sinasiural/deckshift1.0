@@ -60,9 +60,30 @@ public class RunMapScreen : MonoBehaviour
     private const float PEN_FILL = 1.40f;   // > 1 so the strokes overlap into a continuous line
 
     private RectTransform window, area;
+
+    // ---- scrolling ------------------------------------------------------------------------------
+    // ⚠️ THE CHART NO LONGER FITS THE SHEET, AND THAT IS THE POINT (designer, 2026-08-21: "make the
+    // map scrollable, it can exceed the normal screen amount ... if the player can scroll up or
+    // down on the map, itd be a better feeling").
+    //
+    // Before this the layout divided the visible height by the floor count, so every extra floor
+    // squeezed the whole chart. At 20 floors that put roughly 40px between rows while the final
+    // boss glyph alone is 88px across — the marks would have overlapped their own survey lines.
+    // Floors now have a FIXED pitch and the chart is as tall as it needs to be; `area` clips it.
+    private RectTransform chart;
+    private float scrollY, scrollTarget, scrollMax;
+    private bool recentreOnRefresh;
+
+    // Pitch between floors, in canvas px. Set by the biggest glyph (the finale, 88px) plus room for
+    // a trail to read as a trail rather than as two marks touching.
+    private const float FLOOR_PITCH = 118f;
+
+    // Padding above the top floor and below the hub, so neither sits jammed against the clip edge.
+    private const float CHART_PAD = 90f;
     private CanvasGroup group;
     private TMP_FontAsset font;
     private TextMeshProUGUI footer, sub;
+    private RectTransform keyStrip;
 
     private bool mustChoose;
     private System.Action onChosen;
@@ -216,6 +237,28 @@ public class RunMapScreen : MonoBehaviour
         area.offsetMin = new Vector2(AREA_SIDE, AREA_BOTTOM);
         area.offsetMax = new Vector2(-AREA_SIDE, -AREA_TOP);
 
+        // `area` is now a VIEWPORT: it clips, and `chart` slides inside it.
+        //
+        // ⚠️ RectMask2D, NOT Mask. Mask needs a Graphic to cut its stencil from, which would put an
+        // opaque quad over the paper — and RectMask2D is a rectangular clip with no extra draw call,
+        // which is exactly what a rectangular viewport wants. Same choice the quest board's beam
+        // frame made for the same reason.
+        area.gameObject.AddComponent<RectMask2D>();
+
+        // ⚠️ A transparent Image so the viewport can CATCH the scroll wheel and drags. Without a
+        // raycast target the pointer falls straight through to the sheet and nothing scrolls — and
+        // it must sit BEHIND the nodes (built into `chart` afterwards) or it eats their clicks.
+        Image catcher = area.gameObject.AddComponent<Image>();
+        catcher.color = new Color(0f, 0f, 0f, 0f);
+        catcher.raycastTarget = true;
+
+        chart = AddPoint(area, "Chart", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+        chart.anchorMin = chart.anchorMax = chart.pivot = new Vector2(0.5f, 0.5f);
+
+        // Wheel and drag both land on the viewport and drive the same value.
+        MapScrollInput input = area.gameObject.AddComponent<MapScrollInput>();
+        input.Bind(this);
+
         footer = AddText(window, "Footer", "", 15f, Parchment.InkSoft, TextAlignmentOptions.Center);
         footer.rectTransform.anchorMin = new Vector2(0f, 0f);
         footer.rectTransform.anchorMax = new Vector2(1f, 0f);
@@ -223,6 +266,121 @@ public class RunMapScreen : MonoBehaviour
         footer.rectTransform.anchoredPosition = new Vector2(0f, 20f);
         footer.rectTransform.sizeDelta = new Vector2(-120f, 24f);
         footer.characterSpacing = 4f;
+
+        BuildKey();
+    }
+
+    // The KEY — what every printed symbol means, drawn where a chart puts it: a strip along the
+    // bottom margin, between the viewport and the footer line (designer-requested 2026-09-14).
+    //
+    // It is part of the PRINT, so it is brown ink only — never the red pen, which is the player's
+    // hand. Each symbol is built from the same pieces the chart uses (paper disc, ink wash, ring,
+    // glyph; recharge badges at their real size) so the key shows exactly what the chart shows, not
+    // an icon that resembles it. Node marks are scaled to ~0.6 but keep their RELATIVE sizes,
+    // because size is half the type signal on this map — a key that drew Skirmish and Elite the
+    // same size would teach the wrong thing.
+    private void BuildKey()
+    {
+        const float SCALE = 0.60f;
+        const float ROW_Y = 78f;                 // centre of the strip, above the footer (y 20..44)
+        const float NODE_SLOT = 150f, BADGE_SLOT = 136f, CAPTION_W = 58f, GAP = 26f;
+
+        RectTransform key = AddPoint(window, "Key", new Vector2(0.5f, 0f), new Vector2(0f, ROW_Y),
+                                     new Vector2(WIN_W - 160f, 56f));
+        keyStrip = key;
+
+        var nodes = new[]
+        {
+            (MapNodeType.Skirmish,  "SKIRMISH", "EASY · THIN LOOT"),
+            (MapNodeType.Fight,     "FIGHT",    "HARDER · A CHEST"),
+            (MapNodeType.Elite,     "ELITE",    "HARDEST · BEST LOOT"),
+            (MapNodeType.Boss,      "BOSS",     "OPTIONAL"),
+            (MapNodeType.FinalBoss, "THE END",  "FINAL BOSS"),
+        };
+        var recharges = new[]
+        {
+            (RechargeType.Foundry, "FOUNDRY", "REPAIR CARDS"),
+            (RechargeType.Market,  "MARKET",  "SHOP"),
+            (RechargeType.Well,    "WELL",    "HEAL + SHIFT"),
+        };
+
+        float total = CAPTION_W + nodes.Length * NODE_SLOT + GAP + recharges.Length * BADGE_SLOT;
+        key.sizeDelta = new Vector2(total + 20f, 56f);   // read by FitWindowToCanvas for the narrow fit
+        float x = -total * 0.5f;
+
+        // "KEY" caption with a short rule under it — the same engraver's convention as the title.
+        TextMeshProUGUI cap = AddText(key, "Caption", "KEY", 13f, Parchment.Ink, TextAlignmentOptions.Left);
+        cap.rectTransform.anchoredPosition = new Vector2(x + CAPTION_W * 0.5f - 6f, 4f);
+        cap.rectTransform.sizeDelta = new Vector2(CAPTION_W, 20f);
+        cap.characterSpacing = 6f;
+        Image capRule = AddImage(key, "CaptionRule", FlatUI.FadedRule(), Fade(Parchment.Ink, 0.7f), false);
+        capRule.rectTransform.anchoredPosition = new Vector2(x + CAPTION_W * 0.5f - 12f, -9f);
+        capRule.rectTransform.sizeDelta = new Vector2(34f, 2f);
+        x += CAPTION_W;
+
+        foreach (var (type, name, gloss) in nodes)
+        {
+            float size = MapGlyphs.SizeFor(type) * SCALE;
+            float mark = size + 22f * SCALE;
+            float cx = x + mark * 0.5f + 6f;
+
+            RectTransform m = AddPoint(key, "Mark", new Vector2(0.5f, 0.5f), new Vector2(cx, 0f),
+                                       new Vector2(mark + 6f, mark + 6f));
+            Image wash = AddImage(m, "Wash", Parchment.Blot(), Fade(Parchment.InkPale, 0.20f), false);
+            wash.rectTransform.sizeDelta = new Vector2(mark - 3f, mark - 3f);
+            Image ring = AddImage(m, "Ring", Parchment.InkRing(false), Fade(Parchment.Ink, 0.80f), false);
+            ring.rectTransform.sizeDelta = new Vector2(mark, mark);
+            Image glyph = AddImage(m, "Glyph", MapGlyphs.ForNode(type), Parchment.Ink, false);
+            glyph.rectTransform.sizeDelta = new Vector2(size, size);
+
+            KeyLabel(key, cx + mark * 0.5f + 8f, name, gloss);
+            x += NODE_SLOT;
+        }
+
+        // A hairline between the two families — floors on the left, attachments on the right.
+        Image sep = AddImage(key, "Sep", FlatUI.FadedRule(), Fade(Parchment.Ink, 0.55f), false);
+        sep.rectTransform.anchoredPosition = new Vector2(x + GAP * 0.5f - 6f, 0f);
+        sep.rectTransform.sizeDelta = new Vector2(40f, 2f);
+        sep.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        x += GAP;
+
+        foreach (var (type, name, gloss) in recharges)
+        {
+            const float badge = 21f;             // exactly the chart's badge size
+            float mark = badge + 12f;
+            float cx = x + mark * 0.5f + 6f;
+
+            RectTransform b = AddPoint(key, "Badge", new Vector2(0.5f, 0.5f), new Vector2(cx, 0f),
+                                       new Vector2(mark, mark));
+            Image disc = b.gameObject.AddComponent<Image>();
+            disc.sprite = Parchment.Blot();
+            disc.color = Fade(Parchment.Paper, 0.95f);
+            disc.raycastTarget = false;
+            Image bring = AddImage(b, "BadgeRing", Parchment.InkRing(false), Fade(Parchment.Ink, 0.75f), false);
+            bring.rectTransform.sizeDelta = new Vector2(mark, mark);
+            Image bm = AddImage(b, "Mark", MapGlyphs.ForRecharge(type), Parchment.Ink, false);
+            bm.rectTransform.sizeDelta = new Vector2(badge, badge);
+
+            KeyLabel(key, cx + mark * 0.5f + 8f, name, gloss);
+            x += BADGE_SLOT;
+        }
+    }
+
+    // Name over a one-line gloss, left-aligned beside its symbol. Pivoted LEFT so the offset means
+    // "start here", not "centre here" — the text-pivot trap from the node labels.
+    private void KeyLabel(RectTransform parent, float left, string name, string gloss)
+    {
+        TextMeshProUGUI n = AddText(parent, "KeyName", name, 12.5f, Fade(Parchment.Ink, 0.88f), TextAlignmentOptions.Left);
+        n.rectTransform.pivot = new Vector2(0f, 0.5f);
+        n.rectTransform.anchoredPosition = new Vector2(left, 8f);
+        n.rectTransform.sizeDelta = new Vector2(120f, 16f);
+        n.characterSpacing = 3f;
+
+        TextMeshProUGUI g = AddText(parent, "KeyGloss", gloss, 10.5f, Fade(Parchment.InkSoft, 0.9f), TextAlignmentOptions.Left);
+        g.rectTransform.pivot = new Vector2(0f, 0.5f);
+        g.rectTransform.anchoredPosition = new Vector2(left, -7f);
+        g.rectTransform.sizeDelta = new Vector2(120f, 14f);
+        g.characterSpacing = 1.5f;
     }
 
     // Two vertical creases and one horizontal — the way a pocket map is actually folded.
@@ -333,6 +491,11 @@ public class RunMapScreen : MonoBehaviour
         if (hudWasActive && HandUIDrawer.instance != null) HandUIDrawer.instance.SetLocked(true);
 
         FitWindowToCanvas();
+
+        // ⚠️ OPENING A 20-FLOOR MAP MUST SHOW YOU WHERE YOU ARE, not the bottom of the sheet. Only
+        // on OPEN, though — Refresh also runs when the player commits to a branch, and re-centring
+        // there would yank the view out from under someone who had just scrolled ahead to plan.
+        recentreOnRefresh = true;
         Refresh();
 
         StopAllCoroutines();
@@ -378,6 +541,16 @@ public class RunMapScreen : MonoBehaviour
         float w = Mathf.Min(WIN_W, r.width - MARGIN);
         float h = Mathf.Min(WIN_H, r.height - MARGIN);
         window.sizeDelta = new Vector2(w, h);
+
+        // The key is a fixed-width row of symbols with nothing to reflow, so on a sheet narrower
+        // than it was drawn for it shrinks uniformly (never above 1) rather than spilling off the
+        // deckle. The chart itself reflows and needs no such thing.
+        if (keyStrip != null)
+        {
+            float need = keyStrip.sizeDelta.x + 60f;
+            float s = w < need ? Mathf.Max(0.6f, w / need) : 1f;
+            keyStrip.localScale = new Vector3(s, s, 1f);
+        }
     }
 
     // Unfolding, not fading in. The sheet arrives slightly small and settles, which is the closest a
@@ -403,6 +576,22 @@ public class RunMapScreen : MonoBehaviour
     {
         if (!isOpen) return;
         if (Input.GetKeyDown(KeyCode.Escape)) { DismissIfAllowed(); return; }
+
+        // Keyboard scrolling, so the map is navigable without a wheel. Held rather than tapped —
+        // 20 floors is a long way to travel one keypress at a time.
+        float key = 0f;
+        if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W)) key -= 1f;
+        if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S)) key += 1f;
+        if (key != 0f) Scroll(key * 900f * Time.unscaledDeltaTime);
+
+        // Ease toward the target. Unscaled, because this screen freezes the game.
+        if (!Mathf.Approximately(scrollY, scrollTarget))
+        {
+            scrollY = Mathf.Lerp(scrollY, scrollTarget, 1f - Mathf.Exp(-14f * Time.unscaledDeltaTime));
+            if (Mathf.Abs(scrollTarget - scrollY) < 0.5f) scrollY = scrollTarget;
+            ApplyScroll();
+        }
+
         TickMotion();
     }
 
@@ -460,6 +649,13 @@ public class RunMapScreen : MonoBehaviour
 
         Dictionary<int, Vector2> pos = LayOutNodes(map);
 
+        if (recentreOnRefresh)
+        {
+            recentreOnRefresh = false;
+            CentreOnFloor(map, map.Current != null ? map.Current.floor : 0);
+        }
+        else ApplyScroll();   // the chart was just resized; put it back where the player left it
+
         DrawSurveyLines(map);
 
         foreach (MapNode n in map.nodes)
@@ -505,20 +701,22 @@ public class RunMapScreen : MonoBehaviour
     // the guide lines alone.
     private void DrawSurveyLines(RunMap map)
     {
-        Rect r = area.rect;
+        // Measured against the CHART, like the nodes — see LayOutNodes. A survey line placed
+        // against the viewport would stay put while the marks it is meant to rule scrolled past it.
+        Rect r = chart.rect;
         float h = r.height, w = r.width;
-        float step = map.floors > 1 ? h / (map.floors - 1) : h;
+        float step = map.floors > 1 ? (h - CHART_PAD * 2f) / (map.floors - 1) : 0f;
         int curFloor = map.Current != null ? map.Current.floor : 0;
 
         for (int f = 0; f < map.floors; f++)
         {
-            float y = -h * 0.5f + step * f;
+            float y = -h * 0.5f + CHART_PAD + step * f;
             bool here = f == curFloor;
             bool bossLine = f == map.floors - 1;
 
             GameObject go = new GameObject($"Survey{f}", typeof(RectTransform));
             RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(area, false);
+            rt.SetParent(chart, false);
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = new Vector2(0f, y);
             rt.sizeDelta = new Vector2(w + 60f, 7f);
@@ -533,9 +731,18 @@ public class RunMapScreen : MonoBehaviour
             spawned.Add(go);
 
             string mark = f == 0 ? "HUB" : bossLine ? "BOSS" : f.ToString("00");
-            TextMeshProUGUI t = AddText(area, $"Depth{f}", mark, 12f,
+            TextMeshProUGUI t = AddText(chart, $"Depth{f}", mark, 12f,
                 here ? Parchment.Red : Fade(Parchment.InkSoft, 0.85f), TextAlignmentOptions.Left);
-            t.rectTransform.anchoredPosition = new Vector2(-w * 0.5f - 24f, y + 12f);
+            // ⚠️ INSIDE the chart's left edge, not 24px outside it. The gutter used to hang into the
+            // sheet's margin, which was fine while nothing clipped — but `area` is a RectMask2D
+            // viewport now, so anything past the chart's own width is cut away and the entire floor
+            // numbering silently disappeared. There is ~137px between the chart edge and the first
+            // column's centre, which is enough for a 70px label to sit clear of the marks.
+            // ⚠️ anchoredPosition places the BOX CENTRE, and the box is 70 wide — so "just inside
+            // the edge" has to account for its own half-width or the left half (and the
+            // left-aligned text with it) still lands outside the mask. +41 puts the box's left edge
+            // 6px inside the chart.
+            t.rectTransform.anchoredPosition = new Vector2(-w * 0.5f + 41f, y + 12f);
             t.rectTransform.sizeDelta = new Vector2(70f, 15f);
             t.characterSpacing = 3f;
             spawned.Add(t.gameObject);
@@ -555,10 +762,16 @@ public class RunMapScreen : MonoBehaviour
     // less. Measured over 300 acts, edge crossings are zero either way, so nothing is lost.
     private Dictionary<int, Vector2> LayOutNodes(RunMap map)
     {
-        Rect r = area.rect;
+        // ⚠️ SIZE THE CHART FIRST. Everything below measures against `chart.rect`, not `area.rect`,
+        // and the chart is deliberately TALLER than the viewport — that is what makes the map
+        // scroll. Reading `area` here (as this did before) silently re-compresses the whole thing
+        // back into one screen and the scrolling becomes a no-op with nothing to scroll to.
+        SizeChart(map);
+
+        Rect r = chart.rect;
         float w = r.width, h = r.height;
         float halfW = w * 0.5f;
-        float step = map.floors > 1 ? h / (map.floors - 1) : h;
+        float step = map.floors > 1 ? (h - CHART_PAD * 2f) / (map.floors - 1) : 0f;
 
         int maxCol = 0;
         foreach (MapNode n in map.nodes) if (n.column > maxCol) maxCol = n.column;
@@ -567,15 +780,83 @@ public class RunMapScreen : MonoBehaviour
         Dictionary<int, Vector2> pos = new Dictionary<int, Vector2>();
         foreach (MapNode n in map.nodes)
         {
-            // The act's spine. Start and Boss are single nodes and belong dead centre; letting them
-            // take a lattice slot makes the whole chart look tipped over.
-            float x = (n.type == MapNodeType.Start || n.type == MapNodeType.Boss || maxCol == 0)
+            // The run's spine. Start and the FINAL boss are single nodes and belong dead centre;
+            // letting them take a lattice slot makes the whole chart look tipped over.
+            //
+            // ⚠️ MID-MAP BOSSES ARE NOT CENTRED, AND MUST NOT BE. They stand in a column like every
+            // other node — that is the entire point of them being optional. Centring them (which
+            // the old `type == Boss` test would now do) would draw every boss on the spine and make
+            // them look mandatory.
+            float x = (n.type == MapNodeType.Start || n.type == MapNodeType.FinalBoss || maxCol == 0)
                     ? 0f
                     : -halfW + colStep * (n.column + 0.5f);
 
-            pos[n.id] = new Vector2(x, -h * 0.5f + step * n.floor);
+            pos[n.id] = new Vector2(x, -h * 0.5f + CHART_PAD + step * n.floor);
         }
         return pos;
+    }
+
+    /// <summary>
+    /// Makes the chart as tall as the run actually is, and works out how far it may slide.
+    ///
+    /// The width still tracks the viewport — only the vertical axis scrolls, because the map's
+    /// columns are a fixed lattice at most five wide and there is nothing to find sideways.
+    /// </summary>
+    private void SizeChart(RunMap map)
+    {
+        // ⚠️ THE VIEWPORT'S RECT IS STALE UNTIL THE LAYOUT PASS RUNS. Show() resizes the window
+        // (FitWindowToCanvas) and then Refreshes in the SAME frame, so `area.rect.height` still
+        // reports the pre-resize value — the chart got sized against the wrong viewport and the
+        // open-on-your-position scroll landed four floors off. Measured: centring on floor 6 put
+        // the view on floor 2.
+        Canvas.ForceUpdateCanvases();
+
+        float viewH = area.rect.height;
+        float needed = (map.floors - 1) * FLOOR_PITCH + CHART_PAD * 2f;
+
+        // Never SHORTER than the viewport: a three-floor map would otherwise float in the middle of
+        // a clipped box with its survey lines ending in mid-air.
+        float h = Mathf.Max(viewH, needed);
+
+        chart.sizeDelta = new Vector2(area.rect.width, h);
+
+        // ⚠️ THE TRAVEL IS SYMMETRIC ABOUT ZERO, NOT [0 .. h - viewH]. The chart's pivot is its
+        // CENTRE, so scrollY 0 shows the MIDDLE of the map — negative scrolls toward the finale,
+        // positive back toward the hub. Clamping to a non-negative range therefore locked the view
+        // at the middle and the top of the map was unreachable: measured, floors 6.4 to 12.6 were
+        // the only ones that could ever be seen on a 20-floor chart, which is exactly what the
+        // designer reported ("i can only go to floor 12, and cant see the top ever").
+        //
+        // At +halfRange the chart's bottom edge meets the viewport's bottom; at -halfRange its top
+        // edge meets the top. Anything outside that is blank paper.
+        scrollMax = Mathf.Max(0f, (h - viewH) * 0.5f);
+        scrollY = Mathf.Clamp(scrollY, -scrollMax, scrollMax);
+        scrollTarget = Mathf.Clamp(scrollTarget, -scrollMax, scrollMax);
+    }
+
+    /// <summary>Nudge the view. Positive scrolls UP the map (toward the finale).</summary>
+    public void Scroll(float delta)
+    {
+        scrollTarget = Mathf.Clamp(scrollTarget + delta, -scrollMax, scrollMax);
+    }
+
+    /// <summary>Jump the view so a floor sits in the middle of the viewport. No easing.</summary>
+    private void CentreOnFloor(RunMap map, int floor)
+    {
+        if (map == null || map.floors <= 1) return;
+        float h = chart.rect.height;
+        float step = (h - CHART_PAD * 2f) / (map.floors - 1);
+        float yInChart = -h * 0.5f + CHART_PAD + step * floor;
+
+        // Chart y offset that puts yInChart at the viewport's centre, clamped to the real travel.
+        scrollTarget = Mathf.Clamp(-yInChart, -scrollMax, scrollMax);
+        scrollY = scrollTarget;
+        ApplyScroll();
+    }
+
+    private void ApplyScroll()
+    {
+        if (chart != null) chart.anchoredPosition = new Vector2(0f, scrollY);
     }
 
     // A trail between two marks.
@@ -628,7 +909,7 @@ public class RunMapScreen : MonoBehaviour
             // Printed: one tiled dash run, straight and even.
             GameObject go = new GameObject($"Trail{from.id}_{to.id}", typeof(RectTransform));
             RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(area, false);
+            rt.SetParent(chart, false);
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = a + delta * 0.5f;
             rt.sizeDelta = new Vector2(len, TRAIL_W + 2f);
@@ -662,7 +943,7 @@ public class RunMapScreen : MonoBehaviour
 
             GameObject go = new GameObject("Pen", typeof(RectTransform));
             RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(area, false);
+            rt.SetParent(chart, false);
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = a + dir * t + perp * wob;
             rt.sizeDelta = new Vector2(seg * fill, thick);
@@ -700,7 +981,7 @@ public class RunMapScreen : MonoBehaviour
 
         GameObject go = new GameObject($"Node{n.id}", typeof(RectTransform));
         RectTransform rt = go.GetComponent<RectTransform>();
-        rt.SetParent(area, false);
+        rt.SetParent(chart, false);
         rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = p;
         rt.sizeDelta = new Vector2(mark + 10f, mark + 10f);

@@ -1,0 +1,48 @@
+// TUTORIAL â€” the first room a new player sees. Built by Deckshift â†’ Build Tutorial Room, which
+// imports this file AND dresses the result (signs, checkpoints, the gates that open on a kill).
+// Re-run that menu item after editing; do not hand-edit the built prefab, the builder replaces it.
+//
+// Digits 1-9 are SIGN ANCHORS: the importer treats them as air, the builder puts a chalk sign
+// there (and a checkpoint). Each !signN line is "KEYS | caption"; KEYS may be empty.
+//
+// âš ï¸ TUTORIAL-ONLY EXCEPTION TO LAW 1 (designer, 2026-09-24): the two kill-gates and the tall wall
+// require a card. Everywhere else the room follows the laws. The 2-wide trenches keep each zombie in
+// its own section: MeleeEnemyAI will not step off a drop deeper than ~1 tile, but a Fireball flies
+// straight across.
+//
+// Layout, left to right: 1 walk Â· 2 jump (hill) Â· 3 crystal Â· 4 cast a card (zombie + gate) Â·
+// 5 movement card (8-tall wall) Â· 6 recall (two zombies + gate) Â· 7 altar + gate Â· 8 look ahead Â·
+// drop Â· 9 exit.
+//
+// Keep sign anchors >= 5 tiles from a gate: an open gate's arch is wider than its one-tile cell and
+// draws over the chalk (sign 7 lost its first word that way). Walls above gates are two tiles thick
+// so the importer paints them as masonry; one tile thick reads as a thin brick chimney.
+
+!name: Tutorial
+!sign1: A D | Walk. Take your time: nothing in here bites yet.
+!sign2: SPACE | Jump. Every jump costs 1 SHIFT, the counter at the top left. Shift does NOT come back on its own.
+!sign3: | Grab the crystal. Crystals refill Shift. So do altars and wells. Nothing else does.
+!sign4: 1 2 3 4 CLICK R-CLICK | Pick a card with 1-4, click to cast it, right-click to put it back. That zombie is holding the gate shut.
+!sign5: | Too tall to jump. Cards move you too: pick CREATE PLATFORM, click beside the wall, climb.
+!sign6: R | Hand running dry? RECALL puts your played cards back in your hand. It costs Shift, more each time in the same room.
+!sign7: E | Use things. This altar opens the gate, for a price in Shift.
+!sign8: CTRL | Hold and aim the mouse to look ahead. The chalk arrow at the screen edge always points to the way out.
+!sign9: E M ESC | Leave through the arch. In a real run M shows your route, ESC pauses, and at zero Shift a STAGGER card lets you pay for it in blood.
+##########################################################################################################################################################
+#.....................................................................##................................##...........##..................................#
+#.....................................................................##................................##...........##..................................#
+#.....................................................................##................................G............G...................................#
+#.....................................................................##................................G............G...................................#
+#.....................................................................##................................G............G...................................#
+#.....................................................................##.............6.........z..z.....G.....7...A..G......8............................#
+#.....................................................................##........##########..#####################################........................#
+#.....................................................................##........##########..#####################################........................#
+#.....................................................................##........#################################################........................#
+#.....................................................................##........#################################################........................#
+#...........................######............+.......................G.........#################################################........................#
+#...........................######....................................G.........#################################################........................#
+#......................##############.................................G.........#################################################........................#
+#..S...1.........2.....##############.....3.......4.............z.....G.....5...#################################################............9.......X...#
+#########################################################..###############################################################################################
+#########################################################..###############################################################################################
+##########################################################################################################################################################

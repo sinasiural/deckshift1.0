@@ -39,6 +39,15 @@ public static class RelicPool
         }
     }
 
+    /// <summary>Does the player already carry a boss relic that binds a key?</summary>
+    public static bool HoldsAnArt()
+    {
+        if (RelicManager.instance == null) return false;
+        foreach (RelicData owned in RelicManager.instance.OwnedRelics)
+            if (owned != null && owned.IsArt) return true;
+        return false;
+    }
+
     public static bool IsOwned(RelicData relic)
     {
         if (relic == null || RelicManager.instance == null) return false;
@@ -60,8 +69,21 @@ public static class RelicPool
         foreach (RelicData r in source)
         {
             if (r == null) continue;
+            // ⚠️ BOSS RELICS ARE NEVER OFFERED BY THE ORDINARY CHANNELS. They are the reward for
+            // killing a boss and nothing else, so a chest or a shop must not be able to hand one
+            // over. Asking for Rarity.Boss explicitly is the ONE way through — that is the boss
+            // reward's own call, not a stray draw. Guarded here rather than at each call site
+            // because the whole point of this class is that no caller keeps its own list.
+            if (r.rarity == Rarity.Boss && (!rarity.HasValue || rarity.Value != Rarity.Boss)) continue;
             if (rarity.HasValue && r.rarity != rarity.Value) continue;
             if (IsOwned(r)) continue;
+
+            // ⚠️ ONE ART, EVER. An Art is a boss relic that adds a KEY, and a run can now visit up
+            // to five bosses out of a pool of ten — if each handed over an input the player would
+            // be carrying five new keys by the end. Refusing to OFFER a second is the cheapest
+            // possible cap: it needs no attunement UI, and it can never leave an inert relic
+            // occupying a slot, which every "hold many, bind one" scheme does.
+            if (r.IsArt && HoldsAnArt()) continue;
             // Guard against a pool listing the same relic twice, which would skew the draw.
             if (!string.IsNullOrEmpty(r.relicID) && !seen.Add(r.relicID)) continue;
             result.Add(r);

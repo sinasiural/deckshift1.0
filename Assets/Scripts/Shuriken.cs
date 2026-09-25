@@ -18,10 +18,31 @@ public class Shuriken : MonoBehaviour
 
     private static readonly Color Steel = new Color(0.82f, 0.86f, 0.92f, 1f);
 
-    // Darker than the star itself. A trail at the blade's own brightness reads as a second, longer
-    // object rather than as the air it just went through — and against dark stone a pale streak was
-    // the loudest thing on screen.
-    private static readonly Color TrailCol = new Color(0.34f, 0.36f, 0.43f, 1f);
+    // ⚠️ THE STREAK IS HOT AT THE HEAD AND DEAD AT THE TAIL, and it used to be neither.
+    //
+    // It was one flat dark grey (0.34, 0.36, 0.43) at alpha 0.40, chosen on the reasoning that a pale
+    // streak would be "the loudest thing on screen". That reasoning was sound and the result was not:
+    // the dungeon's own stone measures #444548, so a 0.35 grey at 40% over it composites to almost
+    // exactly the background. The designer's report was that the traces are "almost unseeable"
+    // (2026-08-22), and they were right — the trail was drawing itself in the wall's colour.
+    //
+    // The fix is not "brighter everywhere", which really would be a pale worm following the star
+    // around. It is a GRADIENT: bright for the first few pixels behind the blade and gone by the end.
+    // A short hot head reads as speed; a long even streak reads as an object. Combined with the 0.11s
+    // lifetime, what is on screen at any moment is a stub, not a banner.
+    // ⚠️ AND THE PLAYER'S STAR IS SHIFT CYAN, NOT WHITE — measured on screen, not reasoned about.
+    // Near-white at these alphas photographed as a solid glowing lozenge with the four-bladed
+    // silhouette completely washed out of it: legible, and no longer legible AS A SHURIKEN. Cyan
+    // carries far less luminance at the same alpha, so the dark blade shape survives on top of it.
+    //
+    // It also does a second job for free. In this fight his stars and your stars are in the air at
+    // the same time constantly — you are throwing his own ammo back at him — and the ONE thing the
+    // player must never misread is which of them is going to hurt them. His are Wound red; yours are
+    // Shift cyan. Both are already the game's own accents, so this spends no new hue.
+    private static readonly Color StreakHot = new Color(0.72f, 0.97f, 1f, 1f);
+    private static readonly Color StreakCool = new Color(0.16f, 0.34f, 0.42f, 1f);
+    private static readonly Color KeyShift =
+        new Color(Salvage.Shift.r, Salvage.Shift.g, Salvage.Shift.b, 0.45f);
 
     // How wide the star sits in the world, whatever art it is given.
     private const float WORLD_SIZE = 0.62f;
@@ -74,11 +95,8 @@ public class Shuriken : MonoBehaviour
         s.damage = damage;
         s.sourceCard = source;
 
-        s.BuildTrail(sr);
-        // ⚠️ NO SPIN-BLUR HALO. There was one — a soft ring at the blade radius — and with the
-        // pack's own dark, chunky sprite in front of it, it read as a UI selection circle rather
-        // than as motion: a smooth gradient behind hard pixel art is simply a different drawing
-        // language. The spin and the streak carry the speed on their own.
+        AttachKeyline(go.transform, sr, KeyShift);
+        AttachStreak(go.transform, sr.sortingOrder, StreakHot, StreakCool, 0.70f);
         Destroy(go, LIFE);
         return s;
     }
@@ -157,25 +175,32 @@ public class Shuriken : MonoBehaviour
         }
     }
 
-    private void BuildTrail(SpriteRenderer sr)
+    /// <summary>
+    /// The motion streak. SHARED with the boss's stars (see BossShuriken) so the ammo he throws and
+    /// the ammo you throw back are visibly the same object in different hands — only the colour is
+    /// his or yours.
+    /// </summary>
+    public static GameObject AttachStreak(Transform star, int baseOrder, Color hot, Color cool, float headAlpha)
     {
         var trailGO = new GameObject("Streak");
-        trailGO.transform.SetParent(transform, false);
+        trailGO.transform.SetParent(star, false);
 
         var trail = trailGO.AddComponent<TrailRenderer>();
-        trail.time = 0.10f;
-        trail.startWidth = 0.22f;
+        trail.time = 0.11f;
+        trail.startWidth = 0.24f;
         trail.endWidth = 0f;
         trail.minVertexDistance = 0.04f;
         trail.autodestruct = false;
         trail.numCapVertices = 2;
-        trail.sortingOrder = sr.sortingOrder - 1;
+        trail.sortingOrder = baseOrder - 2;      // behind both the star and its keyline
         trail.material = new Material(Shader.Find("Sprites/Default"));
 
+        // Hot for the first 35% and out by the end. See the StreakHot/StreakCool note above for why
+        // this is a gradient rather than one colour at a higher alpha.
         var grad = new Gradient();
         grad.SetKeys(
-            new[] { new GradientColorKey(TrailCol, 0f), new GradientColorKey(TrailCol, 1f) },
-            new[] { new GradientAlphaKey(0.40f, 0f), new GradientAlphaKey(0f, 1f) });
+            new[] { new GradientColorKey(hot, 0f), new GradientColorKey(cool, 0.35f), new GradientColorKey(cool, 1f) },
+            new[] { new GradientAlphaKey(headAlpha, 0f), new GradientAlphaKey(headAlpha * 0.42f, 0.35f), new GradientAlphaKey(0f, 1f) });
         trail.colorGradient = grad;
 
         // ⚠️ The streak must NOT inherit the star's spin, or it whips round in a circle instead of
@@ -184,9 +209,50 @@ public class Shuriken : MonoBehaviour
         // ...and detaching preserves the WORLD transform, so it would keep the star's art-derived
         // scale and multiply the widths above by it. The streak's width is already in world units.
         trailGO.transform.localScale = Vector3.one;
-        trailGO.AddComponent<TrailFollow>().Init(transform);
+        trailGO.AddComponent<TrailFollow>().Init(star);
         trailGO.AddComponent<TemporaryObject>();
+        return trailGO;
     }
+
+    /// <summary>
+    /// A copy of the star drawn one order BEHIND it and slightly larger, in a bright colour — so the
+    /// silhouette is edged in light. This is what makes a dark star legible against dark stone, and
+    /// it was the designer's actual complaint (2026-08-22: "they kind of blend in with the
+    /// background"). The pack's own shuriken art is dark metal, the dungeon is dark stone, and there
+    /// is essentially no edge contrast between them.
+    ///
+    /// ⚠️ IT IS THE SAME SILHOUETTE, NOT A SOFT HALO. A feathered ring at the blade radius was built
+    /// here once and rejected: with hard pixel art in front of it, it read as a UI selection circle,
+    /// because a smooth gradient is simply a different drawing language from the sprite it is behind.
+    /// Scaling the sprite itself keeps one language, and it spins with the star for free.
+    ///
+    /// ⚠️ Returned so callers can RECOLOUR it. On the boss's stars it carries the whole state
+    /// machine — red in flight means "dodge", gold on the floor means "take me".
+    /// </summary>
+    public static SpriteRenderer AttachKeyline(Transform star, SpriteRenderer sr, Color tint, float grow = 1.30f)
+    {
+        if (sr == null || sr.sprite == null) return null;
+
+        var go = new GameObject("Keyline");
+        go.transform.SetParent(star, false);
+        // A child, so the star's own art-derived scale is already applied by the parent and this is a
+        // clean 30% growth on top of it — the same trap BuildLane's one-pixel sprite fell into, dodged
+        // by never touching world units here at all.
+        go.transform.localScale = Vector3.one * grow;
+
+        var k = go.AddComponent<SpriteRenderer>();
+        k.sprite = sr.sprite;
+        k.color = tint;
+        k.sortingLayerID = sr.sortingLayerID;
+        k.sortingOrder = sr.sortingOrder - 1;
+        return k;
+    }
+
+    /// <summary>
+    /// The procedural star, shared so the Ninja boss's thrown stars are visibly the SAME object the
+    /// player ends up throwing back (see BossShuriken). Generating a second one would drift.
+    /// </summary>
+    public static Sprite StarSprite => GetStarSprite();
 
     // A four-bladed steel star, drawn as PIXEL ART.
     //

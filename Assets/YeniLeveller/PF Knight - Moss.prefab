@@ -185,21 +185,24 @@ MonoBehaviour:
   bossName: The Moss Knight
   hurtAnimThreshold: 50
   playDeathEffect: 1
-  deathSound: {fileID: 0}
+  deathSound: {fileID: 8300000, guid: cef1a7a889cbb034483e7ba4ba986eb0, type: 3}
   deathVolume: 1.4
   deathGoldPrefab: {fileID: 0}
   deathShiftCrystalPrefab: {fileID: 0}
   deathGoldCount: 14
   deathCrystalCount: 5
+  offerBossRelic: 1
+  bossRelicChoices: 2
+  rewardDelay: 2.6
   roarSound: {fileID: 0}
   roarVolume: 1.4
-  poundSound: {fileID: 0}
+  poundSound: {fileID: 8300000, guid: e09b24172f8bca84a8f3cad13013fb22, type: 3}
   poundVolume: 1
   cleaveSound: {fileID: 0}
   cleaveVolume: 1
   chargeSound: {fileID: 0}
   chargeVolume: 1
-  leapSound: {fileID: 0}
+  leapSound: {fileID: 8300000, guid: 4147dcb51b249244f80faf173ff846ae, type: 3}
   leapVolume: 1
   slamSound: {fileID: 0}
   slamVolume: 1.3

@@ -372,7 +372,18 @@ public class PlayerController : MonoBehaviour
 
     // What the NEXT Stagger will cost. The card face and its hover text both read this, so the
     // player is never surprised by the price — see CardUI.
-    public float NextStaggerCost => staggerHealthStep * (staggerCount + 1);
+    //
+    // Iron Lung shallows the climb to 6 per step instead of 8. Read through here rather than
+    // written into staggerHealthStep, for the same reason HandCapacity is read rather than
+    // mirrored: selling the relic must restore the real price instantly, with no stale copy left
+    // on the player. The card face reads this property, so the drawn cost follows automatically.
+    // Debt Collector's exchange rate: gold charged per point of health Stagger would have cost.
+    public const float DebtCollectorGoldPerHealth = 20f;
+
+    public float StaggerStep =>
+        (RelicManager.instance != null && RelicManager.instance.HasRelic("IronLung")) ? 6f : staggerHealthStep;
+
+    public float NextStaggerCost => StaggerStep * (staggerCount + 1);
 
     // Gravity reversal state
     internal bool isGravityReversed = false;
@@ -524,18 +535,20 @@ public class PlayerController : MonoBehaviour
 
         if (currentState == PlayerState.InCannon) return;
 
+        // Player inputs read through GameInput so a script (TrailerDirector) can stand in for the
+        // keyboard; with nothing driving it is a plain pass-through to Input.
         if (isPhasing)
         {
-            moveInput = Input.GetAxisRaw("Horizontal");
-            verticalInput = Input.GetAxisRaw("Vertical");
+            moveInput = GameInput.Horizontal;
+            verticalInput = GameInput.Vertical;
         }
         else if (isSwimming)
         {
             // Free 8-directional swim. Jump kicks upward to break the surface.
-            moveInput = Input.GetAxisRaw("Horizontal");
-            verticalInput = Input.GetAxisRaw("Vertical");
+            moveInput = GameInput.Horizontal;
+            verticalInput = GameInput.Vertical;
 
-            if (Input.GetButtonDown("Jump")) PerformSwimJump();
+            if (GameInput.JumpDown) PerformSwimJump();
 
             if (moveInput > 0 && !isFacingRight) Flip();
             else if (moveInput < 0 && isFacingRight) Flip();
@@ -547,7 +560,7 @@ public class PlayerController : MonoBehaviour
             else coyoteTimer -= Time.deltaTime;
 
             // Jump buffering: the press is remembered rather than consumed on the frame it arrives.
-            if (Input.GetButtonDown("Jump")) jumpBufferTimer = jumpBufferTime;
+            if (GameInput.JumpDown) jumpBufferTimer = jumpBufferTime;
             else jumpBufferTimer -= Time.deltaTime;
 
             // Retried every frame while the buffer is live, and cleared only when a jump ACTUALLY
@@ -555,8 +568,14 @@ public class PlayerController : MonoBehaviour
             // that could not be paid for (0 Shift) simply expires instead of firing later.
             if (jumpBufferTimer > 0f && HandleJumpInput()) jumpBufferTimer = 0f;
 
+            // --- BOSS RELIC INPUTS ------------------------------------------------------------
+            // ⚠️ THE ONLY RELICS ALLOWED TO ADD A KEYBIND (designer, 2026-08-21). Everything below
+            // boss tier reuses an existing input or is passive, which is why Crowbar breaks walls
+            // by walking into them and Air Brake is a fall multiplier rather than a hold.
+            HandleBossRelicInput();
+
             if (currentState == PlayerState.Idle || currentState == PlayerState.Running || currentState == PlayerState.Jumping)
-                moveInput = Input.GetAxisRaw("Horizontal");
+                moveInput = GameInput.Horizontal;
             else
                 moveInput = 0;
 
@@ -574,9 +593,21 @@ public class PlayerController : MonoBehaviour
             float gravitySign = isGravityReversed ? -1f : 1f;
             if (rb.linearVelocity.y * gravitySign < 0)
             {
-                rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime * gravitySign;
+                // Air Brake and Weight Class both live on the FALL multiplier, in opposite
+                // directions, so owning both is a wash rather than a stack — which is the honest
+                // outcome for "you fall slower" plus "you fall faster".
+                //
+                // Scaling the multiplier (not gravity itself) keeps this out of the way of gravity
+                // reversal and of Phase/swim, which cache and restore gravityScale.
+                float fall = fallMultiplier;
+                if (RelicManager.instance != null)
+                {
+                    if (RelicManager.instance.HasRelic("AirBrake")) fall /= 1.5f;
+                    if (RelicManager.instance.HasRelic("WeightClass")) fall *= 1.5f;
+                }
+                rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fall - 1) * Time.deltaTime * gravitySign;
             }
-            else if (rb.linearVelocity.y * gravitySign > 0 && !Input.GetKey(KeyCode.Space))
+            else if (rb.linearVelocity.y * gravitySign > 0 && !GameInput.JumpHeld)
             {
                 rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime * gravitySign;
             }
@@ -988,9 +1019,20 @@ public class PlayerController : MonoBehaviour
 
     // Returns true if the jump actually fired. The bool matters: at 0 Shift this refuses, and the
     // jump buffer must not treat a refusal as a jump or the press is silently swallowed.
+    // Ghost Step's remaining free jumps this room. Reset in OnNewRoomEnter.
+    [System.NonSerialized] public int freeJumpsLeft = 0;
+    public const int GhostStepJumpsPerRoom = 3;
+
     private bool PerformJump(float jumpForce)
     {
-        if (currentShift > 0)
+        // Ghost Step: a few jumps each room cost no Shift. Resolved BEFORE the affordability gate,
+        // so a free jump is still available at 0 Shift — otherwise the relic would switch off at
+        // exactly the moment it is worth having.
+        bool ghostFree = freeJumpsLeft > 0
+                         && RelicManager.instance != null
+                         && RelicManager.instance.HasRelic("GhostStep");
+
+        if (currentShift > 0 || ghostFree)
         {
             if (audioSource != null && jumpSound != null)
             {
@@ -1004,10 +1046,20 @@ public class PlayerController : MonoBehaviour
             // expense in the game, and decrementing the field directly skipped the quest hook that
             // hangs off SpendShift — so the Featherweight oath ("spend 8 Shift or less in a room")
             // was silently not counting jumps at all.
-            if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
-                SpendShift(1);
+            if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())
+            {
+                // A Ghost Step jump spends the charge instead of the Shift. Consumed here rather
+                // than at the check above so a jump that never happens cannot burn one.
+                if (ghostFree) freeJumpsLeft--;
+                else SpendShift(1);
+            }
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
             float jumpDir = isGravityReversed ? -1f : 1f;
+
+            // Weight Class: heavier, so it does not go as high. Applied to the impulse rather than
+            // to defaultJumpForce, which is serialized and would keep a stale value after a sell.
+            if (RelicManager.instance != null && RelicManager.instance.HasRelic("WeightClass"))
+                jumpForce *= 0.75f;
 
             // ⚠️ PURELY VERTICAL, AND THE HORIZONTAL TERM WAS REMOVED ON PURPOSE (2026-08-14).
             //
@@ -1087,6 +1139,188 @@ public class PlayerController : MonoBehaviour
             ChangeState(isGrounded ? PlayerState.Idle : PlayerState.Jumping);
     }
 
+    // ============================================================================================
+    // THROUGH AND THROUGH — the Samurai's signature. The iai cut.
+    // ============================================================================================
+    [Header("Through and Through (Samurai)")]
+    [SerializeField] internal float lungeSpeed = 30f;
+    [SerializeField] internal float lungeDuration = 0.17f;   // 30 * 0.17 = ~5.1 units of travel
+    [SerializeField] internal float lungeIFrameDuration = 0.45f;   // covers travel AND the sheathe beat
+    [Tooltip("⚠️ THE BEAT. After he passes through, everything he crossed stands uncut for this long. " +
+             "Then the blade clicks home and they all split at once. This pause is the whole feel of " +
+             "the card — try 0 and watch it turn back into a dash.")]
+    [SerializeField] internal float lungeSheatheBeat = 0.16f;
+    [SerializeField] internal Color lungeStreakColor = new Color(1f, 0.82f, 0.45f, 1f);   // warm gold
+    [SerializeField] internal Color lungeMarkColor = new Color(1f, 0.90f, 0.70f, 1f);
+    [SerializeField] internal Color lungeAfterimageTint = new Color(1f, 0.93f, 0.72f, 0.5f);
+    public AudioClip lungeDrawSound;      // override; procedural by default
+    public AudioClip lungeSheatheSound;   // override; procedural by default
+
+    // The iai: draw, pass THROUGH them, stop, and only when the blade goes home do they fall.
+    //
+    // Three beats, and the third is the card:
+    //   DRAW     a Dash with i-frames, built on the dash's velocity drive so it feels like one
+    //            (designer's ruling: Dash needs no protecting). A hot streak — the line the edge
+    //            took — extends behind him as he travels. He passes through enemy bodies.
+    //   CROSS    every enemy the blade crosses is MARKED, not yet hurt. A spark, a tick of
+    //            hit-stop, nothing else.
+    //   SHEATHE  he stops. A beat of stillness. The blade clicks home — and every marked enemy
+    //            splits at once: cut marks, a ring, a hard hit-stop. Damage lands HERE.
+    //
+    // Deferring the damage is not decoration. It is what makes the card read as one cut through
+    // several things rather than a dash that happens to hurt — and it gives the strike a moment
+    // the player can feel land.
+    //
+    // ⚠️ IT DOES NOT TOUCH THE GLOBAL LAYER-COLLISION MATRIX, unlike Phase. The matrix survives
+    // scene loads (a coroutine killed mid-flight leaves the player permanently intangible), and
+    // enemy layers are INCONSISTENT — zombies, bats, Mimic and ShieldEnemy on Default(0); MeleeEnemy,
+    // RangedEnemy, Slime, Turret, Patrol on Enemy(11) — so ignoring Player<->Enemy would pass
+    // through some and bounce off the most common ones. Per-collider IgnoreCollision against the
+    // bodies actually in the lane, restored in a finally, is exact and cannot outlive the routine.
+    internal IEnumerator LungeRoutine(float damageAmount)
+    {
+        float dir = isFacingRight ? 1f : -1f;
+
+        ChangeState(PlayerState.Dashing);
+        StartCoroutine(DashIFrames(lungeIFrameDuration));
+
+        // The swing pose: Swipe (1) plays on both the Arm and Body layers of AC Character.
+        if (animator != null)
+        {
+            animator.SetInteger("AttackAction", 1);
+            animator.SetBool("IsAttacking", true);
+        }
+
+        SfxManager.PlayOn(audioSource, lungeDrawSound != null ? lungeDrawSound : ProcSfx.FreefallBlade, 0.9f);
+        if (CameraShake.instance != null) CameraShake.instance.Shake(0.10f, 0.35f);
+
+        Vector2 chest = (Vector2)transform.position + capsuleCollider.offset;
+        CutStreak streak = CutStreak.Begin(chest, lungeStreakColor, 0.10f);
+
+        // Crossed, not yet cut. Each enemy once, each ignored collider once, however many physics
+        // steps it is overlapped for.
+        List<EnemyHealth> crossed = new List<EnemyHealth>();
+        List<Collider2D> ignored = new List<Collider2D>();
+
+        try
+        {
+            float elapsed = 0f, ghostTimer = 0f;
+            while (elapsed < lungeDuration)
+            {
+                if (playerHealth != null && playerHealth.IsDead) yield break;
+
+                rb.linearVelocity = new Vector2(dir * lungeSpeed, 0f);
+
+                Vector2 centre = (Vector2)transform.position + capsuleCollider.offset;
+                streak.SetEnd(centre);
+
+                // ~0 (all layers), for the layer-split reason above — the same all-layers +
+                // GetComponentInParent pattern Vampiric Bite and Glass Parry use.
+                foreach (Collider2D hit in Physics2D.OverlapBoxAll(centre, capsuleCollider.size, 0f, ~0))
+                {
+                    EnemyHealth enemy = hit.GetComponentInParent<EnemyHealth>();
+                    if (enemy == null) continue;
+
+                    // Stop this body blocking us. Enemies are mass 500; without this the player
+                    // simply stops dead against the first one.
+                    if (!ignored.Contains(hit))
+                    {
+                        Physics2D.IgnoreCollision(capsuleCollider, hit, true);
+                        ignored.Add(hit);
+                    }
+
+                    if (crossed.Contains(enemy)) continue;
+                    crossed.Add(enemy);
+
+                    // The cross: a spark and a flicker of stopped time. No damage yet.
+                    SparkAt(enemy.transform.position + Vector3.up * 0.9f, dir);
+                    if (HitStop.instance != null) HitStop.instance.Stop(0.025f);
+                }
+
+                // ⚠️ GhostTrail, not DashAfterimage. DashAfterimage copies SpriteRenderers only, and
+                // on this rig that is the WEAPON alone (16 SkinnedMeshRenderers + 1 SpriteRenderer) —
+                // a floating katana with no one holding it. GhostTrail bakes the skinned body.
+                if (dashAfterimages && visualModel != null)
+                {
+                    ghostTimer -= Time.fixedDeltaTime;
+                    if (ghostTimer <= 0f)
+                    {
+                        GhostTrail.Snapshot(visualModel.transform, lungeAfterimageTint, 0.22f);
+                        ghostTimer = 0.045f;
+                    }
+                }
+
+                elapsed += Time.fixedDeltaTime;
+                yield return new WaitForFixedUpdate();
+            }
+        }
+        finally
+        {
+            // ⚠️ EVERY ignored pair is a latch. A StopCoroutine from death or a room change lands
+            // here, so the player can never be left permanently intangible to an enemy.
+            foreach (Collider2D c in ignored)
+                if (c != null && capsuleCollider != null) Physics2D.IgnoreCollision(capsuleCollider, c, false);
+            if (streak != null) streak.Release(0.45f);
+        }
+
+        // ---- THE SHEATHE -----------------------------------------------------------------------
+        // Dead stop. He holds, and so do they.
+        rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        float beat = 0f;
+        while (beat < lungeSheatheBeat)
+        {
+            beat += Time.deltaTime;
+            if (isGrounded) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            yield return null;
+        }
+
+        if (animator != null) animator.SetBool("IsAttacking", false);
+
+        if (crossed.Count > 0)
+        {
+            // The click. Then everything he crossed splits at once.
+            SfxManager.PlayOn(audioSource, lungeSheatheSound != null ? lungeSheatheSound : ProcSfx.KatanaPlant, 1.1f);
+            if (HitStop.instance != null) HitStop.instance.Stop(0.09f);
+            if (CameraShake.instance != null) CameraShake.instance.Shake(0.22f, 0.4f);
+
+            foreach (EnemyHealth enemy in crossed)
+            {
+                if (enemy == null) continue;   // died to something else in the meantime
+                float finalDamage = RelicManager.instance != null
+                    ? RelicManager.instance.ModifyPlayerDamage(damageAmount, enemy)
+                    : damageAmount;
+                CutMark.Spawn((Vector2)enemy.transform.position + Vector2.up * 0.9f, lungeMarkColor, 1.5f);
+                enemy.TakeDamage(finalDamage);
+            }
+        }
+
+        if (currentState == PlayerState.Dashing)
+            ChangeState(isGrounded ? PlayerState.Idle : PlayerState.Jumping);
+    }
+
+    // A few hot motes thrown forward from a point of contact — the cross, not the cut.
+    private void SparkAt(Vector3 at, float dir)
+    {
+        var root = new GameObject("CrossSpark");
+        root.transform.position = new Vector3(at.x, at.y, PlayPlane.Z - 0.05f);
+        root.AddComponent<TemporaryObject>();
+        for (int i = 0; i < 5; i++)
+        {
+            var s = new GameObject("Mote");
+            s.transform.SetParent(root.transform, false);
+            float ang = Random.Range(-40f, 40f) + (dir >= 0f ? 0f : 180f);
+            float len = Random.Range(0.18f, 0.36f);
+            s.transform.localRotation = Quaternion.Euler(0f, 0f, ang);
+            s.transform.localPosition = Quaternion.Euler(0f, 0f, ang) * Vector3.right * (len * 0.6f);
+            s.transform.localScale = new Vector3(len, 0.06f, 1f);
+            var sr = s.AddComponent<SpriteRenderer>();
+            sr.sprite = FlatUI.Pixel();
+            sr.color = new Color(1f, 0.95f, 0.8f, 0.95f);
+            sr.sortingOrder = 9;
+        }
+        root.AddComponent<SparkFade>();   // AFTER the motes exist — it gathers them in Awake
+    }
+
     public void ApplyKnockback(Vector2 knockbackForce) => playerHealth.ApplyKnockback(knockbackForce);
 
     public void TakeDamage(float damage) => playerHealth.TakeDamage(damage);
@@ -1095,6 +1329,27 @@ public class PlayerController : MonoBehaviour
     {
         tookDamageThisRoom = false;
         ResetFallTracking();
+
+        // The Samurai's "Full Plate": armour on entering every COMBAT room, stacking on whatever
+        // survived the last one. Gated on IsCurrentRoomCombat rather than granted unconditionally —
+        // the hub and the recharge rooms are sandboxes, and a player could otherwise walk in and out
+        // of the Well for free armour. Read off the live character so a swap can't leave a stale copy.
+        if (character != null && character.armourPerRoom > 0f && playerHealth != null &&
+            (LevelManager.instance == null || LevelManager.instance.IsCurrentRoomCombat()))
+        {
+            playerHealth.AddArmour(character.armourPerRoom);
+        }
+
+        // Ghost Step's free jumps refill. Topped up unconditionally rather than only when the relic
+        // is held, so picking it up mid-room grants the full allowance immediately instead of
+        // silently doing nothing until the next door.
+        freeJumpsLeft = GhostStepJumpsPerRoom;
+
+        // Nest Egg watches how much Shift this room costs. Reset here for the same reason.
+        shiftSpentThisRoom = 0;
+
+        // Stopgap is once per ROOM, not once per run.
+        stopgapUsedThisRoom = false;
 
         // The portal object itself carries TemporaryObject and is destroyed with the room, but the
         // reference would survive as a Unity fake-null. Clearing it explicitly also takes the range
@@ -1118,6 +1373,164 @@ public class PlayerController : MonoBehaviour
     // Clears Meteor Greaves fall tracking so a teleport (fall-respawn, room spawn) isn't
     // read as an enormous drop on the next landing. Called from PlayerHealth.FallAndRespawn.
     public void ResetFallTracking() => trackingFall = false;
+
+    // ============================================================================================
+    // BOSS RELICS — the only tier that may add an input.
+    // ============================================================================================
+
+    [Header("Boss Relics")]
+    public float deadDropSpeed = 34f;
+    public float grapnelRange = 12f;
+    public int grapnelShiftCost = 2;
+    public float grapnelPullSpeed = 26f;
+    public float stopgapDuration = 1.5f;
+
+    [System.NonSerialized] public bool stopgapUsedThisRoom = false;
+    private bool grapnelBusy = false;
+
+    private void HandleBossRelicInput()
+    {
+        if (RelicManager.instance == null) return;
+        // There is no PlayerState.Dead — death is tracked on PlayerHealth. Also gated while
+        // cannoned or dashing, where a second movement verb would fight the one already running.
+        if (playerHealth != null && playerHealth.IsDead) return;
+        if (currentState == PlayerState.InCannon || currentState == PlayerState.Dashing) return;
+
+        // DEAD DROP — S / Down in mid-air slams you straight down. Feeds Meteor Greaves (which
+        // needs a 6.5-unit fall) and Freefall Blade (which doubles its damage while falling); both
+        // of those previously only triggered by accident.
+        if (RelicManager.instance.HasRelic("DeadDrop")
+            && !isGrounded && !isSwimming
+            && (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow)))
+        {
+            float dir = isGravityReversed ? 1f : -1f;
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x * 0.4f, deadDropSpeed * dir);
+            if (CameraShake.instance != null) CameraShake.instance.Shake(0.06f, 0.15f);
+        }
+
+        // STOPGAP — Q freezes the room for a moment. Once per room, so it is a panic button and not
+        // a playstyle: the game charges nothing for TIME, and an unlimited freeze would let a player
+        // simply wait out every encounter.
+        if (RelicManager.instance.HasRelic("Stopgap")
+            && !stopgapUsedThisRoom
+            && Input.GetKeyDown(KeyCode.Q))
+        {
+            stopgapUsedThisRoom = true;
+            StartCoroutine(StopgapRoutine());
+        }
+
+        // GRAPNEL — F fires a hook at whatever the cursor is pointing at and reels you in.
+        if (RelicManager.instance.HasRelic("Grapnel")
+            && !grapnelBusy
+            && Input.GetKeyDown(KeyCode.F))
+        {
+            TryGrapnel();
+        }
+    }
+
+    // Freezes every enemy and projectile in the room without touching Time.timeScale — the global
+    // scale is HitStop's and the pause counter's, and borrowing it here would stop the PLAYER too,
+    // which is the opposite of what a panic button is for.
+    private IEnumerator StopgapRoutine()
+    {
+        var frozen = new List<Rigidbody2D>();
+        var vel = new List<Vector2>();
+        var behaviours = new List<MonoBehaviour>();
+
+        foreach (EnemyHealth eh in FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None))
+        {
+            if (eh == null) continue;
+            foreach (MonoBehaviour mb in eh.GetComponentsInChildren<MonoBehaviour>())
+            {
+                // Freeze the AI, never the health component — a frozen EnemyHealth could not take
+                // damage, which would make the panic button also a damage immunity for the enemy.
+                if (mb == null || mb is EnemyHealth || !mb.enabled) continue;
+                // Matched by TYPE NAME rather than by type, because MonsterController lives in the
+                // Cainos.PixelArtMonster_Dungeon namespace and there are three unrelated Projectile
+                // types in this project — naming them directly is how ambiguous references start.
+                string tn = mb.GetType().Name;
+                if (tn.EndsWith("AI") || tn == "MonsterController" || tn == "Turret")
+                {
+                    mb.enabled = false;
+                    behaviours.Add(mb);
+                }
+            }
+            Rigidbody2D erb = eh.GetComponent<Rigidbody2D>();
+            if (erb != null) { frozen.Add(erb); vel.Add(erb.linearVelocity); erb.linearVelocity = Vector2.zero; }
+        }
+
+        foreach (Projectile p in FindObjectsByType<Projectile>(FindObjectsSortMode.None))
+        {
+            if (p == null) continue;
+            Rigidbody2D prb = p.GetComponent<Rigidbody2D>();
+            if (prb != null) { frozen.Add(prb); vel.Add(prb.linearVelocity); prb.linearVelocity = Vector2.zero; }
+            p.enabled = false;
+            behaviours.Add(p);
+        }
+
+        if (CameraShake.instance != null) CameraShake.instance.Shake(0.2f, 0.35f);
+
+        yield return new WaitForSeconds(stopgapDuration);
+
+        // Everything is null-checked on the way back: an enemy can die to a spike, or the room can
+        // change, while the freeze is running.
+        for (int i = 0; i < frozen.Count; i++)
+            if (frozen[i] != null) frozen[i].linearVelocity = vel[i];
+        foreach (MonoBehaviour mb in behaviours)
+            if (mb != null) mb.enabled = true;
+    }
+
+    private void TryGrapnel()
+    {
+        if (currentShift < grapnelShiftCost
+            && (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        Vector3 mouse = cam.ScreenToWorldPoint(GameInput.MousePosition);
+        Vector2 origin = (Vector2)transform.position + Vector2.up * 0.85f;   // chest, not feet
+        Vector2 dir = ((Vector2)mouse - origin).normalized;
+        if (dir.sqrMagnitude < 0.01f) return;
+
+        // Ground only. Hooking an enemy is a different relic; hooking a trigger would let the player
+        // reel themselves into a pickup volume.
+        RaycastHit2D hit = Physics2D.Raycast(origin, dir, grapnelRange, terrainLayer);
+        if (hit.collider == null) return;
+
+        if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())
+            SpendShift(grapnelShiftCost);
+
+        StartCoroutine(GrapnelRoutine(hit.point));
+    }
+
+    private IEnumerator GrapnelRoutine(Vector2 anchor)
+    {
+        grapnelBusy = true;
+        GrapnelVFX fx = GrapnelVFX.Play(transform, anchor);
+
+        float cachedGravity = rb.gravityScale;
+        rb.gravityScale = 0f;
+
+        // Stop just short of the surface, or the capsule ends up embedded in it.
+        const float stopDistance = 0.9f;
+        float timeout = Time.time + 1.4f;   // never strand the player if something moves or blocks
+
+        while (Time.time < timeout
+               && Vector2.Distance(transform.position, anchor) > stopDistance)
+        {
+            Vector2 toAnchor = (anchor - (Vector2)transform.position).normalized;
+            rb.linearVelocity = toAnchor * grapnelPullSpeed;
+            yield return new WaitForFixedUpdate();
+        }
+
+        rb.gravityScale = cachedGravity;
+        // Keep a little of the momentum so the arrival flows into a jump rather than dead-stopping.
+        rb.linearVelocity *= 0.25f;
+
+        if (fx != null) fx.Finish();
+        grapnelBusy = false;
+    }
 
     // Meteor Greaves: landing after a fall of at least meteorMinFall stomps a shockwave whose
     // radius and damage scale with how far you dropped (capped at meteorMaxFall). Damage routes
@@ -1173,7 +1586,7 @@ public class PlayerController : MonoBehaviour
     {
         if (currentShift <= 0) return false;
 
-        if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
+        if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())
             SpendShift(1);
 
         Flip();
@@ -1299,7 +1712,7 @@ public class PlayerController : MonoBehaviour
         if (mainCamera == null) return;
 
         Vector2 origin = ShurikenOrigin;
-        Vector2 aim = (Vector2)mainCamera.ScreenToWorldPoint(Input.mousePosition) - origin;
+        Vector2 aim = (Vector2)mainCamera.ScreenToWorldPoint(GameInput.MousePosition) - origin;
         if (aim.sqrMagnitude < 0.0001f) aim = new Vector2(isFacingRight ? 1f : -1f, 0f);
         aim.Normalize();
 
@@ -1328,7 +1741,12 @@ public class PlayerController : MonoBehaviour
         // like the star spawned beside him.
         Vector2 origin = ShurikenOrigin;
 
-        SfxManager.PlayOn(audioSource, shurikenThrowSound);
+        // ⚠️ THE PROCEDURAL CLIP IS THE DEFAULT NOW, and the Inspector field is an OVERRIDE.
+        // The old assigned whoosh was a generic swing — the designer rejected it (2026-08-22) — and
+        // the reason it never sounded like a shuriken is that a shuriken's identity is the SPIN, not
+        // the speed. `ProcSfx.ShurikenThrow` chops the air stream at 62 Hz for exactly that. The
+        // field is left in place so a bought or recorded clip can still win without a code change.
+        SfxManager.PlayOn(audioSource, shurikenThrowSound != null ? shurikenThrowSound : ProcSfx.ShurikenThrow);
         HideHeldWeapon(0.28f);
         Shuriken.Spawn(origin + aim * 0.3f, aim, damage, src, shurikenSprite);
 
@@ -1468,7 +1886,36 @@ public class PlayerController : MonoBehaviour
         // the Featherweight oath gets a complete per-room total from one hook. Callers already gate
         // this on the hub rule, so sandbox spending is never counted.
         if (QuestSystem.instance != null) QuestSystem.instance.NoteShiftSpent(amount);
+
+        // Nest Egg reads the same total, for the same reason: one funnel, so no Shift cost added
+        // later can forget to be counted.
+        shiftSpentThisRoom += amount;
     }
+
+    // How much Shift this room has cost so far. Nest Egg is scored against it when the room is
+    // LEFT (see ExitDoor), never mid-room — a frugal room is only frugal once it's over.
+    [System.NonSerialized] public int shiftSpentThisRoom = 0;
+    public const int NestEggShiftCeiling = 5;
+    public const int NestEggReward = 2;
+
+    /// <summary>
+    /// Scored on leaving a room. Nest Egg pays permanent max Shift for a room crossed cheaply,
+    /// which is the Featherweight oath's shape as a relic.
+    /// </summary>
+    public void ScoreRoomRelics()
+    {
+        // Hub and recharge rooms cost nothing to cross, so they must not pay Nest Egg.
+        if (LevelManager.instance != null && !LevelManager.instance.IsCurrentRoomCombat()) return;
+        if (RelicManager.instance == null || !RelicManager.instance.HasRelic("NestEgg")) return;
+        if (shiftSpentThisRoom > NestEggShiftCeiling) return;
+
+        IncreaseMaxShift(NestEggReward);
+        nestEggRoomsBanked++;
+        Debug.Log($"🥚 Nest Egg: room crossed on {shiftSpentThisRoom} Shift. +{NestEggReward} max Shift (now {maxShift}).");
+    }
+
+    // Purely for the relic's live readout — how many rooms Nest Egg has actually paid out on.
+    [System.NonSerialized] public int nestEggRoomsBanked = 0;
 
     // Would the player's capsule fit standing with its FEET at `feetPos`? Shared by every card that
     // puts the player somewhere: a portal and a return anchor are both places you ARRIVE at, so the
@@ -1583,7 +2030,7 @@ public class PlayerController : MonoBehaviour
         if (portalPrefab == null) return false;
         if (mainCamera == null) return false;
 
-        Vector2 mousePos = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 mousePos = mainCamera.ScreenToWorldPoint(GameInput.MousePosition);
 
         // Out of range or inside rock: refuse without cost and keep the card. The aim indicator has
         // already been showing this spot as invalid, so a refusal here is never a surprise.
@@ -2319,7 +2766,7 @@ public class PlayerController : MonoBehaviour
         // The trade itself is a resource change, so the umbrella hub rule covers it: in the sandbox
         // the flail happens, nothing is bought and nothing is paid — including the escalation, which
         // is permanent run state and so must not advance there either.
-        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub()) return;
+        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox()) return;
 
         float cost = NextStaggerCost;
         staggerCount++;
@@ -2327,9 +2774,33 @@ public class PlayerController : MonoBehaviour
         // Pay out BEFORE charging: PayHealthCost can kill, and a lethal Stagger that silently
         // skipped its own payout would make the last one in a run behave differently from the rest.
         AddShift(staggerShiftGain);
-        playerHealth.PayHealthCost(cost);
 
-        Debug.Log($"STAGGER #{staggerCount}: +{staggerShiftGain} Shift for {cost} HP. Next one costs {NextStaggerCost}.");
+        // Debt Collector: the bill goes on the tab instead of into your ribs — 20 gold per point of
+        // health it would have cost. It converts the run's death clock into an economy problem, so
+        // being rich and reckless and being broke and careful are both real ways to play.
+        //
+        // ⚠️ IT IS NOT A GET-OUT. Short of gold, you pay what you cannot cover in health, so the
+        // clock still runs — it just runs on a resource you can go and earn. Silently skipping the
+        // cost when broke would delete the only pressure in the run.
+        bool onTheTab = RelicManager.instance != null && RelicManager.instance.HasRelic("DebtCollector");
+        if (onTheTab)
+        {
+            int owed = Mathf.RoundToInt(cost * DebtCollectorGoldPerHealth);
+            int paid = Mathf.Min(owed, currentGold);
+            currentGold -= paid;
+            OnGoldChanged?.Invoke(currentGold);
+
+            float shortfallHealth = (owed - paid) / DebtCollectorGoldPerHealth;
+            if (shortfallHealth > 0f) playerHealth.PayHealthCost(shortfallHealth);
+
+            Debug.Log($"STAGGER #{staggerCount}: billed {paid} gold" +
+                      (shortfallHealth > 0f ? $" and {shortfallHealth:0.#} HP (short)" : "") + ".");
+        }
+        else
+        {
+            playerHealth.PayHealthCost(cost);
+            Debug.Log($"STAGGER #{staggerCount}: +{staggerShiftGain} Shift for {cost} HP. Next one costs {NextStaggerCost}.");
+        }
     }
 
     private void CheckInteraction()

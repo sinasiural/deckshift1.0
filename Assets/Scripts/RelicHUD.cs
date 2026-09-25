@@ -68,7 +68,17 @@ public class RelicHUD : MonoBehaviour
     // --- one-time construction of the bar skeleton ---
     private void BuildBar()
     {
-        if (built) return;
+        // ⚠️ RE-ENTRANT ON PURPOSE. It used to bail on `built` and never run twice, which was fine
+        // while MaxSlots was a compile-time constant. Estate Sale can now award a sixth slot
+        // mid-run, and RebuildContents calls back in here to widen the bar — so the old children
+        // have to go first, or the row stacks a second set of cells, a second count label and a
+        // second tooltip on top of the first.
+        if (built)
+        {
+            for (int i = transform.childCount - 1; i >= 0; i--)
+                DestroyImmediate(transform.GetChild(i).gameObject);
+            cells = null; hovers = null; countText = null; tooltip = null;
+        }
         built = true;
 
         // Retire a SEPARATE legacy column container if one exists. In SampleScene the old
@@ -161,6 +171,17 @@ public class RelicHUD : MonoBehaviour
 
         var owned = RelicManager.instance.OwnedRelics;
         int slots = RelicManager.MaxSlots;
+
+        // ⚠️ MaxSlots CAN GROW MID-RUN (Estate Sale earns a sixth). The cell array was built once at
+        // the count that was current then, so a grown loadout indexed straight off the end and threw
+        // IndexOutOfRange the moment the slot was awarded — the HUD died on the frame the reward
+        // landed. Rebuild the bar instead of trusting the cached size.
+        if (cells == null || cells.Length != slots)
+        {
+            BuildBar();
+            if (cells == null || cells.Length != slots) return;   // build refused; nothing to fill
+            owned = RelicManager.instance.OwnedRelics;
+        }
 
         for (int i = 0; i < slots; i++)
         {

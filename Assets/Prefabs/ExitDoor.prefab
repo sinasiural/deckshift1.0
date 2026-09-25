@@ -97,6 +97,8 @@ MonoBehaviour:
   sceneToLoad: GameScene
   interactKey: 101
   interactionPopup: {fileID: 5828078633260097213}
+  barsSprite: {fileID: 362974066, guid: daa359c07b4be2f47b477ca2857b031a, type: 3}
+  barsNudgeY: 0
 --- !u!1 &5413389312049062551
 GameObject:
   m_ObjectHideFlags: 0

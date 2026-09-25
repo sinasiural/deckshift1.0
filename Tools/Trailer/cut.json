@@ -1,0 +1,58 @@
+{
+  "output": "TrailerCapture/trailer.mp4",
+  "fps": 60,
+  "font": "Assets/LevelEfeVrl/Sprites/CCBattleScarred-Regular.ttf",
+  "sfxGain": 0.55,
+  "music": {
+    "file": "TrailerCapture/raw/music.wav",
+    "splices": [ { "from": 0.0, "to": 74.72 }, { "from": 97.31, "to": 115.0 } ],
+    "spliceCrossfade": 0.08,
+    "fadeOut": 2.5,
+    "targetLufs": -14
+  },
+  "_notes": [
+    "Music map (measured): intro 0-9.7 quiet, groove 9.7-18.2, DROP 18.23, full to 31, breakdown 31-50, silence 50-52.1, RE-ENTRY 52.12, full 63-97.3, soft tail 97.3-104.4, near-silent fade to 115.",
+    "Bar = 2.824s from 18.23: 21.05 23.88 26.71 29.53 | 31 32.36 ... phrase (4 bars) at 18.23 29.53 40.82 52.12 63.42 74.72 86.02 97.31 108.6.",
+    "Section boundaries below are what the cut lands on; inside a section clips are one bar or half a bar."
+  ],
+  "segments": [
+    { "title": "EVERY JUMP HAS A PRICE.", "seconds": 4.6, "fadeIn": 0.9, "fadeOut": 0.6, "size": 84 },
+    { "title": "MOVEMENT IS A RESOURCE.", "seconds": 5.16, "fadeIn": 0.6, "fadeOut": 0.5, "size": 104 },
+
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 3.2,  "out": 6.0 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 8.5,  "out": 11.34 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 56.2, "out": 59.03 },
+
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 20.1, "out": 21.51, "flash": 0.12 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 25.9, "out": 27.31 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 42.2, "out": 43.61 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 27.8, "out": 29.21 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 46.4, "out": 47.81 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 64.6, "out": 66.01 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 45.0, "out": 46.41 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 48.2, "out": 49.61 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 69.1, "out": 70.57 },
+
+    { "title": "SPEND IT NOW.", "seconds": 2.4, "fadeIn": 0.3, "fadeOut": 0.4, "size": 96 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 15.1, "out": 17.0 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 29.4, "out": 33.6 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 50.0, "out": 52.9 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 11.4, "out": 12.8 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 53.2, "out": 55.4 },
+    { "title": "OR LATER.", "seconds": 3.6, "fadeIn": 0.4, "fadeOut": 1.0, "size": 96 },
+    { "black": true, "seconds": 2.52 },
+
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 61.0, "out": 64.35, "flash": 0.1 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 73.2, "out": 76.02 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 76.2, "out": 77.61 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 79.2, "out": 80.61 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 87.0, "out": 88.41 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 93.2, "out": 94.61 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 94.6, "out": 96.01 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 83.0, "out": 85.82 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 66.0, "out": 69.0 },
+    { "src": "TrailerCapture/raw/gist.mp4", "in": 96.3, "out": 99.86 },
+
+    { "title": "DECKSHIFT", "sub": "WISHLIST ON STEAM", "seconds": 8.6, "fadeIn": 0.5, "fadeOut": 1.8, "size": 160 }
+  ]
+}

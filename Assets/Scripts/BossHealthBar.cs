@@ -2,31 +2,55 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// A big, screen-anchored boss health bar (top-center), themed for the Oxidation District:
-// a chunky black+bronze frame, segment notches, a glossy bevel, verdigris/acid fill, a styled
-// boss name, and plenty of juice — a fill-up intro when the fight starts, a white flash + shake
-// on every hit, a delayed "damage chunk" drain, and a low-HP danger pulse.
+// The boss's life, across the top of the screen. Built procedurally (the prefab is an empty
+// GameObject carrying this script); spawned by the boss in its Start(), bound to an EnemyHealth, and
+// removes itself when the boss dies.
 //
-// Built procedurally (prefab = empty GameObject + this script; UI is created in Awake). Spawned by
-// the boss in its Start(), bound to an EnemyHealth, and removes itself when the boss dies.
+// ⚠️ REBUILT 2026-09-07. The designer's verdict on the old one was "not good at all", and reading it
+// back that was three separate faults, not a taste disagreement:
+//
+//   1. IT WAS THE MOSS KNIGHT'S BAR WITH A DIFFERENT NAME ON IT. Every default here is his —
+//      verdigris fill, pale acid chunk, oxidized bronze frame, and `bossName` literally defaulting
+//      to "The Moss Knight". Both bosses pointed at the SAME prefab asset, so the ninja fought under
+//      a lime-green bar that meant nothing about him. With ~10 bosses planned this scales badly.
+//   2. IT OVERLAPPED THE RELIC BAR. Measured on screen: the relic sockets end at canvas y −68 and
+//      this started at −54, so the bar's top edge cut through the relic icons. Reported separately
+//      by the designer and deferred; it is the same job as this one.
+//   3. IT WAS A GLOSSY WEB WIDGET. A chunky bronze border, a white bevel strip across the top and a
+//      shadow across the bottom — the exact "competent, safe, screams AI" look the whole FlatUI /
+//      Salvage effort exists to kill, and the loudest thing on a dark dungeon screen.
+//
+// ⚠️ THE FIX FOR (3) IS NOT A NEW LOOK — IT IS THE ONE THE PLAYER'S OWN BARS ALREADY USE.
+// `ResourceBarUI` (HP and Shift) was converted long ago and speaks a specific vocabulary: a soft
+// shadow, a recessed track, discrete segment CELLS with real gaps the track shows through, fine pip
+// ticks, and a chamfered `FlatUI.Outline` frame. The boss bar was the last readout in the game still
+// speaking the old language. Consistency lives in the treatment (Salvage §1) — so this is the same
+// object as your health bar, scaled up and handed to the enemy.
 public class BossHealthBar : MonoBehaviour
 {
     [Header("Identity")]
-    public string bossName = "The Moss Knight";
-    [Tooltip("Font for the boss name (assign CCBattleScarred SDF or Pixie SDF; TMP default if empty).")]
+    public string bossName = "";
+    [Tooltip("LEGACY — leave empty. The name routes through UIType.Display() like every other " +
+             "label in the game; a per-bar font override is how a screen falls out of the type system.")]
     public TMP_FontAsset nameFont;
 
     [Header("Layout (reference 1920x1080)")]
     public float barWidth = 900f;
-    public float barHeight = 34f;
-    [Tooltip("Distance from the top of the screen to the bar.")]
-    public float topOffset = 54f;
-    [Tooltip("Number of notch segments across the bar.")]
+    public float barHeight = 26f;
+    [Tooltip("⚠️ Distance from the top of the screen. MUST clear the relic bar, which occupies " +
+             "canvas y −16 to −68 — the old 54 put this bar straight through the relic icons.")]
+    public float topOffset = 84f;
+    [Tooltip("How many cells the bar is divided into. ⚠️ This is IDENTITY, not decoration: a boss " +
+             "made of armoured mass wants a few fat segments, a fragile one wants many fine ones.")]
     public int segmentCount = 10;
+    [Tooltip("Gap between cells. The dark track shows through, so they read as separate plates.")]
+    public float segmentGap = 3f;
 
     [Header("Colors")]
     public Color fillColor = new Color(0.42f, 0.74f, 0.33f);       // HP — verdigris green
-    public Color delayedColor = new Color(0.83f, 0.95f, 0.55f);    // trailing lost-HP chunk — pale acid
+    [Tooltip("The trailing chunk revealed behind a hit, before it drains away. This is the colour " +
+             "of DAMAGE on this boss — the thing the player sees every time they connect.")]
+    public Color delayedColor = new Color(0.83f, 0.95f, 0.55f);
     public Color warnColor = new Color(0.95f, 0.35f, 0.15f);       // low-HP / flash tint
     public Color backgroundColor = new Color(0.06f, 0.09f, 0.06f);
     public Color frameColor = new Color(0.34f, 0.3f, 0.18f);       // oxidized bronze
@@ -49,10 +73,11 @@ public class BossHealthBar : MonoBehaviour
     private CanvasGroup canvasGroup;
     private RectTransform panel;
     private Vector2 panelBasePos;
-    private Image fillImmediate;
-    private Image fillDelayed;
     private TextMeshProUGUI nameText;
     private TextMeshProUGUI nameShadow;
+
+    private struct Cell { public Image delayed, immediate; }
+    private Cell[] cells;
 
     private float displayRatio = 1f;
     private float delayedFill = 1f;
@@ -139,9 +164,6 @@ public class BossHealthBar : MonoBehaviour
             else delayedFill = displayRatio;
         }
 
-        fillImmediate.fillAmount = displayRatio;
-        fillDelayed.fillAmount = Mathf.Max(delayedFill, displayRatio);
-
         // Low-HP danger pulse + white hit flash, composited onto the fill color.
         float danger = displayRatio < 0.3f ? (1f - displayRatio / 0.3f) : 0f;
         float pulse = danger > 0f ? (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 9f)) * danger : 0f;
@@ -149,7 +171,8 @@ public class BossHealthBar : MonoBehaviour
 
         Color c = Color.Lerp(fillColor, warnColor, pulse * 0.6f);
         c = Color.Lerp(c, Color.white, flash);
-        fillImmediate.color = c;
+
+        ApplyCells(displayRatio, Mathf.Max(delayedFill, displayRatio), c);
 
         if (nameText != null)
         {
@@ -169,6 +192,29 @@ public class BossHealthBar : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Spreads one 0..1 ratio across the cells. Each cell owns an equal slice, so a cell is full,
+    /// empty, or the one currently draining — which is what makes the bar empty plate by plate
+    /// instead of sliding a single edge across a ruled rectangle.
+    /// </summary>
+    private void ApplyCells(float ratio, float delayedRatio, Color fillCol)
+    {
+        if (cells == null || cells.Length == 0) return;
+        int n = cells.Length;
+        for (int i = 0; i < n; i++)
+        {
+            float lo = (float)i / n;
+            float span = 1f / n;
+            // Clamp01 of "how far into MY slice the level is" — 0 below me, 1 above me.
+            float mine = Mathf.Clamp01((ratio - lo) / span);
+            float mineDelayed = Mathf.Clamp01((delayedRatio - lo) / span);
+
+            cells[i].immediate.fillAmount = mine;
+            cells[i].delayed.fillAmount = Mathf.Max(mine, mineDelayed);
+            cells[i].immediate.color = fillCol;
+        }
+    }
+
     private void SetName(string n)
     {
         string up = string.IsNullOrEmpty(n) ? "" : n.ToUpperInvariant();
@@ -185,7 +231,11 @@ public class BossHealthBar : MonoBehaviour
         CanvasScaler scaler = gameObject.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.matchWidthOrHeight = 0.5f;
+        // ⚠️ MATCH ON HEIGHT (1), NOT 0.5. Every other CanvasScaler in the project is 1, because the
+        // camera is height-anchored (orthographicSize 7 ⇒ 14 world units tall at every aspect). This
+        // was the only canvas in the game disagreeing, so at 21:9 the boss bar scaled differently
+        // from the relic bar it sits under and from the HUD around it.
+        scaler.matchWidthOrHeight = 1f;
 
         canvasGroup = gameObject.AddComponent<CanvasGroup>();
         canvasGroup.interactable = false;
@@ -194,7 +244,7 @@ public class BossHealthBar : MonoBehaviour
 
         RectTransform rootRT = GetComponent<RectTransform>();
 
-        // Panel = outermost outline (near-black).
+        // The panel is now just a transparent frame of reference — the cells below carry the surface.
         GameObject panelGO = MakeChild("BarPanel", rootRT);
         panel = panelGO.GetComponent<RectTransform>();
         panel.anchorMin = new Vector2(0.5f, 1f);
@@ -203,54 +253,56 @@ public class BossHealthBar : MonoBehaviour
         panel.sizeDelta = new Vector2(barWidth, barHeight);
         panel.anchoredPosition = new Vector2(0f, -topOffset);
         panelBasePos = panel.anchoredPosition;
-        AddImage(panelGO, outlineColor);
 
-        // Bronze frame inside the outline.
-        Image frame = MakeChildImage("Frame", panel, frameColor);
-        FillRect(frame.rectTransform, OUTLINE);
+        // Drop shadow, so the bar sits ON the scene rather than being printed onto it — the same
+        // first layer every player resource bar starts with.
+        Image drop = MakeChildImage("Shadow", panel, new Color(0f, 0f, 0f, 0.55f));
+        drop.sprite = RelicUISprites.SoftShadow();
+        RectTransform dr = drop.rectTransform;
+        dr.anchorMin = Vector2.zero; dr.anchorMax = Vector2.one;
+        dr.offsetMin = new Vector2(-10f, -14f);
+        dr.offsetMax = new Vector2(10f, 6f);
 
-        // Content area inside the frame.
-        Image inner = MakeChildImage("Inner", panel, backgroundColor);
-        FillRect(inner.rectTransform, OUTLINE + FRAME);
-        RectTransform content = inner.rectTransform;
+        // The recessed track. It runs the FULL width and is what shows through the gaps between
+        // cells — which is what makes them read as separate plates rather than a ruled rectangle.
+        Image track = MakeChildImage("Track", panel, outlineColor);
+        FillRect(track.rectTransform, 0f);
 
-        // Delayed (pale acid) chunk, then the immediate (verdigris) real-HP layer on top.
-        fillDelayed = MakeChildImage("FillDelayed", content, delayedColor);
-        SetFillImage(fillDelayed);
-        FillRect(fillDelayed.rectTransform, 0f);
-
-        fillImmediate = MakeChildImage("FillImmediate", content, fillColor);
-        SetFillImage(fillImmediate);
-        FillRect(fillImmediate.rectTransform, 0f);
-
-        // Glossy bevel: a bright strip across the top, a soft shadow across the bottom.
-        Image gloss = MakeChildImage("Gloss", content, new Color(1f, 1f, 1f, 0.12f));
-        RectTransform gr = gloss.rectTransform;
-        gr.anchorMin = new Vector2(0f, 0.55f);
-        gr.anchorMax = new Vector2(1f, 1f);
-        gr.offsetMin = Vector2.zero;
-        gr.offsetMax = Vector2.zero;
-
-        Image shadeBottom = MakeChildImage("ShadeBottom", content, new Color(0f, 0f, 0f, 0.22f));
-        RectTransform sb = shadeBottom.rectTransform;
-        sb.anchorMin = new Vector2(0f, 0f);
-        sb.anchorMax = new Vector2(1f, 0.3f);
-        sb.offsetMin = Vector2.zero;
-        sb.offsetMax = Vector2.zero;
-
-        // Segment notches.
+        // ⚠️ THE FILL IS SPLIT ACROSS CELLS, NOT ONE BAR WITH LINES DRAWN ON IT. The old version was a
+        // single Filled image with notch ticks laid over it, so the notches were decoration that the
+        // fill slid underneath. Real cells mean the bar empties plate by plate, and the gaps stay
+        // dark at every fill level.
         int segs = Mathf.Max(1, segmentCount);
-        for (int i = 1; i < segs; i++)
+        cells = new Cell[segs];
+        float gap = Mathf.Max(0f, segmentGap);
+        float cellW = (barWidth - gap * (segs - 1)) / segs;
+
+        for (int i = 0; i < segs; i++)
         {
-            float f = (float)i / segs;
-            Image tick = MakeChildImage("Tick", content, new Color(0f, 0f, 0f, 0.45f));
-            RectTransform tr = tick.rectTransform;
-            tr.anchorMin = new Vector2(f, 0f);
-            tr.anchorMax = new Vector2(f, 1f);
-            tr.pivot = new Vector2(0.5f, 0.5f);
-            tr.sizeDelta = new Vector2(2f, 0f);
-            tr.anchoredPosition = Vector2.zero;
+            GameObject holder = MakeChild("Cell" + i, panel);
+            RectTransform hr = holder.GetComponent<RectTransform>();
+            hr.anchorMin = new Vector2(0f, 0f);
+            hr.anchorMax = new Vector2(0f, 1f);
+            hr.pivot = new Vector2(0f, 0.5f);
+            hr.sizeDelta = new Vector2(cellW, -FRAME * 2f);
+            hr.anchoredPosition = new Vector2(i * (cellW + gap), 0f);
+
+            FillRect(MakeChildImage("Socket", hr, backgroundColor).rectTransform, 0f);
+
+            var del = MakeChildImage("Delayed", hr, delayedColor);
+            SetFillImage(del); FillRect(del.rectTransform, 0f);
+
+            var imm = MakeChildImage("Fill", hr, fillColor);
+            SetFillImage(imm); FillRect(imm.rectTransform, 0f);
+
+            cells[i] = new Cell { delayed = del, immediate = imm };
         }
+
+        // Chamfered frame over the whole run, in the boss's own metal. Cut plate, not a CSS border.
+        Image frame = MakeChildImage("Frame", panel, frameColor);
+        frame.sprite = FlatUI.Outline(5, 2);
+        frame.type = Image.Type.Sliced;
+        FillRect(frame.rectTransform, -2f);
 
         // Boss name (shadow clone behind, gradient face in front), centered below the bar.
         nameShadow = MakeName("BossNameShadow", panel, new Vector2(2f, -2f));
@@ -276,11 +328,14 @@ public class BossHealthBar : MonoBehaviour
 
         TextMeshProUGUI t = go.AddComponent<TextMeshProUGUI>();
         t.alignment = TextAlignmentOptions.Center;
-        t.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
-        t.fontSize = 26f;
-        t.characterSpacing = 6f;
         t.enableWordWrapping = false;
         t.raycastTarget = false;
+
+        // ⚠️ THROUGH UIType, NOT A LOCAL FONT FIELD. A per-screen font reference is exactly how the
+        // character select shipped in Liberation Sans — anything that opts out of the type system
+        // opts out silently. `nameFont` is honoured only as a deliberate override.
+        UIType.Apply(t, TextRole.Heading);
+        t.characterSpacing = 6f;                       // a boss name is set wide; that is the flourish
         if (nameFont != null) t.font = nameFont;
         return t;
     }

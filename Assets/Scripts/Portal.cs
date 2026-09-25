@@ -33,6 +33,21 @@ public class Portal : MonoBehaviour, IInteractable
     // the hint precisely in the situation it exists for — standing in a portal that did not fire.
     private const float PromptDelay = 0.45f;
 
+    // ⚠️ TWO SOUNDS, BECAUSE THEY ARE TWO EVENTS WITH OPPOSITE SHAPES. Opening the pair is a cast —
+    // it can swell. Stepping through is instant — it has to be all attack, or it arrives after you
+    // do. Portal.mp3 takes half a second to peak, so it belongs on opening and nowhere else.
+    [Header("Sound")]
+    [Tooltip("Played once when the second portal is placed and the pair links up. Portal.mp3.")]
+    [SerializeField] private AudioClip openSound;
+    [Range(0f, 2f)] [SerializeField] private float openVolume = 0.8f;
+    [Tooltip("Played on every trip through. Empty = the procedural ProcSfx.PortalPass.")]
+    [SerializeField] private AudioClip traverseSound;
+    [Range(0f, 2f)] [SerializeField] private float traverseVolume = 0.9f;
+
+    // 2D, like the boss sounds: this is the player's own action and must not fade with distance.
+    // Built on first use because the prefab carries no AudioSource.
+    private AudioSource voice;
+
     private PlayerController occupant;
     private float occupantSince;
 
@@ -90,7 +105,19 @@ public class Portal : MonoBehaviour, IInteractable
         Teleportable t = traveller.GetComponent<Teleportable>();
         if (t == null) return;
 
-        t.TeleportTo(linkedPortal.transform.position);
+        if (t.TeleportTo(linkedPortal.transform.position))
+            PlaySound(traverseSound != null ? traverseSound : ProcSfx.PortalPass, traverseVolume);
+    }
+
+    private void PlaySound(AudioClip clip, float volume)
+    {
+        if (voice == null)
+        {
+            voice = gameObject.AddComponent<AudioSource>();
+            voice.playOnAwake = false;
+            voice.spatialBlend = 0f;
+        }
+        SfxManager.PlayOn(voice, clip, volume);
     }
 
     public void ShowRangeCircle(float range)
@@ -119,6 +146,8 @@ public class Portal : MonoBehaviour, IInteractable
 
         linkedPortal = otherPortal;
         otherPortal.linkedPortal = this;
+
+        PlaySound(openSound, openVolume);
 
         spriteRenderer.color = Color.cyan;
         otherPortal.spriteRenderer.color = Color.red;

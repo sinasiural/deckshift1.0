@@ -536,7 +536,7 @@ public static class CardEnhancements
         if (card == null) return;
 
         card.lastCostPaid = costPaid;
-        bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+        bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
 
         if (card.enhancement == CardEnhancement.CompoundInterest && card.roomsSincePlayed > 0)
         {
@@ -570,7 +570,7 @@ public static class CardEnhancements
         if (card.enhancement == CardEnhancement.TollBooth && card.lastCostPaid > 0)
         {
             PlayerController p = GameManager.instance != null ? GameManager.instance.player : null;
-            bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+            bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
             if (p != null && !inHub) p.AddShift(card.lastCostPaid);
             card.lastCostPaid = 0;      // one refund per play, however many things it kills
         }
@@ -583,7 +583,7 @@ public static class CardEnhancements
             return false;
 
         card.lastCallUsed = true;
-        card.currentUses = Mathf.Max(1, card.cardData.maxUses);
+        card.currentUses = Mathf.Max(1, card.MaxUses);
         return true;
     }
 

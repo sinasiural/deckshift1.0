@@ -39,6 +39,32 @@ public class CharacterData : ScriptableObject
     // Consumed by DeckManager.RecallCostIsLocked.
     public bool recallCostNeverRises = false;
 
+    // Armour granted on entering each COMBAT room (the Samurai's "Full Plate"). Armour is a second
+    // health pool that empties before HP and does NOT reset between rooms, so a player who is never
+    // touched walks into room five wearing five times this. The streak IS the trait.
+    //
+    // ⚠️ Granted on combat rooms only — PlayerController.OnNewRoomEnter gates it on
+    // LevelManager.IsCurrentRoomCombat(). The hub and the recharge rooms (Foundry / Market / Well)
+    // are sandboxes; paying out on every visit there is the umbrella rule broken from the income
+    // side, and the Well in particular could be farmed.
+    //
+    // Read through the live character at the grant site — never copied into a field on the player,
+    // for the same reason handCapacityBonus never is: a character swap must not be able to leave a
+    // stale copy behind.
+    public float armourPerRoom = 0f;
+
+    [Header("The boss made from this character")]
+    // Every playable character is also a boss (the castle's former owners — see the
+    // bosses-are-characters premise). This is the arena where THIS character is the boss.
+    //
+    // It does two things in LevelManager, both read live off CharacterSelection.Chosen:
+    //   - it is the run's FINALE for a player who picked this character (your own mirror is held
+    //     for the top of the castle), falling back to `finalBossRoomPrefab` when empty;
+    //   - it is FILTERED OUT of the mid-map boss pool for that same player, so you never meet
+    //     yourself before the end.
+    // For everyone else it is an ordinary entry in `bossRoomPrefabs`.
+    public GameObject bossRoom;
+
     [Header("Look")]
     // A Cainos character PRESET prefab (Assets/Cainos/.../Character Preset/). Its outfit is COPIED
     // onto the player's existing rig at runtime — materials only.
@@ -59,4 +85,14 @@ public class CharacterData : ScriptableObject
     // rather than a material on the body — but it goes into the same "Weapon Slot" the pack
     // already animates, so the hand still carries it correctly through every clip.
     public GameObject weaponPrefab;
+
+    // A second weapon for the LEFT hand (designer 2026-09-17: the Samurai wields two swords). The
+    // pack has exactly one weapon slot, on the right hand, so this goes through our own
+    // OffhandWeapon component, which keeps a slot glued to the rig's left-hand bone. Empty = none.
+    public GameObject offhandWeaponPrefab;
+
+    // Leave the preset's back item (a cape, a quiver, the Samurai's sashimono banner) OFF the
+    // player. The BOSS made from the same preset keeps it — the designer wants the banner on the
+    // Kagemusha and not on the playable Samurai, and this is the one switch that separates them.
+    public bool hideBackItem = false;
 }

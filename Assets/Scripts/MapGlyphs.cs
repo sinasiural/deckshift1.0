@@ -182,7 +182,10 @@ public static class MapGlyphs
             case MapNodeType.Skirmish: return Skirmish();
             case MapNodeType.Fight: return Fight();
             case MapNodeType.Elite: return Elite();
+            // The finale shares the boss glyph but is drawn LARGER (see SizeFor) - size is half
+            // the type signal on this map, so the terminus reads as the biggest thing on it.
             case MapNodeType.Boss: return Boss();
+            case MapNodeType.FinalBoss: return Boss();
             default: return Start();
         }
     }
@@ -206,7 +209,8 @@ public static class MapGlyphs
             case MapNodeType.Skirmish: return 30f;
             case MapNodeType.Fight: return 40f;
             case MapNodeType.Elite: return 52f;
-            case MapNodeType.Boss: return 76f;
+            case MapNodeType.Boss: return 66f;
+            case MapNodeType.FinalBoss: return 88f;
             default: return 38f;
         }
     }
@@ -219,6 +223,7 @@ public static class MapGlyphs
             case MapNodeType.Fight: return "FIGHT";
             case MapNodeType.Elite: return "ELITE";
             case MapNodeType.Boss: return "BOSS";
+            case MapNodeType.FinalBoss: return "THE END";
             default: return "HUB";
         }
     }

@@ -202,7 +202,7 @@ public class CardBack : MonoBehaviour
             body += $"\n<color=#6BE6D1><b>{CardEnhancements.Name(card.enhancement)}</b></color>\n" +
                     CardEnhancements.Description(card.enhancement);
 
-        string charges = card.isInfinite ? "∞" : $"{card.currentUses} / {card.cardData.maxUses}";
+        string charges = card.isInfinite ? "∞" : $"{card.currentUses} / {card.MaxUses}";
 
         SetContent(card, body, keyHint,
                    "SHIFT", card.cardData.shiftCost.ToString(), SHIFT_BLUE,

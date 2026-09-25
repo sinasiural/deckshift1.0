@@ -15,7 +15,7 @@ MonoBehaviour:
   cardName: Second Thoughts
   description: Drop a marker. Play it again to snap back to it from anywhere in the
     room.
-  cardArt: {fileID: -858288936149798443, guid: f8d8183212d299a4497d8c2d363cae5d, type: 3}
+  cardArt: {fileID: -8760207628979379880, guid: dc76375d1ef2a0149950a8929e63372d, type: 3}
   nameIsPaintedIntoArt: 0
   actionType: 19
   actionValue: 0

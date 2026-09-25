@@ -80,6 +80,12 @@ public static class LevelTextImporter
         { '$', "Assets/YeniLeveller/Shopkeeper_NPC.prefab" }, // shop NPC (its 'missing' scripts are TMP/UI package scripts — fine)
         { 'B', "Assets/Prefabs/Blompo.prefab" },              // Blompo — card-blessing NPC; a way to SPEND loot, so he counts as loot
         { 'L', "Assets/YeniLeveller/Lever.prefab" },          // lever; importer wires it to the NEAREST gate (On=Open, Off=Close)
+        // Recharge-room furniture (2026-09-14). Each recharge room is SPECIALISED — one problem per
+        // room — so these normally appear only in their own room: 'f'+'B' in the Foundry, '$'+'Q'
+        // in the Market, 'H' in the Well. Use "!recharge: on" in the same file (see below).
+        { 'f', "Assets/Prefabs/ScrapForge.prefab" },          // Scrap Forge — repair / salvage cards for scrap
+        { 'Q', "Assets/YeniLeveller/QuestBoardPrefab.prefab" }, // Quest board — take a contract mid-run
+        { 'H', "Assets/Prefabs/RestWell.prefab" },            // Rest Well — heal + Shift, once per visit
     };
 
     // 'A' Shift Altar. It is NOT in MarkerPrefabs because it needs post-processing the generic path
@@ -114,6 +120,7 @@ public static class LevelTextImporter
     private static readonly HashSet<char> GroundedMarkers = new HashSet<char>
     {
         'X', 'm', 'r', 'l', 'M', 'z', 'Z', 's', 'C', 'D', 'g', '^', 'W', 'T', 'F', 'w', 'c', 't', '$', 'B', 'L',
+        'f', 'Q', 'H',
     };
 
     // ---- Tile roles ---------------------------------------------------------------------------
@@ -825,6 +832,17 @@ public static class LevelTextImporter
         var root = new GameObject(levelName);
         try
         {
+            // "!recharge: on" marks a Foundry / Market / Well. The marker is what stops the exit
+            // door paying a free flawless clear, oath step and Nest Egg for a room with no enemies
+            // in it — forgetting it makes the room a silent exploit, so it lives in the text file
+            // beside the layout rather than being a component someone must remember to add.
+            if (directives.TryGetValue("recharge", out string rechargeV)
+                && (rechargeV.Equals("on", StringComparison.OrdinalIgnoreCase)
+                    || rechargeV.Equals("true", StringComparison.OrdinalIgnoreCase)))
+            {
+                root.AddComponent<RechargeRoomMarker>();
+            }
+
             var gridGo = new GameObject("Grid");
             gridGo.transform.SetParent(root.transform);
             gridGo.transform.localPosition = new Vector3(0f, 0f, GroundZ);

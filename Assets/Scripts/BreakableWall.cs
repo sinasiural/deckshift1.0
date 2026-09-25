@@ -65,6 +65,26 @@ public class BreakableWall : MonoBehaviour, IDamageable
             Break();
     }
 
+    // Crowbar: bumping into the wall breaks it outright.
+    //
+    // ⚠️ THIS IS THE RELIC THAT LIFTS LEVEL LAW #6. That law forbids hiding anything behind terrain
+    // precisely because the player has no wall-breaking attack — so every breakable wall in the game
+    // is currently optional, and must stay that way. The relic opens shortcuts and caches; it must
+    // never become the way a room is finished.
+    //
+    // ⚠️ NO KEYBIND, BY DESIGN (designer, 2026-08-21: only boss relics may add an input). Walking
+    // into it is the whole interaction.
+    private void OnCollisionEnter2D(Collision2D other)
+    {
+        if (currentHP <= 0f) return;
+        if (!other.collider.CompareTag("Player")) return;
+        if (RelicManager.instance == null || !RelicManager.instance.HasRelic("Crowbar")) return;
+
+        // Straight to Break rather than TakeDamage: the wall's HP is tuned against card damage, and
+        // a Crowbar that merely chipped it would read as the relic not working.
+        Break();
+    }
+
     private IEnumerator FlashRoutine()
     {
         if (spriteRenderer != null)

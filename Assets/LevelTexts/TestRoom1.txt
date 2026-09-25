@@ -7,8 +7,9 @@
 //   m  MeleeEnemy    r  RangedEnemy   l  SlimeEnemy   M  Mimic   b  AeroBat
 //   ^  spikers       T  Trapdoor      W  BreakableWall_Bookshelf
 //   +  ShiftCrystal  g  Gold          C  Chest
+//   f  ScrapForge    Q  QuestBoard    H  RestWell   (recharge-room furniture; see Well.txt)
 //
-// Directives (optional): !name
+// Directives (optional): !name   !backwall: off   !recharge: on (marks a Foundry/Market/Well)
 // Tiles are automatic: room frame gets border/floor tiles, floating '#'
 // platforms get chunky block tiles, and the whole room gets the dungeon
 // wall backdrop — same visual language as the hand-built levels.

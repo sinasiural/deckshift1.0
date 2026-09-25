@@ -13,8 +13,16 @@ public class LevelManager : MonoBehaviour
     [Tooltip("Element 0 must be the hub. The rest are the run's combat levels. Add a RoomTier " +
              "component to a room prefab to bind it to one map tier; untagged rooms serve any tier.")]
     public List<GameObject> roomPrefabs;
-    [Tooltip("Boss room — spawned when the map reaches its top floor. Leave empty to just loop back to the hub.")]
-    public GameObject bossRoomPrefab;
+    // ⚠️ WAS A SINGLE `bossRoomPrefab` FOR "the act finale". Acts are gone: a run now carries
+    // several OPTIONAL bosses the player routes into or around, plus one unique finale.
+    [Tooltip("The optional bosses a run can offer. The map places 2-5 of these as nodes you may " +
+             "route into or avoid; each is drawn without repeating one already fought this run. " +
+             "One entry is fine — it will simply repeat once the pool is exhausted.")]
+    public List<GameObject> bossRoomPrefabs = new List<GameObject>();
+
+    [Tooltip("The run's terminus, always fought, never drawn from the pool above. Empty falls back " +
+             "to a pool boss so a run can still be finished.")]
+    public GameObject finalBossRoomPrefab;
 
     [Header("Recharge rooms (map attachments)")]
     [Tooltip("Scrap: repair and salvage cards, Blompo. LEAVE EMPTY AND NO FOUNDRY IS EVER DRAWN ON " +
@@ -24,6 +32,11 @@ public class LevelManager : MonoBehaviour
     public GameObject marketRoomPrefab;
     [Tooltip("Shift and healing. Leave empty and no Well is ever drawn on the map.")]
     public GameObject wellRoomPrefab;
+
+    [Header("Tutorial")]
+    [Tooltip("Spawned INSTEAD of the hub when the main menu starts the tutorial (TutorialMode). Its " +
+             "exit returns to the main menu. Built by Deckshift → Build Tutorial Room.")]
+    public GameObject tutorialRoomPrefab;
 
     private GameObject currentRoom;
     private bool hasSpawnedFirstRoom = false;
@@ -38,6 +51,65 @@ public class LevelManager : MonoBehaviour
     // State for the pre-map room order, kept only as the fallback below.
     private List<int> availableRoomIndices = new List<int>();
     private bool bossSpawned = false;
+
+    // Optional bosses already met this run, so a five-boss route fights five different ones rather
+    // than the same arena repeatedly. Cleared with the rest of the run state.
+    private readonly List<GameObject> usedBossPrefabs = new List<GameObject>();
+
+    /// <summary>
+    /// The next optional boss. Draws without repeating until the pool is exhausted, then resets —
+    /// so a project with one authored boss still works, it just repeats, rather than failing.
+    /// </summary>
+    // The arena where the played character is the boss — their own mirror, held for the finale.
+    // Read live, never cached: a character swap must not leave a stale room behind.
+    private static GameObject OwnMirrorRoom =>
+        CharacterSelection.Chosen != null ? CharacterSelection.Chosen.bossRoom : null;
+
+    /// <summary>
+    /// The run's terminus. The played character's own boss room when they have one (you fight
+    /// yourself at the top of the castle); otherwise the shared `finalBossRoomPrefab`; otherwise a
+    /// pool draw, so a project with no finale authored still ends the run rather than stranding it.
+    /// </summary>
+    private GameObject PickFinaleRoom()
+    {
+        GameObject mirror = OwnMirrorRoom;
+        if (mirror != null) return mirror;
+        return finalBossRoomPrefab != null ? finalBossRoomPrefab : PickBossRoom();
+    }
+
+    private GameObject PickBossRoom()
+    {
+        if (bossRoomPrefabs == null || bossRoomPrefabs.Count == 0)
+        {
+            // No boss authored at all. Falling back to a normal room is far better than spawning
+            // nothing: an empty node would strand the run with no exit door.
+            Debug.LogWarning("[LevelManager] a Boss node was reached but bossRoomPrefabs is empty — " +
+                             "spawning an ordinary room instead.");
+            return PickRoomForTier(MapNodeType.Elite);
+        }
+
+        // ⚠️ YOUR OWN MIRROR IS NEVER A MID-MAP BOSS. Every character is also a boss; the one made
+        // from the character you are playing is held back for the finale (bosses-are-characters).
+        GameObject mirror = OwnMirrorRoom;
+
+        List<GameObject> fresh = new List<GameObject>();
+        foreach (GameObject g in bossRoomPrefabs)
+            if (g != null && g != mirror && !usedBossPrefabs.Contains(g)) fresh.Add(g);
+
+        if (fresh.Count == 0)
+        {
+            usedBossPrefabs.Clear();
+            foreach (GameObject g in bossRoomPrefabs) if (g != null && g != mirror) fresh.Add(g);
+        }
+        // A roster of one, whose only boss is the mirror: better to meet yourself early than to
+        // reach a Boss node with nothing in it.
+        if (fresh.Count == 0 && mirror != null) fresh.Add(mirror);
+        if (fresh.Count == 0) return roomPrefabs != null && roomPrefabs.Count > 0 ? roomPrefabs[0] : null;
+
+        GameObject pick = fresh[Random.Range(0, fresh.Count)];
+        usedBossPrefabs.Add(pick);
+        return pick;
+    }
 
     private void Awake()
     {
@@ -84,6 +156,9 @@ public class LevelManager : MonoBehaviour
             pendingRecharge = RechargeType.None;
             mapMgr.BeginRun(SpawnableRecharges());
             mapMgr.EnterStart();
+            // The tutorial stands in for the hub as the first room. The map is still generated, so
+            // the tutorial's "press M" sign opens a real map rather than nothing.
+            if (TutorialMode.ConsumeRequest() && tutorialRoomPrefab != null) return tutorialRoomPrefab;
             return roomPrefabs[0];
         }
 
@@ -107,8 +182,15 @@ public class LevelManager : MonoBehaviour
             return PickNextRoomPrefab();
         }
 
+        // An OPTIONAL boss the player routed into. Drawn from the boss pool without repeating one
+        // already fought this run, so a five-boss route meets five different bosses.
         if (node.type == MapNodeType.Boss)
-            return bossRoomPrefab != null ? bossRoomPrefab : roomPrefabs[0];
+            return PickBossRoom();
+
+        // The run's terminus. Deliberately its own prefab slot and never drawn from the pool — the
+        // designer's stated intent is that the final fight is unique.
+        if (node.type == MapNodeType.FinalBoss)
+            return PickFinaleRoom();
 
         pendingRecharge = node.recharge;
         return PickRoomForTier(node.type);
@@ -247,6 +329,7 @@ public class LevelManager : MonoBehaviour
         {
             hasSpawnedFirstRoom = true;
             BuildLevelQueue();
+            if (TutorialMode.ConsumeRequest() && tutorialRoomPrefab != null) return tutorialRoomPrefab;
             return roomPrefabs[0];
         }
 
@@ -258,10 +341,10 @@ public class LevelManager : MonoBehaviour
             return roomPrefabs[idx];
         }
 
-        if (!bossSpawned && bossRoomPrefab != null)
+        if (!bossSpawned)
         {
-            bossSpawned = true;
-            return bossRoomPrefab;
+            GameObject finale = PickFinaleRoom();
+            if (finale != null) { bossSpawned = true; return finale; }
         }
 
         hasSpawnedFirstRoom = false;
@@ -297,9 +380,26 @@ public class LevelManager : MonoBehaviour
     // required) — so opening it with nothing clickable would be an unescapable screen.
     public void AdvanceToNextRoom()
     {
+        // The tutorial is a room with no run behind it: its exit goes back to the main menu.
+        if (IsCurrentRoomTutorial())
+        {
+            TutorialMode.Finish();
+            return;
+        }
+
         RunMapManager mgr = RunMapManager.instance;
 
         if (mgr == null || !mgr.HasMap || mgr.AvailableNext().Count == 0)
+        {
+            SpawnNextRoom();
+            return;
+        }
+
+        // The node's recharge room is NEXT no matter what — it hangs off the room just cleared and
+        // is not a floor — so there is nothing to choose yet. Asking here made the player pick a
+        // branch and then walk into a Well instead (designer, 2026-09-14). The map opens on the
+        // recharge room's exit instead, when the choice is real.
+        if (pendingRecharge != RechargeType.None && RechargeRoomPrefab(pendingRecharge) != null)
         {
             SpawnNextRoom();
             return;
@@ -344,19 +444,38 @@ public class LevelManager : MonoBehaviour
             Destroy(shot.gameObject);
     }
 
+    /// <summary>
+    /// Testing only: makes the NEXT SpawnNextRoom use this prefab instead of the map's choice.
+    /// Cleared the moment it is used. Never serialized — see the note at the use site.
+    /// </summary>
+    [System.NonSerialized] public GameObject forcedNextRoom;
+
     public void SpawnNextRoom()
     {
         // Room-end Held payoffs (Dead Weight): fire while the ending room's hand still
         // exists — the ReloadHand below discards it. Only when actually leaving a combat
-        // room: not on the first spawn (currentRoom null), not when leaving the hub.
-        if (currentRoom != null && !IsCurrentRoomHub() && DeckManager.instance != null)
+        // room: not on the first spawn (currentRoom null), not when leaving a sandbox (hub or
+        // recharge room — a held Dead Weight must not pay a second time on the Well's exit).
+        if (currentRoom != null && !IsCurrentRoomSandbox() && DeckManager.instance != null)
             DeckManager.instance.OnRoomEnd();
 
         ClearRuntimeSpawns();
 
         if (currentRoom != null) Destroy(currentRoom);
 
-        GameObject selectedRoomPrefab = PickNextRoomPrefab();
+        // ⚠️ TESTING HOOK. When set, the next spawn uses this room instead of asking the map — and it
+        // is CLEARED IMMEDIATELY, so it can only ever affect one room change. It is [NonSerialized]
+        // on purpose: it can never be saved into a scene or prefab and quietly hijack a real run,
+        // which is the failure mode `roomPrefabs` has suffered four times.
+        GameObject selectedRoomPrefab;
+        if (forcedNextRoom != null)
+        {
+            selectedRoomPrefab = forcedNextRoom;
+            forcedNextRoom = null;
+            Debug.Log($"[LevelManager] FORCED room: {selectedRoomPrefab.name} (testing hook)");
+        }
+        else selectedRoomPrefab = PickNextRoomPrefab();
+
         if (selectedRoomPrefab == null)
         {
             Debug.LogError("LevelManager: no room prefab to spawn (is roomPrefabs empty?).");
@@ -367,6 +486,12 @@ public class LevelManager : MonoBehaviour
         Debug.Log($"Spawning room: {selectedRoomPrefab.name}" + (at != null ? $" — map node {at}" : " — no map"));
 
         currentRoom = Instantiate(selectedRoomPrefab, Vector3.zero, Quaternion.identity);
+
+        // A character's own boss room spawned for THAT character is the finale — the boss dials up
+        // (see IMirrorBoss). Everyone else meets the same room as an ordinary mid-map boss.
+        if (selectedRoomPrefab == OwnMirrorRoom)
+            foreach (IMirrorBoss mirror in currentRoom.GetComponentsInChildren<IMirrorBoss>(true))
+                mirror.SetFinale(true);
 
         // Put every actor on the shared draw plane and shove decoration behind it. Opaque sprites
         // sort by camera depth, not sortingOrder, and each room had been authored at its own Z —
@@ -393,6 +518,17 @@ public class LevelManager : MonoBehaviour
         else
         {
             Debug.LogError("CameraBounds objesi bulunamadı!");
+        }
+
+        // Per-room camera size (RoomCamera on the room root, same convention as HubMarker).
+        // Pushed on EVERY spawn, deliberately OUTSIDE the CameraBounds block above: a room that
+        // only ever SET the size would leave the boss arena's framing on for the rest of the run.
+        // Passing 0 for a room with no override is what restores the default.
+        CameraFollow follow = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
+        if (follow != null)
+        {
+            RoomCamera roomCam = currentRoom.GetComponent<RoomCamera>();
+            follow.SetRoomSize(roomCam != null ? roomCam.orthographicSize : 0f);
         }
 
         MeasureRoomBounds();
@@ -433,5 +569,45 @@ public class LevelManager : MonoBehaviour
     {
         if (currentRoom == null) return false;
         return currentRoom.GetComponent<HubMarker>() != null;
+    }
+
+    // Returns true when the active room has a RechargeRoomMarker on its root (Foundry / Market /
+    // Well). Read from the PREFAB rather than from pendingRecharge so it stays right for a room
+    // spawned through the forcedNextRoom testing hook, or by any future path that skips the map.
+    public bool IsCurrentRoomRecharge()
+    {
+        if (currentRoom == null) return false;
+        return currentRoom.GetComponent<RechargeRoomMarker>() != null;
+    }
+
+    // The one test for "does leaving this room count as clearing a room?" — used by the exit
+    // door's per-room payouts (flawless clear, oaths, Nest Egg). Neither the hub nor a recharge
+    // room has anything at stake, so neither may pay out. Prefer this over checking the hub alone.
+    public bool IsCurrentRoomCombat()
+    {
+        if (currentRoom == null) return false;
+        return !IsCurrentRoomHub() && !IsCurrentRoomRecharge() && !IsCurrentRoomTutorial();
+    }
+
+    // True in the tutorial room (TutorialRoom on its root). ⚠️ Deliberately NOT a sandbox: the designer
+    // wants jumps to cost Shift there so the player sees the counter fall and learns it does not come
+    // back. What the tutorial waives instead is card CHARGES (DeckManager) and DEATH (PlayerHealth), the
+    // two things that could strand a new player in a room they cannot finish. Not combat either, so
+    // leaving it pays no flawless clear, oath step or Nest Egg.
+    public bool IsCurrentRoomTutorial()
+    {
+        if (currentRoom == null) return false;
+        return currentRoom.GetComponent<TutorialRoom>() != null;
+    }
+
+    // THE UMBRELLA RULE'S TEST. True in the hub AND in a recharge room (designer, 2026-09-14:
+    // "the recharge rooms should not waste anything, they should be more like a sandbox level,
+    // just like the hub"). Every consumption site — Shift on jumps, cards, Recall, altars, card
+    // charges, Stagger, blessing payouts — gates on THIS, never on IsCurrentRoomHub() directly, so
+    // a new kind of free room is one line here rather than a hunt through a dozen files.
+    public bool IsCurrentRoomSandbox()
+    {
+        if (currentRoom == null) return false;
+        return IsCurrentRoomHub() || IsCurrentRoomRecharge();
     }
 }

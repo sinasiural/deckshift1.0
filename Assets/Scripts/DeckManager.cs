@@ -27,6 +27,10 @@ public class DeckManager : MonoBehaviour
     [Header("Special Cards")]
     public CardData staggerCardData;
 
+    // The Ninja boss's stars, picked up off his arena floor. Like Stagger this is CONJURED, never
+    // owned — it is not in any deck and cannot be bought, blessed or repaired.
+    public CardData salvagedShurikenCardData;
+
     private List<RuntimeCard> drawPile = new List<RuntimeCard>();
     private List<RuntimeCard> hand = new List<RuntimeCard>();
     private List<RuntimeCard> discardPile = new List<RuntimeCard>();
@@ -42,16 +46,32 @@ public class DeckManager : MonoBehaviour
     {
         get
         {
+            // Tunnel Vision REPLACES the hand size rather than adjusting it — one card, whatever
+            // else you are carrying. Checked first so it wins over every other modifier, which is
+            // the point of a rule change: nothing negotiates with it.
+            if (RelicManager.instance != null && RelicManager.instance.HasRelic("TunnelVision")) return 1;
+
             int bonus = (player != null && player.character != null)
                 ? player.character.handCapacityBonus : 0;
+
+            // Long Fuse buys its exhaust rescue with a hand slot — the Ninja's currency.
+            if (RelicManager.instance != null && RelicManager.instance.HasRelic("LongFuse")) bonus -= 1;
+
             return Mathf.Max(1, handCapacity + bonus);
         }
     }
 
     // Character trait hook. Like HandCapacity, it is read rather than mirrored into a field, so it
     // can never fall out of step with the character actually being played.
+    //
+    // Tunnel Vision locks it too: a one-card hand means constant Recalls, so an escalating price
+    // would make the relic unplayable within a single room rather than merely different.
     public bool RecallCostIsLocked =>
-        player != null && player.character != null && player.character.recallCostNeverRises;
+        (player != null && player.character != null && player.character.recallCostNeverRises)
+        || (RelicManager.instance != null && RelicManager.instance.HasRelic("TunnelVision"));
+
+    // Second Nature: the first Recall of each room is free. Reset by OnNewRoom, like the Clamp.
+    private bool freeRecallUsedThisRoom = false;
 
     private int selectedIndex = -1;
     private bool isReloading = false;
@@ -195,7 +215,7 @@ public class DeckManager : MonoBehaviour
             // the second placement, by the same code path as everything else. It used to charge
             // itself inside TryPlacePortal, which is why "On the House" and First One's Free did
             // nothing on it. Do not hoist this back out.
-            if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomHub())
+            if (LevelManager.instance == null || !LevelManager.instance.IsCurrentRoomSandbox())
                 player.SpendShift(cost);
 
             OnCardPlayed?.Invoke(index);
@@ -237,11 +257,16 @@ public class DeckManager : MonoBehaviour
                 // Ýkinci kez çalýþtýr
                 player.ExecuteAction(data.actionType, actionValue, out bool _);
             }
-            bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+            bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
+            // The tutorial keeps charges too, though it is not a sandbox (it charges Shift): a new
+            // player who wasted Create Platform's charges would otherwise be stuck under the wall it
+            // teaches, with no way to finish the room.
+            bool keepCharges = inHub
+                || (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomTutorial());
             // Blompo: several blessings can skip the charge (Sleight of Hand, Slow Burn, the first
             // Teacher's Pet play each room). `- 1` because this card's own play was just counted.
             bool spendCharge = CardEnhancements.ShouldSpendCharge(playedCard, cardsPlayedThisRoom - 1);
-            if (!playedCard.isInfinite && !inHub && spendCharge) playedCard.currentUses--;
+            if (!playedCard.isInfinite && !keepCharges && spendCharge) playedCard.currentUses--;
 
             // ⚠️ STAGGER ENTERS NO PILE. It is not a card the player owns — it is conjured into the
             // hand whenever Shift hits zero and evaporates when spent. Letting it fall through to
@@ -254,6 +279,22 @@ public class DeckManager : MonoBehaviour
                 return;
             }
 
+            // ⚠️ THE QUIVER IS AMMO, NOT A CARD. It goes straight back to hand while it still holds
+            // stars, and ENTERS NO PILE when the last one is thrown.
+            //
+            // This is the entire reason the pickup mechanic is playable. A quiver that discarded on
+            // play would need a RECALL between every single throw — and Recall costs Shift and
+            // escalates within a room, so killing a ~160 HP boss with 8-damage stars would have cost
+            // roughly twenty Recalls. That is a toll booth, not a fight. (It also must not fall
+            // through to the discard for Stagger's reason: that quietly enrols a conjured card in
+            // the player's actual DECK, where it would turn up in later rooms.)
+            if (IsSalvagedShuriken(playedCard))
+            {
+                if (playedCard.currentUses > 0) hand.Add(playedCard);
+                OnHandChanged?.Invoke(false);
+                return;
+            }
+
             // Blompo: "Clingy" never leaves the hand at all — it goes straight back, so it costs a
             // hand slot forever in exchange for always being available. Once it runs dry it falls
             // through to the normal routing below and burns out like anything else.
@@ -261,7 +302,7 @@ public class DeckManager : MonoBehaviour
             {
                 hand.Add(playedCard);
             }
-            else if (inHub || (playedCard.isInfinite || playedCard.currentUses > 0) && (!data.singleUse || playedCard.isInfinite))
+            else if (keepCharges || (playedCard.isInfinite || playedCard.currentUses > 0) && (!data.singleUse || playedCard.isInfinite))
             {
                 discardPile.Add(playedCard);
             }
@@ -281,6 +322,18 @@ public class DeckManager : MonoBehaviour
                 clampUsedThisRoom = true;
                 playedCard.currentUses = 1;
                 hand.Add(playedCard);
+            }
+            // Long Fuse: a burnt-out card goes back into the DRAW pile with a single charge instead
+            // of the exhaust pile. Checked last of the rescues on purpose — Last Call is once per
+            // run and Reclaimer's Clamp once per room, so the narrower ones spend first and this
+            // unlimited one catches whatever is left.
+            //
+            // It softens exhaust rather than deleting it: one charge at a time still burns down,
+            // and it costs a hand slot (see HandCapacity). No scrap rebate — the card did not die.
+            else if (RelicManager.instance != null && RelicManager.instance.HasRelic("LongFuse"))
+            {
+                playedCard.currentUses = 1;
+                drawPile.Add(playedCard);
             }
             else
             {
@@ -398,6 +451,7 @@ public class DeckManager : MonoBehaviour
     public void ResetRoomRelicState()
     {
         clampUsedThisRoom = false;
+        freeRecallUsedThisRoom = false;   // Second Nature
     }
 
     // Glass Parry's mastery refund: gives one charge back to a card that was already
@@ -407,7 +461,7 @@ public class DeckManager : MonoBehaviour
     {
         if (card == null) return;
         if (!card.isInfinite)
-            card.currentUses = Mathf.Min(card.currentUses + 1, card.cardData.maxUses);
+            card.currentUses = Mathf.Min(card.currentUses + 1, card.MaxUses);
         if (exhaustPile.Remove(card))
             discardPile.Add(card);
         OnHandChanged?.Invoke(false);
@@ -430,7 +484,7 @@ public class DeckManager : MonoBehaviour
         int cost = ScrapEconomy.RechargeCost(card);
         if (!player.TrySpendScrap(cost)) return false;
 
-        card.currentUses = card.cardData.maxUses;
+        card.currentUses = card.MaxUses;
         OnHandChanged?.Invoke(false);
         return true;
     }
@@ -468,6 +522,15 @@ public class DeckManager : MonoBehaviour
                 Debug.Log($"DEAD WEIGHT held to room end: +{payout} Shift.");
             }
         }
+
+        // The Ninja's quiver does not leave his arena. It is conjured, not owned — letting it ride
+        // into the rest of the run is the same mistake Stagger's "enters no pile" rule guards
+        // against, and it would put a card the player can never repair or bless into their deck.
+        //
+        // ⚠️ THIS IS AN OPEN DESIGN DECISION (BossDesign_Ninja.md §11.3): keeping a real Shuriken as
+        // part of the reward is the alternative, and it is a nicer payoff. This is the SAFE default,
+        // and it is one line to flip.
+        hand.RemoveAll(IsSalvagedShuriken);
     }
     // Stagger is identified by ACTION TYPE, not by asset reference, so every rule below holds for
     // any card that staggers — and can't be broken by renaming or duplicating the asset.
@@ -475,6 +538,57 @@ public class DeckManager : MonoBehaviour
     {
         return card != null && card.cardData != null
             && card.cardData.actionType == CardActionType.Stagger;
+    }
+
+    // ---- The Ninja boss's quiver ---------------------------------------------------------------
+    // Identified by ACTION TYPE for the same reason Stagger is: it survives a rename or a duplicate
+    // of the asset, and every rule below then holds for any card that behaves this way.
+    public static bool IsSalvagedShuriken(RuntimeCard card)
+    {
+        return card != null && card.cardData != null
+            && card.cardData.actionType == CardActionType.SalvagedShuriken;
+    }
+
+    /// <summary>
+    /// One picked-up star. Stacks a CHARGE onto the single quiver card rather than adding a second
+    /// card — the hand is 3 slots (2 for the Ninja), so six pickups cannot be six cards.
+    ///
+    /// ⚠️ IT IS APPENDED PAST HAND CAPACITY, exactly like Stagger. A player whose hand is full of
+    /// junk must never be locked out of the only damage source the arena gives them — that lockout
+    /// is the death spiral this whole mechanic exists to prevent.
+    /// </summary>
+    public void AddSalvagedShuriken(int count = 1)
+    {
+        if (salvagedShurikenCardData == null || count <= 0) return;
+
+        foreach (RuntimeCard card in hand)
+        {
+            if (!IsSalvagedShuriken(card)) continue;
+            // Deliberately NOT clamped to MaxUses. The quiver holds what the player picked up; the
+            // boss decides how many that is by how much he throws, and capping it here would
+            // silently bin stars the player crossed the arena under fire to collect.
+            card.currentUses += count;
+            OnHandChanged?.Invoke(false);
+            return;
+        }
+
+        RuntimeCard quiver = new RuntimeCard(salvagedShurikenCardData);
+        quiver.currentUses = count;    // NOT maxUses — you have what you picked up, not a full card
+        quiver.isInfinite = false;
+        hand.Add(quiver);
+
+        OnHandChanged?.Invoke(true);
+    }
+
+    /// <summary>How many stars the player is currently holding. 0 when they hold no quiver at all.</summary>
+    public int SalvagedShurikenCount
+    {
+        get
+        {
+            foreach (RuntimeCard card in hand)
+                if (IsSalvagedShuriken(card)) return card.currentUses;
+            return 0;
+        }
     }
 
     // Stagger appears the moment you hit ZERO SHIFT — that alone, nothing else.
@@ -486,14 +600,26 @@ public class DeckManager : MonoBehaviour
     // option at exactly the moment it's the decision the player should be making.
     private void CheckForStaggerCondition()
     {
-        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub()) return;
+        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox()) return;
         if (player.GetCurrentShift() > 0) return;
 
         foreach (RuntimeCard card in hand)
             if (IsStagger(card)) return;   // already holding one — never stack them
 
+        // Ace Up the Sleeve: once per run, running dry pays out instead of billing you. Checked
+        // BEFORE the card is conjured, so the player never sees the Stagger at all — a card that
+        // appeared and then vanished would read as a glitch rather than as a rescue.
+        if (RelicManager.instance != null && RelicManager.instance.TryConsumeAceUpTheSleeve())
+        {
+            player.AddShift(AceUpTheSleeveShift);
+            Debug.Log($"🃏 Ace Up the Sleeve: +{AceUpTheSleeveShift} Shift instead of a Stagger. Once per run.");
+            return;
+        }
+
         AddStaggerCardToHand();
     }
+
+    public const int AceUpTheSleeveShift = 20;
 
     private void AddStaggerCardToHand()
     {
@@ -518,7 +644,7 @@ public class DeckManager : MonoBehaviour
         // 1. Zaten el yenileniyorsa dur
         if (isReloading) return;
 
-        bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+        bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
         bool overclocked = RelicManager.instance != null && RelicManager.instance.HasRelic("OverclockedRecall");
 
         if (overclocked)
@@ -529,8 +655,20 @@ public class DeckManager : MonoBehaviour
         }
         else
         {
+            // Tunnel Vision pays nothing, ever. Second Nature waives only the first of each room.
+            // Both are resolved BEFORE the affordability check, or a player at 0 Shift would be
+            // refused a Recall they were never going to be charged for.
+            bool relicFree = RelicManager.instance != null
+                             && RelicManager.instance.HasRelic("TunnelVision");
+            if (!relicFree && !freeRecallUsedThisRoom && RelicManager.instance != null
+                && RelicManager.instance.HasRelic("SecondNature"))
+            {
+                relicFree = true;
+                if (!inHub) freeRecallUsedThisRoom = true;   // the hub must not burn the freebie
+            }
+
             // 2. Maliyet kontrolü
-            if (player.GetCurrentShift() < currentRecallCost)
+            if (!relicFree && player.GetCurrentShift() < currentRecallCost)
             {
                 Debug.Log("Yetersiz Shift! Recall yapılamıyor.");
                 // Buraya "Yetersiz Enerji" sesi veya görseli eklenebilir
@@ -538,7 +676,7 @@ public class DeckManager : MonoBehaviour
             }
 
             // 3. Shift Harca + 4. Maliyeti Artır (Level bitene kadar)
-            if (!inHub)
+            if (!inHub && !relicFree)
             {
                 player.SpendShift(currentRecallCost);
                 // The Ninja's "Fast Hands": the price never climbs, so cycling the hand is a real
@@ -547,6 +685,30 @@ public class DeckManager : MonoBehaviour
                 if (!RecallCostIsLocked) currentRecallCost++;
                 OnRecallCostChanged?.Invoke(currentRecallCost);
             }
+        }
+
+        // Flywheel: the refresh detonates, and it hits harder the deeper into the room you are —
+        // the escalating price becomes the payoff instead of a tax.
+        //
+        // ⚠️ 10x the cost, not the cost. At 1x this dealt 1-4 damage against enemies with 12-40 HP,
+        // which is indistinguishable from nothing (designer, 2026-08-21).
+        //
+        // Read AFTER the block above, so it uses the price actually standing at this moment. Routed
+        // through ModifyPlayerDamage like every other player damage source, so relics and blessings
+        // apply and a future source cannot forget them.
+        if (RelicManager.instance != null && RelicManager.instance.HasRelic("Flywheel"))
+        {
+            float blast = currentRecallCost * 10f;
+            // Dedup by component: an enemy with several colliders would otherwise be hit once per
+            // collider. Same guard MeteorGreaves uses.
+            HashSet<EnemyHealth> struck = new HashSet<EnemyHealth>();
+            foreach (Collider2D hit in Physics2D.OverlapCircleAll(player.transform.position, 4.5f))
+            {
+                EnemyHealth eh = hit.GetComponentInParent<EnemyHealth>();
+                if (eh == null || !struck.Add(eh)) continue;
+                eh.TakeDamage(RelicManager.instance.ModifyPlayerDamage(blast, eh));
+            }
+            if (CameraShake.instance != null) CameraShake.instance.Shake(0.15f, 0.3f);
         }
 
         // Oath tracking, placed after every early-return above so a REFUSED recall (not enough
@@ -586,7 +748,11 @@ public class DeckManager : MonoBehaviour
         List<RuntimeCard> retained = new List<RuntimeCard>();
         for (int i = 0; i < hand.Count; i++)
         {
-            if (hand[i] != null && (CardEnhancements.RetainsThroughRecall(hand[i]) || IsStagger(hand[i])))
+            // ⚠️ The Ninja's quiver is retained for BOTH of Stagger's reasons: discarding it would
+            // put a conjured card into the real deck, and a player who Recalled would lose the stars
+            // they crossed the arena to collect — while the boss keeps throwing more.
+            if (hand[i] != null && (CardEnhancements.RetainsThroughRecall(hand[i])
+                                    || IsStagger(hand[i]) || IsSalvagedShuriken(hand[i])))
                 retained.Add(hand[i]);
             else
                 discardPile.Add(hand[i]);
@@ -643,6 +809,33 @@ public class DeckManager : MonoBehaviour
     {
         RuntimeCard newCardInstance = new RuntimeCard(newCardData);
         discardPile.Add(newCardInstance);
+    }
+
+    /// <summary>
+    /// Testing / trailer only: throw away every pile and deal EXACTLY these cards into the hand,
+    /// in this order. A staged shot needs "Comet Dive in slot 0, right now", not a shuffle that
+    /// might deal it. Nothing in a real run calls this. Hand capacity is honoured so the drawer
+    /// never shows a card the character could not hold.
+    /// </summary>
+    public void SetHandForTesting(IList<CardData> cards)
+    {
+        drawPile.Clear();
+        discardPile.Clear();
+        exhaustPile.Clear();
+        hand.Clear();
+        selectedIndex = -1;
+
+        if (cards != null)
+        {
+            foreach (CardData data in cards)
+            {
+                if (data == null) continue;
+                if (hand.Count >= HandCapacity) { drawPile.Add(new RuntimeCard(data)); continue; }
+                hand.Add(new RuntimeCard(data));
+            }
+        }
+
+        OnHandChanged?.Invoke(true);
     }
 
     private void ShuffleDeck()

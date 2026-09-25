@@ -11,7 +11,7 @@ public class PlatformCreateAction : CardAction
         if (player.platformPrefab == null) return false;
         if (player.mainCamera == null) return false;
         SfxManager.PlayOn(player.audioSource, player.createPlatformSound);
-        Vector2 spawnPosition = player.mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 spawnPosition = player.mainCamera.ScreenToWorldPoint(GameInput.MousePosition);
         Object.Instantiate(player.platformPrefab, spawnPosition, Quaternion.identity);
         return true;
     }

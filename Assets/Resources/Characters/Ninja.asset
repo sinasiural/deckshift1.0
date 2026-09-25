@@ -25,5 +25,7 @@ MonoBehaviour:
   traitDescription: Recall never gets more expensive. You hold one fewer card.
   handCapacityBonus: -1
   recallCostNeverRises: 1
+  armourPerRoom: 0
+  bossRoom: {fileID: 5690726939509648437, guid: f8fbe4a0fbbda224586e7456b5ef8e98, type: 3}
   appearancePreset: {fileID: 1546294774153461753, guid: c7f5d01ce1cb7104695e7dc4d256e64f, type: 3}
   weaponPrefab: {fileID: 6805170423116255223, guid: 09c4aab9e3454de47839e58bfb2210e6, type: 3}
