@@ -104,8 +104,43 @@ what is on screen FROM THE SPAWN at 14 tiles tall minus the rail.
 `FindFirstObjectByType<Camera>()` in SampleScene moves the real Main Camera (reload without saving
 to undo it). And keep ONE room instance in the scene per shot — the old two-rooms trap again.
 
-**Observed, not fixed (the designer wants to rework water next):** the player's rig draws IN
-FRONT of the water rather than inside it, so a swimmer looks like they are hovering over the pool.
+#### Swimming, reworked 2026-09-26 (designer: water "does not work great")
+
+The designer confirmed three faults: the swimmer was **not IN the water**, you **couldn't get out**,
+and it was **silent**. All three were measured with a scripted swim probe (`GameInput.Scripted`
+drives the keys from a coroutine) before and after:
+
+| | before | after |
+|---|---|---|
+| jump out of the water (Space held) | feet peak **0.41** above the surface | **1.98** |
+| hold Up at the surface | in/out of the water **13x in 2.5s**, never out | treads water, head out, 0 flips |
+| underwater stroke | +1.5 | +3.2 |
+| Shift spent swimming | 0 | 0 |
+
+- **Leaving the water is Jump at the surface** (`PerformSwimJump`): gravity comes back the instant
+  it fires, like any jump, and the water ignores you for 0.25s. It used to wait for the capsule to
+  clear the trigger — **the water's own drag (`PixelWater.dragEnabled`, a -5v force) ate the kick
+  on the way**, which is why it peaked at 0.4. Deeper down, Jump is a stroke.
+- **Holding Up TREADS WATER** at `swimSurfaceOffset` below the surface; it never carries you out.
+- ⚠️ **IN OR OUT IS DECIDED BY THE FEET, NOT BY TOUCHING THE TRIGGER** (`FixedUpdate`: out above
+  surface −0.15, back in below −0.3, so it can't flicker). Touching was too loose: a ledge flush
+  with the surface sits on the trigger's top edge, and a player who climbed onto it kept swimming
+  on dry stone. The same check re-enters the water after a jump out — no new `OnTriggerEnter`
+  comes, because a jump out only clears the surface by ~2 tiles.
+- **`SwimZone.Start` adapts the Cainos water** (every swimmable pool, efeslevel3's included): moves
+  it to `PlayPlane.Z - 0.5`, sorting order 10, and swaps in `Assets/Shaders/PixelWaterOverlay.shader`
+  — a copy of the pack shader with **ZWrite Off** (from in front, the original's depth write would
+  hide anything drawn after it inside the pool). Drag off, buoyancy density 0.
+  ⚠️ **NEVER exclude the player from the water's `BuoyancyEffector2D.colliderMask`.** The trigger
+  is `usedByEffector`, and such a collider ignores every layer outside the effector's mask
+  ENTIRELY, trigger callbacks included: the player fell through the pool to the floor. Density 0.
+- **Sound:** `ProcSfx.SplashIn` (as loud as the entry is hard), `SplashOut`, `SwimStroke`; real
+  clips go in the Player's `splashInSound` / `splashOutSound` / `swimStrokeSound` slots.
+- `ResetSwimState()` runs on every room entry, so a room destroyed mid-swim can never carry
+  gravity-off into the next room.
+- The validator's exit model launches from 0.2 below the surface cell's floor (treading depth) at
+  9: **a ledge 2 above the water is the edge of what a swimmer reaches.** Design pool exits flush
+  or 1 above.
 
 #### The four rooms built with it (2026-09-25) — NOT in `roomPrefabs` yet
 

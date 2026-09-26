@@ -57,13 +57,15 @@ public static class LevelValidator
     private const float LowJumpMultiplier = 2f;
     private const float AirControlPerStep = 0.07f;   // 0.7f * 0.02f * 5f
 
-    // Swimming (PlayerController, read 2026-09-25): gravity is off in water and the player moves
-    // freely in 8 directions, and Jump is a FREE upward kick of swimExitJumpForce = 9 (a ground
-    // jump is 11). That kick is how you leave a pool, so it is modelled as an arc launched at 9
-    // from the surface row. Gravity is applied from the start of that arc, which slightly
-    // UNDER-states the real exit (the kick is held for 0.35s while still in the water): if the
-    // validator says a ledge is reachable from the water, it is.
+    // Swimming (PlayerController, reworked 2026-09-26): gravity is off in water and the player moves
+    // freely in 8 directions. At the surface the player TREADS WATER with their feet
+    // swimSurfaceOffset (1.2) below it, and Jump there is a real, FREE jump out: gravity returns the
+    // instant it fires, at swimExitJumpForce = 9 (a ground jump is 11). So the exit is modelled as an
+    // arc launched at 9 from 1.2 below the surface — the top water cell's floor, minus 0.2.
+    // Measured in play: the feet peak ~2.0 tiles above the surface (1.98 with Space released at
+    // 0.6s). ⚠️ Do not round this up: a ledge 2 above the water is the edge of what a swimmer reaches.
     private const float SwimJumpForce = 9f;
+    private const float SwimLaunchDrop = 0.2f;
     private const float Dt = 0.02f;
     private const int MaxSimSteps = 220;             // ~4.4s, far beyond any real arc
 
@@ -257,10 +259,10 @@ public static class LevelValidator
     // vy0 = 0 models simply WALKING OFF a ledge rather than jumping.
     private static void SimulateArc(Grid g, int startCol, int startY, int dir, int holdSteps, bool jump,
                                     List<Vector2Int> landings, List<Vector2Int> splashes = null,
-                                    float launchSpeed = JumpForce)
+                                    float launchSpeed = JumpForce, float launchDrop = 0f)
     {
         float x = startCol + 0.5f;
-        float y = startY;
+        float y = startY - launchDrop;
 
         // An arc that starts IN the water (the swim kick) only counts as re-entering the water
         // once it has been out of it; otherwise every kick would "land" on its own first frame.
@@ -390,7 +392,7 @@ public static class LevelValidator
 
                     for (int dir = -1; dir <= 1; dir++)
                         foreach (int hold in holdVariants)
-                            SimulateArc(g, cur.x, cur.y, dir, hold, true, landings, splashes, SwimJumpForce);
+                            SimulateArc(g, cur.x, cur.y, dir, hold, true, landings, splashes, SwimJumpForce, SwimLaunchDrop);
                 }
             }
 

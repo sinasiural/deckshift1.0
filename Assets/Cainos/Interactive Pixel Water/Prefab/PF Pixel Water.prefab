@@ -267,3 +267,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e10c6917d2d8ce0468bf8e53cd3e4b51, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  overlayShader: {fileID: 4800000, guid: 98822c56d5207c649969c2ba9a44f938, type: 3}

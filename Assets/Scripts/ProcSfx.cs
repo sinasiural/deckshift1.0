@@ -997,6 +997,93 @@ public static class ProcSfx
         return Finalize(dry, 0.34f, 11000f);
     }
 
+    // ---- SWIMMING (2026-09-26) -----------------------------------------------------------------
+    // Water was completely silent: the Cainos water pack ships no audio, so jumping in, swimming and
+    // climbing out made no sound at all (designer: "silent" was one of the three things wrong with
+    // water). Three placeholders, and like everything here they are a BRIEF for real clips:
+    //   SplashIn   a body going in — a low plunge, the surface breaking, water closing over.
+    //   SplashOut  climbing out — lighter, water sheeting off and dripping back down.
+    //   SwimStroke an underwater kick — muffled, no bright edge, because the ear is under the water.
+    private static AudioClip splashIn, splashOut, swimStroke;
+
+    /// <summary>A body plunging into water: low whump, bright break, droplets. ~0.7s.</summary>
+    public static AudioClip SplashIn
+    { get { if (splashIn == null) splashIn = BuildSplash(0.70f, 5701, 1f); return splashIn; } }
+
+    /// <summary>Climbing out of water: lighter break, water running off. ~0.5s.</summary>
+    public static AudioClip SplashOut
+    { get { if (splashOut == null) splashOut = BuildSplash(0.50f, 5702, 0.55f); return splashOut; } }
+
+    /// <summary>An underwater kick: a muffled push of water. ~0.35s.</summary>
+    public static AudioClip SwimStroke
+    { get { if (swimStroke == null) swimStroke = BuildSwimStroke(); return swimStroke; } }
+
+    // weight 1 = a full plunge (with the low whump), lower = lighter (climbing out has no whump).
+    private static AudioClip BuildSplash(float dur, int seed, float weight)
+    {
+        int n = Mathf.CeilToInt(SampleRate * dur);
+        var dry = new float[n];
+        var rng = new System.Random(seed);
+
+        float lp = 0f, lp2 = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float t = (float)i / SampleRate;
+
+            // THE BREAK — the surface tearing: a noise band that opens wide and closes fast.
+            float nz = (float)(rng.NextDouble() * 2.0 - 1.0);
+            float band = t < 0.09f ? Mathf.Lerp(3600f, 1000f, t / 0.09f) : 800f;
+            lp += (1f - Mathf.Exp(-2f * Mathf.PI * band / SampleRate)) * (nz - lp);
+            float brk = lp * Mathf.Clamp01(t / 0.004f) * Mathf.Exp(-11f * t) * 0.85f;
+
+            // THE PLUNGE — the body displacing water: a low falling sine, only on the way IN.
+            float plunge = Mathf.Sin(2f * Mathf.PI * Mathf.Lerp(120f, 55f, Mathf.Clamp01(t / 0.2f)) * t)
+                           * Mathf.Exp(-14f * t) * 0.5f * weight * weight;
+
+            // THE CLOSE — water folding back over: a slow wobbling gurgle.
+            lp2 += (1f - Mathf.Exp(-2f * Mathf.PI * 300f / SampleRate)) * (nz - lp2);
+            float gurgle = lp2 * (0.5f + 0.5f * Mathf.Sin(2f * Mathf.PI * 9f * t)) * Mathf.Exp(-4f * t) * 0.4f * weight;
+
+            // DROPLETS falling back.
+            float drops = 0f;
+            for (int d = 0; d < 7; d++)
+            {
+                float at = 0.10f + d * 0.07f + ((d * 7919 + seed) % 40) * 0.001f;
+                if (t > at && t < at + 0.05f)
+                {
+                    float dt = t - at;
+                    float hz = 1500f + ((d * 613 + seed) % 1100);
+                    drops += Mathf.Sin(2f * Mathf.PI * hz * dt) * Mathf.Exp(-80f * dt) * 0.07f;
+                }
+            }
+            dry[i] = brk + plunge + gurgle + drops;
+        }
+        return Finalize(dry, 0.18f, 10000f);
+    }
+
+    private static AudioClip BuildSwimStroke()
+    {
+        const float dur = 0.35f;
+        int n = Mathf.CeilToInt(SampleRate * dur);
+        var dry = new float[n];
+        var rng = new System.Random(5703);
+
+        float lp = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float t = (float)i / SampleRate;
+            // A push of water heard from inside it: low-passed noise that swells and falls away,
+            // with a soft low pulse. No bright edge at all — the muffling IS the "underwater".
+            float nz = (float)(rng.NextDouble() * 2.0 - 1.0);
+            lp += (1f - Mathf.Exp(-2f * Mathf.PI * Mathf.Lerp(700f, 350f, t / dur) / SampleRate)) * (nz - lp);
+            float env = Mathf.Sin(Mathf.Clamp01(t / dur) * Mathf.PI);
+            float push = lp * env * 0.9f;
+            float pulse = Mathf.Sin(2f * Mathf.PI * 70f * t) * Mathf.Exp(-9f * t) * 0.25f;
+            dry[i] = push + pulse;
+        }
+        return Finalize(dry, 0.25f, 2400f);
+    }
+
     private static AudioClip glassParry, freefallBlade;
 
     /// <summary>A blow stopped on glass: struck, an instant of ring, then shards.</summary>

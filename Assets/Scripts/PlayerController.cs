@@ -45,19 +45,24 @@ public class PlayerController : MonoBehaviour
     [Header("Swim Settings")]
     [Tooltip("Horizontal/vertical move speed while swimming. Lower than moveSpeed to simulate water resistance.")]
     public float swimSpeed = 5f;
-    [Tooltip("Upward impulse applied when pressing Jump while swimming, used to break the surface and leap out.")]
+    [Tooltip("Upward speed of Jump in water. At the surface it is a jump OUT of the water (free, like all swimming); deeper down it is an upward stroke.")]
     public float swimExitJumpForce = 9f;
-    [Tooltip("How far BELOW the surface the player settles when NOT actively swimming up/down, so they sit in the water instead of bobbing on top. Hold Up to swim above this and out of the water.")]
+    [Tooltip("How far BELOW the surface the player's feet sit when treading water: idle settles here, holding Up rises to here and holds. Leave the water with Jump.")]
     public float swimSurfaceOffset = 1.2f;
     [Tooltip("How quickly the player sinks to the idle rest depth when not pressing up/down. Higher = snappier settle.")]
     [SerializeField] private float swimSettleStrength = 8f;
-    [Tooltip("Seconds the upward swim-jump pop is preserved, to help breach the surface and leave the water.")]
+    [Tooltip("Seconds an underwater stroke (Jump below the surface) keeps its upward speed.")]
     [SerializeField] private float swimExitDuration = 0.35f;
+    [Tooltip("Optional real clips. Empty = the procedural placeholders in ProcSfx (SplashIn / SplashOut / SwimStroke).")]
+    [SerializeField] private AudioClip splashInSound;
+    [SerializeField] private AudioClip splashOutSound;
+    [SerializeField] private AudioClip swimStrokeSound;
     private bool isSwimming = false;
     private float swimCachedGravityScale;
     private int swimZoneCount = 0; // refcount so overlapping swim zones don't exit early
-    private SwimZone currentSwimZone;
+    private SwimZone currentSwimZone;   // kept while we OVERLAP the water, even after jumping out of it
     private float swimExitTimer;
+    private float swimReentryBlockedUntil;   // after a jump out, the water ignores us briefly
     private Vector3 originalScale;
     internal Vector3 currentRoomEntryPoint;
 
@@ -843,6 +848,28 @@ public class PlayerController : MonoBehaviour
         // Expire the acid/goo slow once the player has been out of the hazard long enough.
         if (Time.time >= slowExpireTime) slowFactor = 1f;
 
+        // IN OR OUT OF THE WATER IS DECIDED BY WHERE THE FEET ARE, not by touching the trigger.
+        // Touching is too loose: a ledge flush with the surface sits on the trigger's top edge, so a
+        // player who climbed out onto it was still "in the water" and kept swimming on dry stone
+        // (found by the swim probe, 2026-09-26). The two thresholds differ (0.15 / 0.3) so the
+        // boundary can't flicker.
+        if (currentSwimZone != null)
+        {
+            float surface = currentSwimZone.SurfaceY;
+            if (isSwimming && transform.position.y > surface - 0.15f)
+            {
+                // Out: a stroke carried us through the surface, or we are standing on a ledge.
+                StopSwimming(rb.linearVelocity.y > 1f);
+            }
+            else if (!isSwimming && swimZoneCount > 0 && Time.time >= swimReentryBlockedUntil
+                     && rb.linearVelocity.y <= 0f && transform.position.y < surface - 0.3f)
+            {
+                // Back in: falling into water we overlap but never left (a jump out only clears the
+                // surface by ~2 tiles, so no new OnTriggerEnter comes), or wading off a ledge.
+                StartSwimming();
+            }
+        }
+
         if (isPhasing)
         {
             rb.linearVelocity = ClampPhaseVelocity(
@@ -863,9 +890,18 @@ public class PlayerController : MonoBehaviour
             }
             else if (Mathf.Abs(verticalInput) > 0.01f)
             {
-                // Actively swimming up or down. Holding Up carries the player to the
-                // surface and out of the water — this is the normal way to exit.
+                // Actively swimming up or down.
                 vy = verticalInput * swimSpeed;
+
+                // TREADING WATER: holding Up brings you to the surface and HOLDS you there, head
+                // out. It used to carry you out through the top of the trigger, where gravity
+                // snapped back on, you dropped in again, and repeat — measured 2026-09-26 at ~5
+                // flips a second, bobbing forever and never getting out. Leaving is Jump's job.
+                if (vy > 0f && currentSwimZone != null)
+                {
+                    float treadY = currentSwimZone.SurfaceY - swimSurfaceOffset;
+                    vy = Mathf.Min(vy, Mathf.Max(0f, (treadY - transform.position.y) * swimSettleStrength));
+                }
             }
             else
             {
@@ -971,40 +1007,99 @@ public class PlayerController : MonoBehaviour
     public void EnterWater(SwimZone zone)
     {
         swimZoneCount++;
-        if (isSwimming || playerHealth.IsDead || currentState == PlayerState.InCannon) return;
-
-        isSwimming = true;
         currentSwimZone = zone;
-        swimExitTimer = 0f;
-        swimCachedGravityScale = rb.gravityScale; // restore exactly on exit (handles gravity reversal)
-        rb.gravityScale = 0f;
-        ChangeState(PlayerState.Swimming);
-
-        // Drives the Cainos "Swim" state machine in AC Character.controller.
-        if (animator != null) animator.SetBool("IsInWater", true);
+        // Only once the feet are actually under the surface; touching the top edge (standing on a
+        // flush ledge, the tail of a jump out) is not being in the water. FixedUpdate starts
+        // swimming the moment we sink below it.
+        if (isSwimming || Time.time < swimReentryBlockedUntil) return;
+        if (transform.position.y < zone.SurfaceY - 0.3f) StartSwimming();
     }
 
     public void ExitWater(SwimZone zone)
     {
         swimZoneCount = Mathf.Max(0, swimZoneCount - 1);
-        if (!isSwimming || swimZoneCount > 0) return; // still inside another overlapping zone
-
-        isSwimming = false;
+        if (swimZoneCount > 0) return; // still inside another overlapping zone
         currentSwimZone = null;
+        if (isSwimming) StopSwimming(false);
+    }
+
+    private void StartSwimming()
+    {
+        if (playerHealth.IsDead || currentState == PlayerState.InCannon) return;
+
+        // The splash is as loud as the entry: dropping in from a ledge is a plunge, drifting in is not.
+        float impact = Mathf.Clamp01(Mathf.Abs(rb.linearVelocity.y) / 12f);
+
+        isSwimming = true;
+        swimExitTimer = 0f;
+        swimCachedGravityScale = rb.gravityScale; // restore exactly on exit (handles gravity reversal)
+        rb.gravityScale = 0f;
+        // Ground timers must not survive the water: a coyote window left over from walking off a
+        // ledge into the pool would otherwise hand out an extra jump after climbing out.
+        coyoteTimer = 0f;
+        jumpBufferTimer = 0f;
+        ChangeState(PlayerState.Swimming);
+
+        // Drives the Cainos "Swim" state machine in AC Character.controller.
+        if (animator != null) animator.SetBool("IsInWater", true);
+        SfxManager.PlayOn(audioSource, splashInSound != null ? splashInSound : ProcSfx.SplashIn,
+                          soundVolume * Mathf.Lerp(0.35f, 1f, impact));
+    }
+
+    private void StopSwimming(bool jumpedOut)
+    {
+        isSwimming = false;
         swimExitTimer = 0f;
         rb.gravityScale = swimCachedGravityScale;
         if (currentState == PlayerState.Swimming) ChangeState(PlayerState.Jumping);
 
         if (animator != null) animator.SetBool("IsInWater", false);
+        SfxManager.PlayOn(audioSource, splashOutSound != null ? splashOutSound : ProcSfx.SplashOut,
+                          soundVolume * (jumpedOut ? 0.85f : 0.5f));
     }
 
-    // Upward kick to break the surface and leap out of water. Free, no Shift cost.
-    // Starts a brief window where the surface clamp is bypassed so the player can exit.
+    // A room can be destroyed while we are in its water. Unity normally sends the exit callback
+    // when a trigger is destroyed, but a stale swim state means gravity stays OFF in the next room,
+    // so this does not rely on it.
+    private void ResetSwimState()
+    {
+        if (isSwimming)
+        {
+            isSwimming = false;
+            rb.gravityScale = swimCachedGravityScale;
+            if (currentState == PlayerState.Swimming) ChangeState(PlayerState.Idle);
+            if (animator != null) animator.SetBool("IsInWater", false);
+        }
+        swimZoneCount = 0;
+        currentSwimZone = null;
+        swimExitTimer = 0f;
+        swimReentryBlockedUntil = 0f;
+    }
+
+    // Jump in water. Free, like all swimming. Near the surface it is a real jump OUT of the water;
+    // deeper down it is an upward stroke.
+    //
+    // ⚠️ LEAVING THE WATER HAPPENS HERE, NOT BY WAITING FOR THE TRIGGER TO END (2026-09-26). The old
+    // kick set an upward speed and waited for the capsule to clear the water's trigger, and the
+    // water's own drag ate that speed on the way: measured, the "jump out" peaked 0.4 tiles above
+    // the surface, too low to reach any ledge. Now gravity comes back the instant you jump, like any
+    // other jump (held Space = full height), and the water ignores you until you are falling again.
     private void PerformSwimJump()
     {
+        bool atSurface = currentSwimZone != null
+                         && transform.position.y >= currentSwimZone.SurfaceY - swimSurfaceOffset - 0.4f;
+        if (atSurface)
+        {
+            StopSwimming(true);
+            swimReentryBlockedUntil = Time.time + 0.25f;
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, swimExitJumpForce);
+            SfxManager.PlayOn(audioSource, jumpSound, soundVolume);
+            return;
+        }
+
         swimExitTimer = swimExitDuration;
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, swimExitJumpForce);
-        SfxManager.PlayOn(audioSource, jumpSound, soundVolume);
+        SfxManager.PlayOn(audioSource, swimStrokeSound != null ? swimStrokeSound : ProcSfx.SwimStroke, soundVolume * 0.8f);
     }
 
     // Detailed outcome of the most recent card play (Success / Failed / Blocked).
@@ -1329,6 +1424,7 @@ public class PlayerController : MonoBehaviour
     {
         tookDamageThisRoom = false;
         ResetFallTracking();
+        ResetSwimState();
 
         // The Samurai's "Full Plate": armour on entering every COMBAT room, stacking on whatever
         // survived the last one. Gated on IsCurrentRoomCombat rather than granted unconditionally —
