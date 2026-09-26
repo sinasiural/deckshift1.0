@@ -166,10 +166,18 @@ That last step is why the usual "a re-import nulls every scene reference into th
 apply here. The flip side: **hand edits to the prefab are lost on the next build.**
 
 **What the builder adds, and the rules it follows:**
-- **Digits 1-9 in the grid are SIGN ANCHORS.** The importer ignores them (air, with an "unknown
-  marker" warning); the builder puts a `TutorialSign` (chalk keys + caption) there. Each `!signN` line
-  is `KEYS | caption`, KEYS optional and space-separated (`1 2 3 4 CLICK R-CLICK`). Place the anchor
-  on a STANDING cell: its bottom edge is the floor, and the sign doubles as the respawn checkpoint.
+- **Digits in the grid are SIGN ANCHORS** (`1`-`9` = signs 1-9, `0` = sign 10). The importer ignores
+  them (air, with an "unknown marker" warning); the builder puts a `TutorialSign` (chalk keys +
+  caption) there. Each `!signN` line is `KEYS | caption`, KEYS optional and space-separated
+  (`1 2 3 4 L-CLICK R-CLICK`). Place the anchor on a STANDING cell: its bottom edge is the floor, and
+  the sign doubles as the respawn checkpoint.
+- **A run of `%` is the Shift drain** (`TutorialShiftDrain`, 2026-09-26), lying on the floor of those
+  cells: the Stagger lesson. A cyan crack that visibly drinks motes of Shift; when the player lands
+  near it, it pulls every point of their Shift out (counter ticks to 0), and DeckManager's own rule
+  conjures the Stagger card. It sits in a pit whose way out needs one jump, so playing Stagger
+  (+2 Shift) is how you leave. Fires once; a respawn afterwards is topped up to 10 Shift instead.
+  ⚠️ **Signs must be truthful about Shift.** The first sign 3 said altars refill Shift (they SPEND
+  it) and that "nothing else does" (Stagger and relics also give Shift). The designer caught it.
 - ⚠️ **Keep anchors ≥ 5 tiles from a gate.** An open gate's arch is wider than its one cell and draws
   over the chalk; sign 7 lost its first word that way.
 - **Every gate no altar/lever drives becomes a kill-gate** (`TutorialGate`), watching the enemies up
@@ -185,8 +193,15 @@ apply here. The flip side: **hand edits to the prefab are lost on the next build
   (~1.26) and hits the dais face. A 1-tall bump does not work either: the Fireball's capsule reaches
   down to 0.30 above the floor and detonates on it.
 - **Walls above gates are 2 tiles thick.** One tile thick paints as a thin brick chimney.
-- `LevelValidator` reports a LAW 1 fail on this room. That is the approved exception (the 8-tall
-  wall), not a bug; everything before the wall should still show as reachable.
+- ⚠️ **The Stagger pit is 16 tiles wide ON PURPOSE.** A running jump off the look-ahead ledge (5 above
+  the far step) carries about 14 tiles, so a narrower pit could be cleared and the lesson skipped.
+- **The look-ahead sign earns its keep by pointing at the pit** ("look down before you drop"):
+  peeking down from the ledge shows the glowing crack and the Stagger sign before the player commits.
+  The designer called the first version of this section "pretty empty" because there was nothing
+  to look AT.
+- `LevelValidator` reports a LAW 1 fail on this room. That is the approved exception, not a bug. ⚠️
+  Since 2026-09-25 the validator treats gates as SOLID, so it stops at the first kill-gate. To check
+  the later sections, validate a throwaway copy with the `G`s removed and `S` moved past the wall.
 
 ### RECHARGE ROOMS — Foundry / Market / Well (BUILT 2026-09-14)
 

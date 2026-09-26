@@ -32,6 +32,7 @@ public static class TutorialRoomBuilder
     private const float GateWatchReach = 14f;
 
     private struct SignSpec { public int number; public int col, row; public string keys, caption; }
+    private struct DrainSpec { public int row, colStart, length; }
 
     [MenuItem("Deckshift/Build Tutorial Room")]
     public static void BuildFromMenu()
@@ -54,7 +55,8 @@ public static class TutorialRoomBuilder
             throw new Exception("Stop Play mode first — the builder saves SampleScene.");
 
         int width, height;
-        List<SignSpec> signs = ReadSigns(out width, out height);
+        List<DrainSpec> drains;
+        List<SignSpec> signs = ReadLayout(out width, out height, out drains);
 
         // 1 — import. Delete first: the importer never overwrites (it would write "Tutorial 1.prefab").
         if (AssetDatabase.LoadAssetAtPath<GameObject>(Output) != null) AssetDatabase.DeleteAsset(Output);
@@ -127,6 +129,17 @@ public static class TutorialRoomBuilder
                 watchedCount += watched.Count;
             }
 
+            // Each horizontal run of '%' is one Shift drain, lying on the floor of the cells it marks.
+            foreach (DrainSpec d in drains)
+            {
+                var go = new GameObject("ShiftDrain");
+                go.transform.SetParent(root.transform, false);
+                go.transform.position = new Vector3(d.colStart + d.length / 2f, height - 1 - d.row, 0f);
+                var drain = go.AddComponent<TutorialShiftDrain>();
+                drain.width = d.length;
+                drain.reach = d.length / 2f + 2f;
+            }
+
             PrefabUtility.SaveAsPrefabAsset(root, built);
         }
         finally
@@ -137,14 +150,15 @@ public static class TutorialRoomBuilder
         // 3 — wire.
         WireIntoScene(AssetDatabase.LoadAssetAtPath<GameObject>(built));
 
-        return $"{built}\n{signs.Count} signs, {gateCount} kill-gate(s) watching {watchedCount} enemies.\n" +
-               "Wired into SampleScene → LevelManager → Tutorial Room Prefab.";
+        return $"{built}\n{signs.Count} signs, {gateCount} kill-gate(s) watching {watchedCount} enemies, " +
+               $"{drains.Count} Shift drain(s).\nWired into SampleScene → LevelManager → Tutorial Room Prefab.";
     }
 
-    // Reads the !signN lines and finds each digit anchor in the grid. Parsing mirrors
+    // Reads the !signN lines, finds each digit anchor ('1'-'9' = signs 1-9, '0' = sign 10) and each
+    // run of '%' (a Shift drain) in the grid. The importer treats all of those as air. Parsing mirrors
     // LevelTextImporter: '//' comments and '!' directives are skipped, and fully empty lines are
     // trimmed from both ends of the grid.
-    private static List<SignSpec> ReadSigns(out int width, out int height)
+    private static List<SignSpec> ReadLayout(out int width, out int height, out List<DrainSpec> drains)
     {
         var text = new Dictionary<int, string>();
         var grid = new List<string>();
@@ -169,13 +183,23 @@ public static class TutorialRoomBuilder
         width = 0;
         foreach (string l in grid) width = Mathf.Max(width, l.Length);
 
+        drains = new List<DrainSpec>();
+        for (int row = 0; row < grid.Count; row++)
+            for (int col = 0; col < grid[row].Length; col++)
+            {
+                if (grid[row][col] != '%' || (col > 0 && grid[row][col - 1] == '%')) continue;
+                int len = 0;
+                while (col + len < grid[row].Length && grid[row][col + len] == '%') len++;
+                drains.Add(new DrainSpec { row = row, colStart = col, length = len });
+            }
+
         var signs = new List<SignSpec>();
         for (int row = 0; row < grid.Count; row++)
             for (int col = 0; col < grid[row].Length; col++)
             {
                 char c = grid[row][col];
-                if (c < '1' || c > '9') continue;
-                int n = c - '0';
+                if (c < '0' || c > '9') continue;
+                int n = c == '0' ? 10 : c - '0';
                 if (!text.TryGetValue(n, out string spec))
                     throw new Exception($"Anchor '{c}' at column {col}, row {row} has no !sign{n} line.");
                 int bar = spec.IndexOf('|');

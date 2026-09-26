@@ -616,7 +616,13 @@ strand a new player: **card charges** are never spent (`DeckManager`, the `keepC
 **death** respawns the player at the last sign, healed, with Shift topped up to at least 10
 (`PlayerHealth` + `TutorialRoom`). Not combat, so leaving it pays no flawless clear, oath step or
 Nest Egg. The room is also the one approved exception to Level Design Law 1: two gates open only on
-a kill (`TutorialGate`) and one wall needs Create Platform.
+a kill (`TutorialGate`) and one wall needs Create Platform. Its last lesson is **Stagger**: a
+`TutorialShiftDrain` in a pit takes all the player's Shift, the real Stagger rule conjures the card,
+and playing it pays the jump out.
+
+⚠️ **Card keys go 1-9 (fixed 2026-09-26).** They used to stop at 4 while the hand labels every card
+`[n]`, so a Stagger appended to the Wizard's full 4-card hand read `[5]` and pressing 5 did nothing,
+in every run, not just the tutorial.
 
 **Authoring:** edit `Assets/LevelTexts/Tutorial.txt` (layout, and the `!signN` lines holding each
 chalk sign's keys and caption), then run **Deckshift → Build Tutorial Room**. It rebuilds the prefab

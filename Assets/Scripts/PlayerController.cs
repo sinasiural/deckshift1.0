@@ -635,10 +635,11 @@ public class PlayerController : MonoBehaviour
     {
         if (DeckManager.instance == null) return;
 
-        if (Input.GetKeyDown(KeyCode.Alpha1)) DeckManager.instance.SelectCard(0);
-        if (Input.GetKeyDown(KeyCode.Alpha2)) DeckManager.instance.SelectCard(1);
-        if (Input.GetKeyDown(KeyCode.Alpha3)) DeckManager.instance.SelectCard(2);
-        if (Input.GetKeyDown(KeyCode.Alpha4)) DeckManager.instance.SelectCard(3);
+        // Keys 1-9 select the card in that slot. It used to stop at 4, while the hand labels every
+        // card "[n]" — so a Stagger appended to a full 4-card hand (the Wizard's, every run) read
+        // "[5]" and pressing 5 did nothing. SelectCard ignores an index past the end of the hand.
+        for (int i = 0; i < 9; i++)
+            if (Input.GetKeyDown(KeyCode.Alpha1 + i)) DeckManager.instance.SelectCard(i);
 
         if (Input.GetMouseButtonDown(0))
         {
