@@ -142,10 +142,11 @@ drives the keys from a coroutine) before and after:
   9: **a ledge 2 above the water is the edge of what a swimmer reaches.** Design pool exits flush
   or 1 above.
 
-#### The four rooms built with it (2026-09-25) — NOT in `roomPrefabs` yet
+#### The four rooms built with it (2026-09-25) — IN `roomPrefabs` since 2026-09-27
 
-Sources in `LevelTexts/`, prefabs in `LevelGenerated/`. Reach them in Play mode through
-**Deckshift → Test → Play Room** (the `forcedNextRoom` one-shot; touches no pool list).
+Sources in `LevelTexts/`, prefabs in `LevelGenerated/`. The designer asked for them to be added on
+2026-09-27 (pool indices 12-15). **Deckshift → Test → Play Room** still reaches any room directly
+(the `forcedNextRoom` one-shot; touches no pool list).
 
 | room | tier | theme | the idea |
 |---|---|---|---|
@@ -688,7 +689,13 @@ Verified, not assumed. The tilemaps render with **`Sprite-Lit-Default` (URP 2D l
 
 `LevelManager.roomPrefabs` holds the pool of room prefabs. **Element 0 must be the hub;** elements 1..n are the run's combat levels. Boss and recharge rooms are NOT in this list. Bosses live in **`bossRoomPrefabs`** (a list, drawn without repeats within a run) plus **`finalBossRoomPrefab`**, and the recharge rooms in `foundryRoomPrefab` / `marketRoomPrefab` / `wellRoomPrefab`. (The old single `bossRoomPrefab` slot no longer exists.) The played character's `CharacterData.bossRoom` overrides the finale and is filtered out of that run's mid-map boss draws.
 
-**Verified pool contents (re-verified 2026-09-24):** `[0] hub, [1] efeslevel1, [2] efeslevel2, [3] efeslevel3, [4] EfeVrl4, [5] EfeVrl5, [6] EfeVrl6, [7] EfeVrl7, [8] GenLevel7, [9] GenLevel8, [10] GenLevel9, [11] GenLevel10`. Bosses: `bossRoomPrefabs = [BossRoom, NinjaArena, KagemushaHall]`, `finalBossRoomPrefab = BossRoom`. Recharge: `Foundry`, `Market`, `Well` (all in `Assets/LevelGenerated/`). So the run is **11 combat levels**. All satisfy the room contract (CameraBounds / GirisNoktasi / ExitDoor), and only `hub` has a `HubMarker`.
+**Verified pool contents (2026-09-27):** `[0] hub, [1] efeslevel1, [2] efeslevel2, [3] efeslevel3, [4] EfeVrl4, [5] EfeVrl5, [6] EfeVrl6, [7] EfeVrl7, [8] GenLevel7, [9] GenLevel8, [10] GenLevel9, [11] GenLevel10, [12] Descent (Skirmish), [13] TwoRoads (Fight), [14] Cistern (Fight), [15] CrusherWorks (Elite)`. Bosses: `bossRoomPrefabs = [BossRoom, NinjaArena, KagemushaHall]`, `finalBossRoomPrefab = BossRoom` (now only the fallback for an empty boss list; a character with no mirror draws their finale from the list each run). Recharge: `Foundry`, `Market`, `Well` (all in `Assets/LevelGenerated/`). So the run is **15 combat levels**.
+
+⚠️ **A room tagged for a tier is FAVOURED 2:1 over an untagged room, not used exclusively
+(2026-09-27).** `TryPickRoomForTier` used to draw from the tagged rooms alone until they ran out.
+With Descent the only Easy-tagged room, that made it the first Easy room of every run. Measured
+after the change over 1000 simulated runs: Descent is the first Easy room 24% of the time (each
+untagged room ~10%), each new room appears in 37-58% of runs, and 0 layouts repeat within a run. All satisfy the room contract (CameraBounds / GirisNoktasi / ExitDoor), and only `hub` has a `HubMarker`.
 
 ⚠️ **THIS LIST HAS BEEN WIPED FIVE TIMES (the fifth found 2026-09-06; see CLAUDE.md). THIS ENTRY RECORDS THE THIRD, WHICH SURVIVED A WHOLE SESSION.** On
 2026-08-16 it was found holding a **single** entry — `herangibisi`, a scratch room saved into

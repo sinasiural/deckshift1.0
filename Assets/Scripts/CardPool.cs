@@ -38,10 +38,17 @@ public static class CardPool
     // it in a shop would put a permanent copy in the deck that arrives on ordinary draws — a card
     // that only charges HP, handed to a player who never asked for it. Identified by DeckManager's
     // own reference rather than by name, so renaming the asset cannot silently reintroduce it.
+    //
+    // Borrowed Steel is the same kind of card (designer, 2026-09-27: "that card should only be
+    // available in the boss fight"): the Ninja's stars, picked up off his arena floor and conjured
+    // into the hand as a quiver. It was reachable from chests and shops because this test only knew
+    // about Stagger. Identified by ACTION TYPE, the same handle DeckManager's quiver rules use, so a
+    // renamed or duplicated asset stays excluded and the test works with no DeckManager in the scene.
     public static bool IsRewardable(CardData card)
     {
         if (card == null) return false;
         if (DeckManager.instance != null && card == DeckManager.instance.staggerCardData) return false;
+        if (card.actionType == CardActionType.SalvagedShuriken) return false;
         return true;
     }
 
