@@ -25,8 +25,8 @@ public static class CardFace
     // ⚠️ **THE FREEFALL BLADE FRAME IS THE CANONICAL CARD FRAME (designer, 2026-08-17).** All new
     // card art uses it: the red ball for charges, the blue crystal for Shift cost, an empty name
     // plate, and — on cards that deal damage — a heart container. **`Gem` is therefore the layout
-    // to tune and trust; `Classic` is legacy** and exists only until the last 3 old cards (Floor is
-    // Lava, Glass Wail, Create Platform — counted 2026-09-27) are re-cut.
+    // to tune and trust; `Classic` is legacy** and exists only until the last 2 old cards (Floor is
+    // Lava and Glass Wail — counted 2026-09-27) are re-cut.
     //
     // ⚠️ **THE TWO STYLES DO NOT PUT THEIR MEDALLIONS IN THE SAME PLACE.** This file used to carry
     // one position for both, on the assumption that "both styles put cost right / charges left, so

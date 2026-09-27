@@ -848,8 +848,8 @@ pulse.
 ⚠️ **The Freefall Blade frame is the canonical card frame** (designer, 2026-08-17): red ball = charges
 left, blue crystal = Shift cost right, an **empty name plate** drawn in code, and a heart container on
 cards that deal damage. New card art uses it, and ships with the name plate EMPTY —
-`CardData.nameIsPaintedIntoArt` defaults to `false`. **As of 2026-09-27 only 3 cards are still on the
-old painted-name 1024×1536 art** (Floor is Lava, Glass Wail, Create Platform); everything else is the
+`CardData.nameIsPaintedIntoArt` defaults to `false`. **As of 2026-09-27 only 2 cards are still on the
+old painted-name 1024×1536 art** (Floor is Lava, Glass Wail); everything else is the
 canonical frame. `CardFace` is the single source for every screen **including the hand**.
 
 ⚠️ **EVERY card has a Shift crystal, free ones included (designer, 2026-09-27)** — a Blompo blessing
