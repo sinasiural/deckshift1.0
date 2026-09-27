@@ -17,6 +17,7 @@ MonoBehaviour:
     when the blade goes home every one you passed is cut for 40.
   cardArt: {fileID: 3949312561008636491, guid: db24c03a6360afa44a906cd18adf60e6, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 22
   actionValue: 40
   singleUse: 0

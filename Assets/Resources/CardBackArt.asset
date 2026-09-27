@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8266c6d563aeac428ac78999f1e10ee, type: 3}
+  m_Name: CardBackArt
+  m_EditorClassIdentifier: 
+  common: {fileID: -7165465939706134686, guid: 9c5f80480d8c57941b7deff7d6c3638d, type: 3}
+  uncommon: {fileID: 6345309271706528993, guid: 65fe7b6e91fdabd41ab0d284a3a72419, type: 3}
+  rare: {fileID: 3543029832834971845, guid: 37aa6a2e67f9b3e40ba323b73a771647, type: 3}
+  epic: {fileID: -3741679228402900956, guid: 1761fa0f7f5b92d498f4c38c63000f13, type: 3}

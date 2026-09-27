@@ -16,6 +16,7 @@ MonoBehaviour:
   description: Throw a star at the cursor for 8 damage. Aim it anywhere.
   cardArt: {fileID: -4345462867533152315, guid: 4bb58ab90bbd1c24e9352f20eadeee81, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 20
   actionValue: 8
   singleUse: 0

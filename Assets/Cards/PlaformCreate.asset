@@ -16,6 +16,7 @@ MonoBehaviour:
   description: Put a platform on your cursor. It stays for 5 seconds, then vanishes.
   cardArt: {fileID: 5789006285768982779, guid: c6375690ea5366e4f802c4034f16d50c, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 6
   actionValue: 0
   singleUse: 0

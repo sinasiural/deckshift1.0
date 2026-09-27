@@ -16,6 +16,7 @@ MonoBehaviour:
   description: Jump.
   cardArt: {fileID: -2058102481636132610, guid: c52efeceb703a4b48be8e91770c5013e, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 0
   actionValue: 20
   singleUse: 0

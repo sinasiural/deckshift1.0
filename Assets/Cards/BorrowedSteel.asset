@@ -17,6 +17,7 @@ MonoBehaviour:
     you run out.
   cardArt: {fileID: -4345462867533152315, guid: 4bb58ab90bbd1c24e9352f20eadeee81, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 21
   actionValue: 8
   singleUse: 0

@@ -442,7 +442,8 @@ The gravity reversal factor compensates for the 180° Z rotation inverting the v
 1. Add a new value to `CardActionType` enum if no existing action covers it.
 2. Create a `CardAction` subclass in `Assets/Scripts/CardActions/Actions/` and register it in the dictionary in `CardActionExecutor.Awake()`. Declare an honest `ModifiedState` (ConflictFlags) for any state the action touches.
 3. Create a `CardData` asset in Unity (right-click in Project view → Create → Card Data).
-4. Set the asset's `actionType`, `maxUses`, `shiftCost`, sprite, etc. in the Inspector.
+4. Set the asset's `actionType`, `maxUses`, `shiftCost`, sprite, etc. in the Inspector — and its
+   **`rarity`, matching the frame colour painted into the art** (the hover back uses that frame).
 5. Reward pools need nothing: `CardCatalogue` (`Assets/Resources/CardCatalogue.asset`) rebuilds itself and `CardPool` offers everything in it except Stagger. To start a character with it, add it to that character's `CharacterData.startingDeck`.
 6. If the card has a "where/how" (aim, range, placement, area), add a matching preview to `CardAimIndicator` (see "Card Aim Indicator System" in `/deckshift-economy`).
 
@@ -1355,9 +1356,11 @@ PlayerController overrides, and footstep wiring that was never committed had bee
   chests and shop are untouched. ⚠️ Each number is computed by the SAME expression the effect uses;
   change one, change the other. "Doubled by Stand-In" only appears for the relics whose effect
   multiplies by `Stacks()` (the `StackAware` set), because Stand-In beside Midas Recoil does nothing.
-- **Cards cannot be priced by rarity** because `CardData` has no rarity field — it exists only as
-  paint on the artwork. `ShopPricing.ForCard` prices off charges and Shift cost meanwhile. Adding
-  the field also unblocks icon-only card faces (below).
+- **`CardData.rarity` EXISTS as of 2026-09-27** (`CardRarity { Common, Uncommon, Rare, Epic }`),
+  set from each card's painted frame colour; the hover back picks its frame from it (see
+  `/deckshift-screens` → the card back). ⚠️ Keep it matching the art. **Cards are still NOT priced
+  by it**: `ShopPricing.ForCard` prices off charges and Shift cost. Switching the shop to rarity is
+  now possible but is an economy decision, not done.
 - **The card-art unblock (designer's constraint, 2026-08-21):** new card art was stalled on an
   unavailable artist, and that was blocking card DESIGN, which does not need art. (Update: new art
   arrived 2026-09-08 for Adrenaline, Comet Dive, Shuriken/Borrowed Steel and Second Thoughts, plus an

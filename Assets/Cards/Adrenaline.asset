@@ -17,6 +17,7 @@ MonoBehaviour:
     heal for 30 instead and move much faster.
   cardArt: {fileID: 1054845047586786204, guid: ae757138abfae074f92a9916c9c7794d, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 3
   actionType: 13
   actionValue: 30
   singleUse: 0

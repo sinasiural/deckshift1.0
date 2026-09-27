@@ -17,6 +17,7 @@ MonoBehaviour:
     room.
   cardArt: {fileID: -8760207628979379880, guid: dc76375d1ef2a0149950a8929e63372d, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 2
   actionType: 19
   actionValue: 0
   singleUse: 0

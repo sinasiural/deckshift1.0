@@ -16,6 +16,7 @@ MonoBehaviour:
   description: Throw a fireball for 15 damage.
   cardArt: {fileID: 7949831557799742714, guid: 3486e909743eac04989c2e00edace966, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 7
   actionValue: 15
   singleUse: 0

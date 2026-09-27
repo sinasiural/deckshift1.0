@@ -17,6 +17,7 @@ MonoBehaviour:
     to 15 tiles from it. Walk in or press E to travel."
   cardArt: {fileID: -5816642994671486895, guid: bebb0022e3a16664d9b83255fc11a6b9, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 2
   actionType: 8
   actionValue: 2
   singleUse: 0
