@@ -13,7 +13,7 @@ public class RelicTooltip : MonoBehaviour
     private CanvasGroup group;
     private RectTransform rt;
     private Image frame;
-    private TMP_Text nameText, descText, valueText;
+    private TMP_Text nameText, descText, liveText, valueText;
 
     private const float WIDTH = 244f;
     private const float GAP = 10f;   // distance below the hovered slot
@@ -52,6 +52,9 @@ public class RelicTooltip : MonoBehaviour
 
         nameText  = MakeText(font, 19f, FontStyles.Bold, FlatUI.Loadout.TextBright);
         descText  = MakeText(font, 15f, FontStyles.Normal, FlatUI.Loadout.TextBody);
+        // What the relic is doing RIGHT NOW (RelicManager.LiveReadout). Brighter than the rule above
+        // it and no new hue — Loadout is the colourless theme, and it sits over gameplay.
+        liveText  = MakeText(font, 15f, FontStyles.Bold, FlatUI.Loadout.TextBright);
         valueText = MakeText(font, 14f, FontStyles.Bold, new Color(0.85f, 0.72f, 0.36f));
 
         // Outline on top (ignored by the layout, stretched to fill). Unlike the old gold frame this
@@ -97,6 +100,11 @@ public class RelicTooltip : MonoBehaviour
         nameText.text = string.IsNullOrEmpty(relic.relicName) ? relic.relicID : relic.relicName;
         nameText.color = rarityCol;
         descText.text = string.IsNullOrEmpty(relic.description) ? "-" : relic.description;
+
+        // Hidden entirely when there is nothing live to say, so a plain relic's tooltip is unchanged.
+        string live = RelicManager.instance != null ? RelicManager.instance.LiveReadout(relic) : null;
+        liveText.gameObject.SetActive(!string.IsNullOrEmpty(live));
+        if (!string.IsNullOrEmpty(live)) liveText.text = live;
 
         int value = RelicManager.instance != null ? RelicManager.instance.SellValueFor(relic) : 0;
         valueText.text = $"Sell: {value} gold";

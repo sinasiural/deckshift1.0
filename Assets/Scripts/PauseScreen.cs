@@ -130,8 +130,12 @@ public class PauseScreen : MonoBehaviour
     // The hanging motion lives in SalvageScreen.Hang so every board in the game swings alike.
     private SalvageScreen.Hang hang;
 
-    private GameObject subPanel;
     private bool subScreenOpen;
+
+    // The right-hand column shows the run's status, or the key list while CONTROLS is selected.
+    // `column` is where the row builders put things; it is `printed` except while building a layer.
+    private RectTransform statusLayer, controlsLayer, column;
+    private int controlsIndex = -1;
 
     private GameObject cachedHud;
     private bool hudWasActive;
@@ -206,6 +210,7 @@ public class PauseScreen : MonoBehaviour
 
         if (GROUND == Ground.Wall) SalvageScreen.BuildWall(content);
         SalvageScreen.BuildBoard(content, SHEET_W, SHEET_TOP, SHEET_BOTTOM, out sheet, out printed);
+        column = printed;
 
         BuildTitle();
         BuildMenu();
@@ -257,7 +262,11 @@ public class PauseScreen : MonoBehaviour
 
         AddEntry("RESUME", null, Close);
         AddEntry("SETTINGS", null, OpenSettings);
-        AddEntry("HOW TO PLAY", null, () => OpenSubPanel("TutorialPanel"));
+        // ⚠️ REPLACED "HOW TO PLAY", which opened the prototype-era TutorialPanel ("For this version,
+        // we have 6 rooms…") — wrong about the game and in a superseded style. Selecting CONTROLS
+        // swaps the board's right column to the key list; there is nothing to open or close.
+        controlsIndex = entries.Count;
+        AddEntry("CONTROLS", null, () => hang.Knock(0.8f));
         AddEntry("ABANDON RUN", "ABANDON RUN?  CONFIRM", AbandonRun);
         AddEntry("QUIT TO DESKTOP", "QUIT TO DESKTOP?  CONFIRM", QuitGame);
 
@@ -313,6 +322,11 @@ public class PauseScreen : MonoBehaviour
 
     private void BuildStatus()
     {
+        // Built into its own layer so CONTROLS can swap the column out. A zero-size point at the
+        // board's centre, so every coordinate below means exactly what it did on `printed`.
+        statusLayer = AddPoint(printed, "Status", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+        column = statusLayer;
+
         AddColumnHeader("THIS RUN", STAT_LABEL_X, STAT_LABEL_W, TextAlignmentOptions.Left);
 
         int row = 0;
@@ -326,16 +340,74 @@ public class PauseScreen : MonoBehaviour
         vExhaust = AddStatRow("EXHAUSTED", row++);
         vRecall = AddStatRow("RECALL COST", row++);
         vStagger = AddStatRow("NEXT STAGGER", row++);
+
+        BuildControls();
+        column = printed;
+    }
+
+    // The key list, in the same row format as the stats so it reads as the same board. Only what a
+    // player can press at any time — relic keys (Q, F, dropping with S) are taught by their relic.
+    // ⚠️ Keys are written with plain ASCII: the display face is not guaranteed to carry arrows or
+    // dashes, and a missing glyph renders as a blank.
+    private static readonly string[,] Controls =
+    {
+        { "MOVE",                  "A / D" },
+        { "JUMP",                  "SPACE" },
+        { "PICK A CARD",           "1 - 9" },
+        { "PLAY IT (AIM WITH MOUSE)", "LEFT CLICK" },
+        { "PUT IT BACK",           "RIGHT CLICK" },
+        { "RECALL A NEW HAND",     "R" },
+        { "DOORS, CHESTS, SHOPS",  "E" },
+        { "MAP",                   "M" },
+        { "RELICS",                "I" },
+        { "LOOK AHEAD",            "HOLD L-CTRL" },
+        { "SAVE A BUG REPORT",     "F8" },
+    };
+
+    private void BuildControls()
+    {
+        controlsLayer = AddPoint(printed, "Controls", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+        column = controlsLayer;
+
+        AddColumnHeader("CONTROLS", STAT_LABEL_X, STAT_LABEL_W, TextAlignmentOptions.Left);
+
+        // Eleven rows at the stat pitch would run past the board's bottom edge; 32 keeps a margin.
+        const float step = 32f;
+        for (int i = 0; i < Controls.GetLength(0); i++)
+        {
+            float y = LIST_TOP - i * step;
+
+            TextMeshProUGUI l = AddText(column, "L_" + Controls[i, 0], Controls[i, 0], 15f, Salvage.TextMuted,
+                                        TextAlignmentOptions.Left);
+            l.rectTransform.sizeDelta = new Vector2(STAT_LABEL_W + 120f, 24f);
+            l.rectTransform.anchoredPosition = new Vector2(STAT_LABEL_X + 60f, y);
+            l.characterSpacing = 4f;
+
+            TextMeshProUGUI v = AddText(column, "V_" + Controls[i, 0], Controls[i, 1], 17f, Salvage.TextBright,
+                                        TextAlignmentOptions.Right);
+            v.rectTransform.sizeDelta = new Vector2(STAT_VALUE_W, 24f);
+            v.rectTransform.anchoredPosition = new Vector2(STAT_VALUE_X, y);
+        }
+
+        controlsLayer.gameObject.SetActive(false);
+    }
+
+    // Derived from the selection every time it changes — never toggled from anywhere else.
+    private void RefreshColumn()
+    {
+        bool showControls = selected == controlsIndex;
+        if (statusLayer != null) statusLayer.gameObject.SetActive(!showControls);
+        if (controlsLayer != null) controlsLayer.gameObject.SetActive(showControls);
     }
 
     private void AddColumnHeader(string label, float x, float w, TextAlignmentOptions align)
     {
-        TextMeshProUGUI h = AddText(printed, "Header_" + label, label, 14f, Salvage.TextMuted, align);
+        TextMeshProUGUI h = AddText(column, "Header_" + label, label, 14f, Salvage.TextMuted, align);
         h.rectTransform.sizeDelta = new Vector2(w, 20f);
         h.rectTransform.anchoredPosition = new Vector2(x, HEADER_Y);
         h.characterSpacing = 10f;
 
-        Image rule = AddImage(printed, "HeaderRule_" + label, Parchment.Stroke(),
+        Image rule = AddImage(column, "HeaderRule_" + label, Parchment.Stroke(),
                               new Color(Salvage.Chalk.r, Salvage.Chalk.g, Salvage.Chalk.b, 0.16f), false);
         rule.rectTransform.sizeDelta = new Vector2(w + 220f, 2f);
         rule.rectTransform.anchoredPosition = new Vector2(x + 110f, HEADER_RULE_Y);
@@ -345,13 +417,13 @@ public class PauseScreen : MonoBehaviour
     {
         float y = LIST_TOP - row * STAT_STEP;
 
-        TextMeshProUGUI l = AddText(printed, "L_" + label, label, 15f, Salvage.TextMuted,
+        TextMeshProUGUI l = AddText(column, "L_" + label, label, 15f, Salvage.TextMuted,
                                     TextAlignmentOptions.Left);
         l.rectTransform.sizeDelta = new Vector2(STAT_LABEL_W, 24f);
         l.rectTransform.anchoredPosition = new Vector2(STAT_LABEL_X, y);
         l.characterSpacing = 4f;
 
-        TextMeshProUGUI v = AddText(printed, "V_" + label, "-", 17f, Salvage.TextBody,
+        TextMeshProUGUI v = AddText(column, "V_" + label, "-", 17f, Salvage.TextBody,
                                     TextAlignmentOptions.Right);
         v.rectTransform.sizeDelta = new Vector2(STAT_VALUE_W, 24f);
         v.rectTransform.anchoredPosition = new Vector2(STAT_VALUE_X, y);
@@ -364,13 +436,13 @@ public class PauseScreen : MonoBehaviour
     {
         float y = LIST_TOP - row * STAT_STEP;
 
-        TextMeshProUGUI l = AddText(printed, "L_" + label, label, 15f, Salvage.TextMuted,
+        TextMeshProUGUI l = AddText(column, "L_" + label, label, 15f, Salvage.TextMuted,
                                     TextAlignmentOptions.Left);
         l.rectTransform.sizeDelta = new Vector2(STAT_LABEL_W, 24f);
         l.rectTransform.anchoredPosition = new Vector2(STAT_LABEL_X, y);
         l.characterSpacing = 4f;
 
-        Image track = AddImage(printed, "Track_" + label, Salvage.Pixel(),
+        Image track = AddImage(column, "Track_" + label, Salvage.Pixel(),
                                new Color(0f, 0f, 0f, 0.30f), false);
         track.rectTransform.sizeDelta = new Vector2(BAR_W, 7f);
         track.rectTransform.anchoredPosition = new Vector2(BAR_X + BAR_W * 0.5f, y);
@@ -384,7 +456,7 @@ public class PauseScreen : MonoBehaviour
 
         // ⚠️ Wide enough for "100 / 100" at 17pt. An earlier pass gave this 70px and TMP wrapped the
         // health readout onto two lines, which pushed it out of its row.
-        TextMeshProUGUI v = AddText(printed, "V_" + label, "-", 17f, Salvage.TextBody,
+        TextMeshProUGUI v = AddText(column, "V_" + label, "-", 17f, Salvage.TextBody,
                                     TextAlignmentOptions.Right);
         v.rectTransform.sizeDelta = new Vector2(BAR_VALUE_W, 24f);
         v.rectTransform.anchoredPosition =
@@ -465,8 +537,6 @@ public class PauseScreen : MonoBehaviour
         if (!isOpen) return;
         isOpen = false;
 
-        CloseSubPanel();
-
         if (GameManager.instance != null)
         {
             GameManager.instance.ReleasePause();
@@ -542,15 +612,6 @@ public class PauseScreen : MonoBehaviour
         // SettingsScreen owns the display and will call us back; it also handles its own Escape,
         // so we must not act on that key while it is up.
         if (subScreenOpen) return;
-
-        // The legacy How To Play panel owns the display. Watch for it dismissing itself — it closes
-        // via its own button, so polling activeSelf works without rewiring it.
-        if (subPanel != null)
-        {
-            if (!subPanel.activeSelf) { subPanel = null; SetContentVisible(true); }
-            else if (Input.GetKeyDown(KeyCode.Escape)) CloseSubPanel();
-            return;
-        }
 
         if (Input.GetKeyDown(KeyCode.Escape)) { Close(); return; }
 
@@ -631,6 +692,8 @@ public class PauseScreen : MonoBehaviour
             if (e.armed) continue;                        // armed entries keep the warning colour
             e.text.color = i == selected ? Salvage.TextBright : Salvage.TextMuted;
         }
+
+        RefreshColumn();
 
         if (!playSound) markY = markTargetY;
         else if (changed && audioSource != null)
@@ -764,33 +827,6 @@ public class PauseScreen : MonoBehaviour
             subScreenOpen = false;
             SetContentVisible(true);
         });
-    }
-
-    // How To Play still uses its pre-existing panel. It is next on the list to be rebuilt; until
-    // then the pause screen hands the display over and takes it back, rather than this screen being
-    // blocked on it.
-    private void OpenSubPanel(string objectName)
-    {
-        Canvas canvas = FindRootCanvas();
-        Transform found = canvas != null ? canvas.transform.Find(objectName) : null;
-        if (found == null)
-        {
-            Debug.LogWarning("PauseScreen: no '" + objectName + "' under the Canvas.");
-            return;
-        }
-
-        subPanel = found.gameObject;
-        SetContentVisible(false);
-        subPanel.SetActive(true);
-        subPanel.transform.SetAsLastSibling();
-    }
-
-    private void CloseSubPanel()
-    {
-        if (subPanel == null) return;
-        subPanel.SetActive(false);
-        subPanel = null;
-        SetContentVisible(true);
     }
 
     // Hides the pause screen's own furniture WITHOUT releasing the pause or deactivating the root —

@@ -265,6 +265,86 @@ public class RelicManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// A relic's CURRENT effect as one short line ("Now +14 damage"), or null when there is nothing
+    /// live to say. Shown as a second line under the description on surfaces that show OWNED relics.
+    ///
+    /// ⚠️ A SEPARATE LINE, NEVER A HOLE IN THE DESCRIPTION. The swap screen, chests and the shop all
+    /// show relics the player does not own, where there is no value to substitute — so the
+    /// description stays the rule and this stays the reading. Returns null for anything not owned.
+    ///
+    /// ⚠️ EACH NUMBER IS COMPUTED BY THE SAME EXPRESSION THE EFFECT USES (above), so the readout
+    /// cannot drift from what the relic actually does. Change one, change the other.
+    /// </summary>
+    public string LiveReadout(RelicData relic)
+    {
+        if (relic == null || !HasRelic(relic.relicID)) return null;
+
+        PlayerController p = GameManager.instance != null ? GameManager.instance.player : null;
+        int stacks = Stacks(relic.relicID);
+        string line = null;
+
+        switch (relic.relicID)
+        {
+            case "MidasRecoil":
+                if (p != null) line = $"Now +{p.currentGold / 25} damage ({p.currentGold} gold)";
+                break;
+            case "RunningOnFumes":
+                if (p != null) line = $"Now +{Mathf.Max(0, p.maxShift - p.GetCurrentShift()) / 2 * stacks} damage";
+                break;
+            case "MatchedSet":
+            {
+                int pairs = MatchedPairs();
+                line = pairs == 0
+                    ? "No matching pair yet"
+                    : $"{pairs} pair{(pairs == 1 ? "" : "s")}: now +{2 * pairs * stacks} damage, +{8 * pairs * stacks} max HP";
+                break;
+            }
+            case "OddSocket":
+            {
+                int empty = EmptySlots();
+                int pct = Mathf.RoundToInt(15f * empty * stacks);
+                line = empty == 0
+                    ? "No empty slots, so no bonus right now"
+                    : $"{empty} empty slot{(empty == 1 ? "" : "s")}: now +{pct}% damage, -{Mathf.Min(100, pct)}% damage taken";
+                break;
+            }
+            case "EstateSale":
+                line = EstateSaleClaimed ? "Sixth slot earned" : $"Relics sold: {EstateSaleProgress} / {EstateSaleTarget}";
+                break;
+            case "StandIn":
+            {
+                RelicData target = StandInTarget;
+                line = target != null ? $"Copying {target.relicName}" : "Nothing to its left to copy yet";
+                break;
+            }
+            case "NestEgg":
+                if (p != null)
+                    line = $"Paid out on {p.nestEggRoomsBanked} room{(p.nestEggRoomsBanked == 1 ? "" : "s")} (+{p.nestEggRoomsBanked * PlayerController.NestEggReward} max Shift)";
+                break;
+            case "PhoenixCog":
+                line = phoenixUsed ? "Used this run" : "Ready";
+                break;
+            case "AceUpTheSleeve":
+                line = aceUsed ? "Used this run" : "Ready";
+                break;
+        }
+
+        // Stand-In doubling a relic is invisible otherwise, and it is the whole point of Stand-In.
+        // ⚠️ Only for relics whose effect actually multiplies by Stacks() — Stand-In beside Midas
+        // Recoil changes nothing, and saying "doubled" there would be a lie.
+        if (stacks > 1 && StackAware.Contains(relic.relicID))
+            line = string.IsNullOrEmpty(line) ? "Doubled by Stand-In" : line + "  (doubled by Stand-In)";
+
+        return line;
+    }
+
+    // Every relicID whose effect multiplies by Stacks(). Keep in step with the Stacks("…") calls.
+    private static readonly HashSet<string> StackAware = new HashSet<string>
+    {
+        "SecondWind", "MatchedSet", "SharpPractice", "RunningOnFumes", "OddSocket", "WeightClass",
+    };
+
     /// <summary>Slots left unfilled. Odd Socket reads this, so it changes the moment you sell.</summary>
     public int EmptySlots()
     {
