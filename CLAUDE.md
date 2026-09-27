@@ -672,6 +672,14 @@ list explicitly or untick it.) **`DemoPackager` runs after every Windows build**
 `Builds/Deckshift_v<version>.zip`. ⚠️ The zip leaves out `*_DoNotShip` (Burst debug info Unity puts
 beside every build); zipping the folder by hand would include it.
 
+⚠️ **PURPLE WATER IN BUILDS: both water shaders are in Always Included Shaders (Project Settings →
+Graphics). Do not remove them.** The water prefabs carry NO material: `PixelWater.WaterMaterial`
+builds one at runtime from `Shader.Find("Cainos/Interactive Pixel Water/Pixel Water")`, and
+`SwimZone` swaps in `Deckshift/Pixel Water Overlay`. `Shader.Find` only finds a shader a build
+contains, and a build only contains shaders something references, so older builds shipped without
+it and every water type drew magenta (designer-reported). The editor always finds it, which is why
+it only ever broke in builds.
+
 ⚠️ **Designer decision for the friends demo: Hot Streak (`KineticCapacitor`, +2 Shift per kill) stays
 as it is**, to make the demo easier. `RelicRedesign.md` flags it as the biggest free Shift source in
 the game; do not "fix" it for the demo.
