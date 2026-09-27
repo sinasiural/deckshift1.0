@@ -82,13 +82,20 @@ public static class BossTestMenu
                   "). Walk RIGHT a few tiles to trip the fight trigger.");
     }
 
-    // ---- new combat rooms (2026-09-25) ----------------------------------------------------------
-    // Same one-shot hook. These rooms are NOT in LevelManager.roomPrefabs yet: the designer judges
-    // them first, and this is how to reach one without walking a run and hoping it comes up.
+    // ---- new combat rooms ------------------------------------------------------------------------
+    // Same one-shot hook. Reaches a room directly, in the pool or not: new rooms stay out of
+    // LevelManager.roomPrefabs until the designer has judged them, and this is how to play one
+    // without walking a run and hoping it comes up. (The 2026-09-25 four joined the pool 09-27.)
     [MenuItem("Deckshift/Test/Play Room/The Descent (Easy)")]        private static void RoomDescent()  => GoToRoom("Descent");
     [MenuItem("Deckshift/Test/Play Room/Two Roads (Medium)")]        private static void RoomTwoRoads() => GoToRoom("TwoRoads");
     [MenuItem("Deckshift/Test/Play Room/The Cistern (Medium)")]      private static void RoomCistern()  => GoToRoom("Cistern");
     [MenuItem("Deckshift/Test/Play Room/The Crusher Works (Hard)")]  private static void RoomCrusher()  => GoToRoom("CrusherWorks");
+    // 2026-09-28. Not in LevelManager.roomPrefabs until the designer has judged them.
+    [MenuItem("Deckshift/Test/Play Room/The Long Jump (Easy)")]      private static void RoomLongJump() => GoToRoom("LongJump");
+    [MenuItem("Deckshift/Test/Play Room/The Chapel (Easy)")]         private static void RoomChapel()   => GoToRoom("Chapel");
+    [MenuItem("Deckshift/Test/Play Room/The Stacks (Medium)")]       private static void RoomStacks()   => GoToRoom("Stacks");
+    [MenuItem("Deckshift/Test/Play Room/The Gallows (Medium)")]      private static void RoomGallows()  => GoToRoom("Gallows");
+    [MenuItem("Deckshift/Test/Play Room/The Ossuary (Hard)")]        private static void RoomOssuary()  => GoToRoom("Ossuary");
 
     private static void GoToRoom(string name)
     {

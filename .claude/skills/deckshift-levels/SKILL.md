@@ -155,6 +155,65 @@ Sources in `LevelTexts/`, prefabs in `LevelGenerated/`. The designer asked for t
 | **Cistern** | Medium | cellar | a flooded hall of aqueduct piers. Hop the pier tops (6 Shift) or swim under the arches (1 Shift) past snipers; the card chest is on the pool floor |
 | **CrusherWorks** | Hard | prison | three lever-fired presses over the packs; an optional upper route over the press beams to Blompo and a Shift-altar vault |
 
+#### The five rooms of 2026-09-28 — NOT in `roomPrefabs` yet (designer judges first)
+
+Sources in `LevelTexts/`, prefabs in `LevelGenerated/`, each reachable from **Deckshift → Test →
+Play Room**. Each is built around ONE verb the pool did not have yet:
+
+| room | tier | theme | the idea |
+|---|---|---|---|
+| **LongJump** | Easy | barracks | three chasms, 6/8/10 wide. The jump reaches 12 and nobody believes it: crystals hang on the arc of a full jump over each chasm, so the brave leap is net +1 Shift; falling short lands in a 4-deep valley (one jump out). The one chest is in the last valley |
+| **Chapel** | Easy | crypt | a flat nave (free) with two wooden HATCHES in the floor; stand still on one and it drops you into the crypt (the chest, gold, slimes), climbed out past the exit. The gentle introduction to the Gallows' trapdoors |
+| **Stacks** | Medium | library | a cross-section of a library building, three floors. Every ground-floor doorway is a BOOKSHELF (one attack breaks it); going round is a climb to the first floor and a free drop. The first room that trades CARD CHARGES for Shift. The attic holds a barricaded reading nook with the card chest |
+| **Gallows** | Medium | prison | a walkway of stone slabs and TRAPDOOR spans over the Oubliette: free for as long as you never stop. Prisoners walk out onto the spans and block you (mass 500). The relic chest is in the Oubliette; its only exit is a 3-jump climb at the east end |
+| **Ossuary** | Hard | crypt | a catacomb of 3-tall tunnels, descending in a Z (drops are free: ~1 Shift for the whole route). It costs your DECK: nothing in a 3-tall tunnel can be hopped. A treasury past the first shaft (hop + altar) holds a relic chest, a card chest and a MIMIC dressed as a relic chest |
+
+**Tool changes made while building them — all live for every future import:**
+- **`!camera: tight`** (opt-in): the camera zone hugs the grid instead of padding 2 tiles of void
+  past every wall; only the bottom keeps a margin, sized from the lowest floor so it clears the
+  hand rail. Opt-in because boss arenas and recharge rooms are framed against the old padding.
+- **The validator treats `W` (bookshelf) as solid**, and the cell above it (it stands 2.16), for
+  the same reason as gates: it only opens to a card. It used to read as air, which made a whole
+  row of halls one "spawn platform" and let a room hide its route behind a shelf.
+- **The validator's walk-off now starts at the EDGE of the cell.** From the centre, the first step
+  down still had the starting column underfoot and "landed" straight back on it, so a plain step
+  off a ledge into a narrow (3-wide) hole was never found. Every pool room re-validated unchanged.
+- **Trapdoors are grounded by their COLLIDER TOP, flush with the floor** (`FlushWalkingSurface`).
+  Grounded by their art they stood 0.19 proud: a step up onto every span, and on screen the planks
+  sat visibly above the slabs they joined. GenLevel5/6/9 still carry the old lip (not re-imported).
+- **`RoomDresser`: a room containing `W` gets NO decorative bookcases and NO `Wall Cave` arches.**
+  The library theme put two bookcases beside the breakable one, and the boarded arch reads as
+  "break me". Readability law.
+
+**Lessons paid for building them:**
+- ⚠️ **A DOORWAY CUT THROUGH A FREE-STANDING WALL SHOWS, IN SIDE VIEW, AS A BLOCK FLOATING OVER A
+  GAP.** The Stacks was built twice that way (a 3-tall tunnel, then a 2-tall one through a 2-wide
+  wall) and both read as masses hanging over an open corridor, with the 0.63-wide shelf as a post in
+  the gap. What reads: walls that run SLAB TO SLAB with the doorway at their foot (a building
+  cross-section), and a barricade that fills its opening floor to lintel, exactly as the designer's
+  closet in EfeVrl7 does (two shelves stacked between two slabs). **Build walls with doors as
+  interiors, never as free-standing ridges.**
+- ⚠️ **Enemy arrows DAMAGE bookshelves** (`Projectile.cs` hits any `IDamageable`), so an archer lined
+  up with a door shoots it open from the other side. Keep shooters out of line with shelves.
+- ⚠️ **A 3-TALL TUNNEL CANNOT BE JUMPED OVER**: the head bonks at 3, the feet top out near 1.3, and
+  every humanoid enemy stands 1.8-2.1. That is a HARD-tier lever: it turns enemies from things you
+  can pay Shift to avoid into things your deck must kill.
+- **Trapdoors are on the Ground layer, and zombies have gravity**: prisoners walk onto spans, and one
+  standing on YOUR trapdoor when it opens falls with you. A trapdoor only counts the player.
+- ⚠️ **An enemy placed on the LAST cell of a ledge walks off it**: its edge probe lands exactly on the
+  tile boundary. The Long Jump's spitter fell into a valley. Place enemies 2+ cells in from an edge.
+- **A 1-tile step up is a JUMP.** `PlayerController` has no step-up; the validator's walking model
+  counts a 1-tile rise as a walk, so price routes by counting 1-tile rises as Shift.
+- **The camera shows a lower chamber from the floor above.** In the Chapel the crypt is visible from
+  the nave: fine as a lure (a room you can see and not reach), but its floor sits behind the hand
+  rail, so a chest down there is a surprise, not a signpost.
+- ⚠️ **Scripted input left held across tool calls fires buffered jumps on every landing** (Shift
+  40 → 25 in one test). Press `ScriptedJumpDown` and release it in the NEXT call, and read Shift
+  results from a scripted test with that in mind.
+- ⚠️ **The designer may be PLAYING in the Editor while you work** (a whole Gallows run happened
+  between two tool calls). Any capture that disables `CameraFollow` or hides `GameplayHUD` must put
+  both back afterwards.
+
 ### TUTORIAL ROOM (built 2026-09-24) — the first room a new player sees
 
 `Assets/LevelTexts/Tutorial.txt` → **Deckshift → Build Tutorial Room** (`Editor/TutorialRoomBuilder`)

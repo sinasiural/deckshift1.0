@@ -1,0 +1,72 @@
+// The Ossuary  (HARD, 72x36)  -  built 2026-09-28
+//
+// A catacomb cut into solid rock: 3-tall tunnels between burial chambers, three tiers walked
+// east, west, east and joined by drop shafts. It only ever goes DOWN, so the route costs almost
+// no Shift. It costs your DECK instead:
+//
+//   ⚠️ A 3-TALL TUNNEL CANNOT BE JUMPED OVER. The player's head bonks at 3, so the feet top out at
+//   ~1.3, and every enemy here stands 1.8-2.1 tall. Nothing in a tunnel can be hopped for Shift, and
+//   enemy bodies block the player (mass 500): everything between you and the exit has to die. Card
+//   charges and HP are what this room charges, which is why an Elite route that ends at a Foundry
+//   (charge repair) is worth taking after it.
+//
+// TIER 1  a slime in the first tunnel, a shambler and a skeleton in burial chamber 1, and an ARCHER
+//         at the far end of the tunnel looking straight down it (archers fire level: a tunnel is
+//         their best ground). Then shaft 1, a free 10 drop.
+// THE TREASURY (optional, past shaft 1): hop the 3-wide shaft (1 Shift), pay the SHIFT ALTAR (its
+//         cost, 3 by default), and the gate opens on three chests. One of them is a MIMIC. A chest
+//         cannot be hurt and a Mimic can, so a thrown Shuriken tells you which is which: information
+//         costs a charge. Coming back is a drop down the same shaft.
+// TIER 2  a Rotbrute at the foot of the shaft, a spitter and a shambler in burial chamber 2 (the only
+//         place tall enough to lob in), a bat, a slime in a sunken stretch. Shaft 2, a free 12 drop.
+// TIER 3  a skeleton, a Rotbrute and a slime in burial chamber 3, a shambler, and a second archer in
+//         the exit crypt looking back down the last tunnel.
+//
+// SHIFT: the whole mandatory route is two free drops and one 1-tile step up (1 Shift). Four crystals,
+//   all off the line: in the burial chambers' vaults, in the treasury. Elite by charges, not Shift.
+//
+// LAW 1: walking, two drops, one small step. The gate, altar and treasury gate nothing mandatory.
+// LAW 7: spawn (4,28) to exit (66,5) is 85 apart through two full tiers of rock. LAW 8: the spawn
+//   crypt stands one step above the tunnel, which no zombie can climb; the first slime is 15 tiles
+//   down the tunnel and the archer 38.
+!name: Ossuary
+!tier: hard
+!theme: crypt
+!camera: tight
+
+########################################################################
+########################################################################
+##...........###########################################################
+##...........#########............######################################
+##...........#########.g....+.....########...........#...........#######
+##...............########.........########...........#......+....#######
+##...................................................G...........#######
+##..S...g............................................G...........#######
+#############......l.....z....m...........r.......A..G..C..M..D..#######
+#############################################...########################
+#############################################...########################
+#############################################...########################
+#############################################...########################
+############################............#####...########################
+############################......b.....#####...########################
+############################............#####...########################
+#######.........................................########################
+#######.........................................########################
+#######.................g......s....z....Z......########################
+#######...####...l...###################################################
+#######...##############################################################
+#######...##############################################################
+#######...##############################################################
+#######...##############################################################
+#######...################################################............##
+#######...################..........######################............##
+#######...################...+....g.######################............##
+#######......#############.......#########################............##
+#######...............................................................##
+#######...............................................................##
+#######....g........m........Z.l.............z................r...X...##
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################

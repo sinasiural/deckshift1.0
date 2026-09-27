@@ -138,11 +138,15 @@ public static class LevelValidator
         // with jumping and moving ALONE — pulling a lever or paying an altar is not that. Until
         // 2026-09-25 gates read as open air here, so a room could hide its only route behind one
         // and still pass. A crusher head ('P') hangs flush under its ceiling and is solid too.
+        //
+        // A BOOKSHELF ('W', BreakableWall) is solid for the same reason as a gate: it only opens to
+        // an attack card, and Law 1 asks what jumping and moving alone can reach (2026-09-28, the
+        // Stacks). It stands 2.16 tall, so the cell above its marker is solid as well.
         public bool Solid(int col, int y)
         {
             if (col < 0 || col >= w || y < 0 || y >= h) return true;
             char c = At(col, y);
-            return c == '#' || c == 'G' || c == 'P';
+            return c == '#' || c == 'G' || c == 'P' || c == 'W' || (y > 0 && At(col, y - 1) == 'W');
         }
 
         // Swimmable water ('~'). Not solid and not support: you move through it freely.
@@ -261,7 +265,11 @@ public static class LevelValidator
                                     List<Vector2Int> landings, List<Vector2Int> splashes = null,
                                     float launchSpeed = JumpForce, float launchDrop = 0f)
     {
-        float x = startCol + 0.5f;
+        // A walk-off starts at the EDGE of its cell, not the centre: from the centre, the first
+        // step down still has the starting column underfoot and "lands" straight back on it, so a
+        // plain step off a ledge into a narrow hole was never found (2026-09-28, the Stacks'
+        // 3-wide stair holes). Walking to the edge and stepping off at walking speed is real.
+        float x = startCol + 0.5f + (!jump ? dir * 0.49f : 0f);
         float y = startY - launchDrop;
 
         // An arc that starts IN the water (the swim kick) only counts as re-entering the water

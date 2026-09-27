@@ -1,0 +1,46 @@
+// The Chapel  (EASY, 58x22)  -  built 2026-09-28
+//
+// A crypt chapel: a flat nave under three vault ribs, west door to east door. The nave costs
+// nothing to cross and holds two shamblers and a bat. That is the whole room - for anyone who keeps
+// walking.
+//
+// THE HATCHES: two wooden trapdoors in the nave floor. A trapdoor holds while you walk over it and
+//   drops you 0.4s after you stop on it (Trapdoor.cs). So the room's secret is found by STANDING
+//   STILL - most likely mid-fight with a shambler - and it drops you into the CRYPT: the room's one
+//   chest (Easy allows one), gold, a crystal and two slimes. The way out is the hole in the floor past
+//   the exit door: a burial shelf and one jump (2 jumps, 1 crystal back: net 1 Shift for the chest).
+//
+// It is the gentle version of the Gallows (Medium): the same trapdoor, with nothing but a reward
+//   under it. A player who meets the Chapel first learns what a hatch does for free.
+//
+// LAW 1: the nave is flat; the validator reads the hatches as holes and still reaches the exit by
+//   jumping them or through the crypt. LAW 2: every rise is 2 or 4. LAW 3: the crypt holds no hazard.
+//   LAW 7: spawn (4,9) to exit (45,9) is 41 apart, and the crypt route is longer, not shorter.
+//   LAW 8: the spawn run ends at the first hatch; the nearest shambler is 24 tiles off.
+!name: Chapel
+!tier: easy
+!theme: crypt
+!camera: tight
+
+##########################################################
+##########################################################
+##.........####..........####..........####.............##
+##.........####..........####..........####.............##
+##.........####..........####..........####.............##
+##..........##............##............##..............##
+##..............................b.......................##
+##......................................................##
+##......................................................##
+##......................................................##
+##......................................................##
+##......................................................##
+##..S....g..........TT......z.......TT....z..X..........##
+####################..##############..###########.....####
+####################..##############..###########.....####
+##..................................................+...##
+##...............................+......................##
+##.................................................###..##
+##......g...D...g............l...........l..............##
+##########################################################
+##########################################################
+##########################################################

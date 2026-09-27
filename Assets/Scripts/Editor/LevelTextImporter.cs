@@ -1206,7 +1206,10 @@ public static class LevelTextImporter
                             FitAcidToPit(go, col, row, cellY, width, height, At, IsSolid);
                         }
                         else if (GroundedMarkers.Contains(c))
+                        {
                             GroundToSurface(go, cellY);
+                            if (c == 'T') FlushWalkingSurface(go, cellY);
+                        }
                         if (c == 'L')
                         {
                             var lever = go.GetComponent<Lever>();
@@ -1409,6 +1412,28 @@ public static class LevelTextImporter
             {
                 zone.offset = Vector2.zero;
                 zone.size = new Vector2(Mathf.Max(width + 4f, 32f), Mathf.Max(height + 4f, 20f));
+
+                // "!camera: tight" (2026-09-28): the zone hugs the grid instead of padding 2 tiles of
+                // void past every wall and the ceiling. Only the BOTTOM keeps a margin, sized so the
+                // lowest floor still clears the card hand (~2.2 tiles at size 7; see
+                // CameraFollow.handRailPx). Opt-in, because the boss arenas and recharge rooms are
+                // framed against the old padding and a re-import must reproduce them exactly.
+                if (directives.TryGetValue("camera", out string camV) && camV.Trim().ToLowerInvariant() == "tight")
+                {
+                    const float RailClearance = 2.4f;
+                    int lowestFloor = height;
+                    for (int r = 0; r < height - 1; r++)
+                        for (int c = 0; c < width; c++)
+                            if (!IsSolid(c, r) && IsSolid(c, r + 1))
+                                lowestFloor = Mathf.Min(lowestFloor, height - 1 - r);
+                    float bottom = Mathf.Min(0f, lowestFloor - RailClearance);
+
+                    // CameraFollow centres on an axis narrower than the view, so a small room is safe;
+                    // still, keep the old height floor so a short room is never framed tighter than it was.
+                    float tightH = Mathf.Max(height - bottom, 20f);
+                    zone.size = new Vector2(width, tightH);
+                    zone.offset = new Vector2(0f, bottom + tightH / 2f - height / 2f);
+                }
             }
             else
             {
@@ -1497,6 +1522,22 @@ public static class LevelTextImporter
 
         float dy = surfaceY - b.Value.min.y;
         go.transform.position += new Vector3(0f, dy, 0f);
+    }
+
+    // A trapdoor REPLACES a floor tile, so its walking surface must be flush with the floor beside
+    // it. Grounded by its artwork alone it stood 0.19 proud of the stone: a step up onto every span,
+    // and on screen the planks sat visibly above the slabs they joined (2026-09-28, the Gallows).
+    // Reads the collider's own geometry through the transform, not Collider2D.bounds, which is stale
+    // until the next physics step (Physics2D.autoSyncTransforms is off).
+    private static void FlushWalkingSurface(GameObject go, float surfaceY)
+    {
+        foreach (var box in go.GetComponentsInChildren<BoxCollider2D>())
+        {
+            if (box.isTrigger) continue;
+            float top = box.transform.TransformPoint(box.offset + new Vector2(0f, box.size.y * 0.5f)).y;
+            go.transform.position += new Vector3(0f, surfaceY - top, 0f);
+            return;
+        }
     }
 
     // Combined visual size of a prefab, ignoring particles/trails — the same measurement

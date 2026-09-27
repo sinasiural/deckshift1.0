@@ -247,6 +247,18 @@ Wired and working across all six enemy types (AeroBat, MeleeEnemy, RangedEnemy, 
 
 `GameSettings.EnemyHealthBars` drives it by toggling the **Canvas**, not the CanvasGroup alpha — a hidden bar then costs no draw calls at all, which matters with one per enemy. It applies live to already-spawned bars via `GameSettings.OnChanged`.
 
+⚠️ **THE ONE EXCEPTION: a DISGUISED enemy hides its bar until it reveals itself** (2026-09-28).
+A Mimic sitting between two real chests with a health bar over it is not a disguise; the Ossuary's
+treasury wager was given away at a glance. `MimicAI.Awake` calls `EnemyHealth.SetBarConcealed(true)`
+and `RevealRoutine` clears it (a hit reveals it too, via `OnEnemyDamaged`). `EnemyHealth` stores the
+flag as well as passing it on, because the Mimic's Awake runs before `EnemyHealth.Start` has built
+the bar. Verified in play: hidden while a chest, bar back the moment it springs. Any future
+disguised enemy uses the same call; nothing else may hide its bar.
+
+**The Mimic's disguise is a GOLD chest, the same look as the relic chest.** So two gold chests and
+one iron (card) chest reads as "one of the gold ones bites" — a chest cannot be hurt and a Mimic
+can, so a thrown Shuriken is how a player checks (information costs a charge).
+
 ⚠️ **It uses a NEW PlayerPrefs key, `ShowEnemyHealthBars`** — deliberately not the inherited `ShowEnemyNumbers`. That key meant "show the HP text"; this one means "show the bar at all". Reusing it would have silently turned the bars OFF for any existing player who had only switched the numbers off. **When a setting's MEANING changes, take a new key.**
 
 **Shield-block damage leak (RESOLVED — verified by code audit 2026-06-10):** `EnemyHealth.TakeDamage` now runs the `shield.IsBlocking()` check and returns BEFORE deducting health. Blocked hits no longer lose HP. Do not re-fix.

@@ -95,8 +95,19 @@ public class EnemyHealth : MonoBehaviour, IDamageable
             {
                 healthBar.Initialize(transform, headBarOffset, ComputeBarWidth());
                 healthBar.SetHealth(currentHealth, maxHealth);
+                healthBar.SetConcealed(barConcealed);
             }
         }
+    }
+
+    // A disguised enemy hides its bar until it shows itself (see EnemyHealthBar.SetConcealed).
+    // Stored here as well as passed on, because the disguise is set in the enemy's Awake, before
+    // this Start has built the bar.
+    private bool barConcealed;
+    public void SetBarConcealed(bool concealed)
+    {
+        barConcealed = concealed;
+        if (healthBar != null) healthBar.SetConcealed(concealed);
     }
 
     // Width for the health bar. Prefer an ENABLED collider — a disabled one (e.g. the box on

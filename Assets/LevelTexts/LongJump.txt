@@ -1,0 +1,50 @@
+// The Long Jump  (EASY, 66x22)  -  built 2026-09-28
+//
+// Three chasms, 6, 8 and 10 tiles wide. The player's jump reaches 12 tiles on the flat, and
+// almost nobody believes it: this is the room that tells them. It is a drill yard.
+//
+// THE LEAP ROUTE: three jumps, plateau to plateau. A Shift crystal floats over each chasm on the
+//   arc of a full-height jump (two over the widest), so a player who commits to the leap gets every
+//   jump back and one spare: net +1 Shift. A timid hop passes under the crystal and pays full price.
+// THE VALLEY ROUTE: fall short (or step off) and you land in a valley 4 deep. One jump out on either
+//   side, so a missed leap costs exactly what the leap would have: nothing is ever lost but the
+//   crystal and a fight with fodder.
+// THE CHEST: the room's one chest sits in the LAST valley, under the long jump. The leaper who
+//   wants it has to go down for it, fight a shambler, and climb out: going down is a choice, not
+//   only a penalty.
+//
+// ENEMIES (Easy: fodder only): a slime, two shamblers, one spitter standing on the take-off for
+//   the long jump, so the player deals with it before leaping.
+//
+// LAW 1: jumping only. LAW 2: every rise is 4; the gaps are OPTIONAL challenges because every
+//   valley can be walked through and climbed out of (rise 4). LAW 3: the valleys are the pits and
+//   hold no hazard. LAW 7: spawn (4,8) to exit (61,8) is 57 apart, and the whole route is three
+//   jumps, so there is nothing for Phase or Portal to skip. LAW 8: the spawn plateau is empty; the
+//   only ranged enemy is 39 tiles away.
+!name: LongJump
+!tier: easy
+!theme: barracks
+!camera: tight
+
+##################################################################
+##################################################################
+##########............######...........######.............########
+##########............######..............................########
+######.................####.................................######
+##..........................................................######
+##..............................................................##
+##..............................................................##
+##..............................................................##
+##...............+................+..............+..+...........##
+##..............................................................##
+##..............................................................##
+##..............................................................##
+##..S....g..............g..................s.................X..##
+##############......##########........########..........##########
+##############......##########........########.+........##########
+##############......##########........########..........##########
+##############...l..##########..z...g.########..g..D..z.##########
+##################################################################
+##################################################################
+##################################################################
+##################################################################

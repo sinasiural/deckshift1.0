@@ -48,6 +48,10 @@ public class MimicAI : MonoBehaviour
 
         if (pixelMonster != null)
             pixelMonster.IsHiding = true;
+
+        // A chest with a health bar over it is not a disguise.
+        if (enemyHealth != null)
+            enemyHealth.SetBarConcealed(true);
     }
 
     private void Start()
@@ -171,6 +175,7 @@ public class MimicAI : MonoBehaviour
     private IEnumerator RevealRoutine()
     {
         pixelMonster.IsHiding = false;
+        enemyHealth.SetBarConcealed(false);
         controller.inputMove = Vector2.zero;
         controller.inputAttack = false;
         yield return new WaitForSeconds(revealStunDuration);

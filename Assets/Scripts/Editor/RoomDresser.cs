@@ -234,7 +234,14 @@ public static class RoomDresser
         public List<GameObject> placed = new List<GameObject>();
         public Dictionary<string, int> counts = new Dictionary<string, int>();
         public int missing;
+
+        // The room holds breakable bookshelves ('W'). Decoration must then never look like one:
+        // no decorative bookcases, and no boarded-up stone arches (a player hunting for walls to
+        // break walks straight up to them). Readability law, found on the Stacks 2026-09-28.
+        public bool breakables;
     }
+
+    private static readonly HashSet<string> LooksBreakable = new HashSet<string> { "bookcase", "stoneshelf" };
 
     // Returns a one-line summary for the importer's report.
     public static string Dress(Room room)
@@ -247,6 +254,8 @@ public static class RoomDresser
         ctx.theme = PickTheme(room, seed);
         ctx.placeChance = room.density == Density.Light ? 0.45f : room.density == Density.Heavy ? 0.92f : 0.72f;
         ctx.gapScale = room.density == Density.Light ? 1.6f : room.density == Density.Heavy ? 0.7f : 1f;
+        foreach (char[] row in room.rows)
+            if (Array.IndexOf(row, 'W') >= 0) { ctx.breakables = true; break; }
 
         var dressing = new GameObject("Dressing").transform;
         dressing.SetParent(room.root, false);
@@ -578,6 +587,7 @@ public static class RoomDresser
                 string pick = PickWeighted(x, options, n =>
                 {
                     Recipe rc = Recipes[n];
+                    if (x.breakables && LooksBreakable.Contains(n)) return false;
                     if (rc.Width > room) return false;
                     if (RecipeHeight(rc) > run.headroom - 0.3f) return false;
                     return !lastUsed.TryGetValue(n, out int at) || placedVignettes - at > 1;
@@ -707,6 +717,8 @@ public static class RoomDresser
     private static void PlaceFeatures(Ctx x)
     {
         string[] pieces = ThemeFeature[x.theme];
+        if (x.breakables) pieces = Array.FindAll(pieces, k => !k.StartsWith("Wall Cave"));
+        if (pieces.Length == 0) return;
         int area = x.room.width * x.room.height;
         int want = Mathf.Clamp(area / 450, 1, 6);
         int tries = want * 40;
