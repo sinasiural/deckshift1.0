@@ -823,6 +823,9 @@ drawer, RelicHUD, QuestTracker, ExitMarker) — toggle it off to hide the HUD du
 hierarchy at edit time**, and do not "fix" their absence by placing one in the scene. Only
 `TutorialPanel` remains scene-placed.
 
+**The mouse cursor is `GameCursor`** (2026-09-27): a hardware cursor, so screenshots never show it.
+Its art is four editable PNGs in `Assets/Resources/Cursor/`; details in `/deckshift-screens`.
+
 ### Rules that bind any code touching a RectTransform
 
 ⚠️ **NEVER SCALE UI CONTAINERS — RESIZE THEM.** Changing Scale cascades to children and fights Layout

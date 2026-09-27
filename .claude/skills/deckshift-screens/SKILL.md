@@ -127,6 +127,35 @@ became a document that had been folded, carried and scribbled on.
 
 ⚠️ **Bulletin proves the strongest available inversion is VALUE, not hue.** Every other screen is a dark plate with light text on it; the quest board is a dark board with **pale paper pinned to it**, so its text ramp is INK (`TextBright` is nearly black) and the bright/dark areas have swapped places. That single structural choice makes it unmistakable at a glance while claiming almost no colour. Its wear is also the only wear in the game that says something about the **world** (other people took contracts here) rather than about the object. **Reach for this before reaching for another hue.**
 
+### The mouse cursor — `GameCursor` (2026-09-27)
+
+Designer's brief: *"change the way the cursor looks in game. make it feel like deckshift."* Four 16×16
+PNGs in **`Assets/Resources/Cursor/`**, meant to be edited directly in a pixel editor:
+
+| file | when |
+|---|---|
+| `pointer` | always, by default: a shard of the **Shift crystal painted on the cards** (colours sampled from `leap.png`: `#C8CBFF` / `#9CA1FA` / `#6167F6` / `#3E45F3` / `#272ED7`, outline `#282828`) |
+| `pointer_pressed` | left button held: the same shard energised into `Salvage.Shift` cyan |
+| `aim` | a card is ARMED and the mouse is over the world: four frame corners round the gem, because the next click casts the card right there |
+| `aim_pressed` | the cast: the corners snap in one pixel and the gem lights cyan |
+
+- ⚠️ **Hardware cursor (`Cursor.SetCursor`), not a UI image following the mouse.** A drawn cursor
+  lags a frame behind the hand, and this is a game of precise jumps and aimed clicks. Consequence:
+  **screenshots never show it** (Windows draws it). Verify by reading `GameCursor.shown`, or paste
+  the PNG onto a capture at 2×.
+- **Scaled by whole pixels for the screen height**: 2× up to 1080p (32 px), 3× at 1440p, 4× at 4K.
+  `SetCursor` is only called when the picture changes, and re-applied when the window regains focus.
+- **Aim is suppressed** while any modal holds the pause (`GameManager.IsUIPaused`) and while the
+  mouse is over UI (`EventSystem.IsPointerOverGameObject`): there, a click presses a button.
+- ⚠️ **The hotspots are constants in `GameCursor`** (pointer tip at (1,1), gem centre at (7.5,7.5),
+  from the top-left). Redraw the art with the tip elsewhere and the click lands in the wrong place
+  unless they move too.
+- `Editor/CursorTextureImporter` forces every image in that folder to import readable, uncompressed
+  and unmipped, which the upscale needs. A missing `_pressed` image falls back to its resting one;
+  missing or unreadable art falls back to the system cursor with one warning, never to nothing.
+- One object for the session (`DontDestroyOnLoad`, registered through `SceneBootstrap`): it holds
+  pictures only, no run state. `OnApplicationQuit` hands the editor its own cursor back.
+
 ### `ExitMarker` — chalk on the wall, pointing at the way out (2026-08-20)
 
 **`Assets/Scripts/ExitMarker.cs`.** The generated rooms are ~2.5× the area of the hand-made ones and
