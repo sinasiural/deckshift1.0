@@ -635,6 +635,49 @@ UI is intentionally unchanged in hub. The shift counter, card hand, recall butto
 
 ---
 
+## Ending a Run, and Shipping a Demo Build (2026-09-27)
+
+**A run now ENDS, both ways, on `RunSummaryScreen`** — a Salvage board dropped over the room where
+it happened: the numbers, the whole deck at true card size, the relics, PLAY AGAIN / MAIN MENU.
+Catalogue entry in `/deckshift-screens`.
+- **Death:** `PlayerHealth.WaitAndReload` calls `RunSummaryScreen.ShowDefeat()`. ⚠️ `GameOverScene`
+  is now only the FALLBACK when no canvas exists; it is still in the build for that reason.
+- **Victory:** leaving the FinalBoss room. `LevelManager.AdvanceToNextRoom` checks
+  `RunMapManager.IsRunFinished` first. It used to fall through, find nothing above the top floor and
+  silently start a fresh map from the hub, keeping the deck: winning had no ending at all.
+- ⚠️ **`FinaleExitLock` bars the finale room's exit until every `IBossFight` in it is dead.** Added by
+  `LevelManager` at spawn. Needed because the Moss Knight (the Wizard's finale) never locks its door
+  and its arena has the exit past the boss, so leaving = winning let you run past a living boss.
+- **`RunStats` (static) counts the run** from chokepoints the game already trusts (`EnemyHealth.Die`,
+  `DeckManager.PlayCard`, `PlayerController.SpendShift`/`AddGold`, `PlayerHealth.ApplyDamage`,
+  `ExitDoor`, `BossHealthBar.Initialize`) and keeps a 60-line event trail. ⚠️ Static, so it is reset
+  in `BeginRun` from LevelManager's first-room branch. A NEW Shift cost or damage path is counted for
+  free only if it goes through those same chokepoints, which it should anyway.
+
+**Playtest plumbing:**
+- **F8 anywhere → `BugReport`**: a folder in `Documents\Deckshift Bug Reports\` with a screenshot, a
+  `report.txt` (space for the player's words, machine, run, deck, relics, event trail) and a copy of
+  `Player.log`. ⚠️ Its toast goes on the scene's root canvas: a second root overlay canvas would
+  compete in `GameScreen.FindRootCanvas`, which every procedural screen uses to decide where to build.
+- **`VersionStamp`** prints `Application.version` (Player Settings → Version) on the main menu, so a
+  report can be matched to its build. **Bump the version for every build you send out.**
+- ⚠️ **`BuildLogFilter`: a release build logs warnings and errors ONLY.** `Debug.Log` does not reach a
+  friend's `Player.log`. Anything a bug report must be able to show needs `LogWarning` or better.
+  Editor and Development builds keep everything.
+
+**Building:** output to `Builds/Deckshift/` (gitignored). Scenes: MainMenu, SampleScene,
+GameOverScene. (`GameScene` is still ticked in Build Settings but nothing loads it; pass the scene
+list explicitly or untick it.) **`DemoPackager` runs after every Windows build**: it copies
+`DEMO_README.txt` (project root, written for the playtesters) in as `READ ME FIRST.txt` and writes
+`Builds/Deckshift_v<version>.zip`. ⚠️ The zip leaves out `*_DoNotShip` (Burst debug info Unity puts
+beside every build); zipping the folder by hand would include it.
+
+⚠️ **Designer decision for the friends demo: Hot Streak (`KineticCapacitor`, +2 Shift per kill) stays
+as it is**, to make the demo easier. `RelicRedesign.md` flags it as the biggest free Shift source in
+the game; do not "fix" it for the demo.
+
+---
+
 ## Manager Layer
 
 There are 13+ singleton managers. This is a known architectural smell flagged in audit but currently load-bearing. Do not propose merging or restructuring without explicit user approval.
@@ -1230,7 +1273,7 @@ Use this liberally to verify visual changes, diagnose "it looks wrong" reports, 
 - Defer reward delivery to **level-end** instead of firing immediately on quest completion (see also Quest banking, below).
 - ~~Randomize the offer~~ · ~~enforce the 3-quest cap~~ · ~~visual feedback on accept~~ — **all done 2026-08-10** with the board rebuild.
 - **AUTHOR MORE QUESTS.** 8 assets exist and 7 are offered (three originals + the four oaths); `Scrooge` is unfinished (pays `rewardAmount` 0, not in `allQuests`). The board is built to offer more contracts than you can carry, which is what makes taking one a decision; while `BoardSlots` and `MaxActiveQuests` are both 3, it can't. Quest content is now the system's binding constraint, not the UI.
-- Wire the "press E" prompt GameObject on the QuestBoard's `SimpleInteract.prompt` field (currently null — no hover hint appears).
+- ~~Wire the "press E" prompt on the QuestBoard~~ — **already wired (verified in play 2026-09-27)**: `SimpleInteract.prompt` holds an `InteractPrompt` on the hub, the Market and `QuestBoardPrefab`, and it shows when the player stands at the board.
 
 ### Scene Flow (deferred)
 
@@ -1283,11 +1326,12 @@ PlayerController overrides, and footstep wiring that was never committed had bee
 
 ### Started but not finished (2026-08-21) — read before picking a thread
 
-- **Live relic readouts.** The designer asked for a "currently +14 damage" line on every relic that
-  has a moving number. The DATA exists (`EstateSaleProgress`, `StandInTarget`, `nestEggRoomsBanked`,
-  `AceUpTheSleeveReady`, `Stacks`, `MatchedPairs`); nothing renders it yet. ⚠️ It must be a SECOND
-  LINE, never a `+{X}` hole in the description — `RelicSwapScreen`, chests and the shop all show
-  relics the player does not own, where there is no value to substitute.
+- ~~**Live relic readouts.**~~ **BUILT 2026-09-27:** `RelicManager.LiveReadout(relic)` returns one
+  line ("Now +14 damage", "Copying Sharp Practice", "Relics sold: 2 / 5") or null, shown as a second
+  line in `RelicTooltip` and `RelicManagePanel`. Null for relics not owned, so the swap screen,
+  chests and shop are untouched. ⚠️ Each number is computed by the SAME expression the effect uses;
+  change one, change the other. "Doubled by Stand-In" only appears for the relics whose effect
+  multiplies by `Stacks()` (the `StackAware` set), because Stand-In beside Midas Recoil does nothing.
 - **Cards cannot be priced by rarity** because `CardData` has no rarity field — it exists only as
   paint on the artwork. `ShopPricing.ForCard` prices off charges and Shift cost meanwhile. Adding
   the field also unblocks icon-only card faces (below).

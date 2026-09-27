@@ -302,7 +302,30 @@ The old screen's signature was a **suspended** mote field saying "time is held".
 
 Destructive entries (**ABANDON RUN**, **QUIT**) are two-step: the first activation arms and relabels, the second commits, and moving the selection away or 4s of silence disarms. Sitting one keypress below RESUME, they need it.
 
-**Settings and How To Play still open the OLD panels** (`SettingsPanel` / `TutorialPanel` under the Canvas). `PauseScreen` hides its own furniture, keeps its pause held, and **polls the panel's `activeSelf`** to know when it closed — both panels dismiss via their own buttons, so this needed no rewiring of either. They are next to be rebuilt; this handover exists so the pause rebuild wasn't blocked on theirs.
+~~Settings and How To Play still open the OLD panels~~ — **stale.** Settings opens the procedural `SettingsScreen` with a callback. **HOW TO PLAY is gone (2026-09-27)**: it opened the prototype-era `TutorialPanel` ("For this version, we have 6 rooms…"), wrong about the game and in a superseded style. It is replaced by **CONTROLS**, which opens nothing: while that entry is SELECTED, the board's right column swaps from the run status (`statusLayer`) to a key list (`controlsLayer`). `RefreshColumn()` derives which is shown from `selected` inside `SetSelected`, never from anywhere else. The key list is ASCII only ("1 - 9", "HOLD L-CTRL"), because the display face carries no arrows or dashes, and it stops at always-available keys (relic keys Q/F/S are taught by their relic). The sub-panel polling code was deleted with it; the scene's `TutorialPanel` object is now unused.
+
+### The run summary (`RunSummaryScreen.cs`, 2026-09-27) — the end of every run, won or lost
+
+The pause board's plank-and-chain object (`SalvageScreen.BuildBoard` + `Hang`) dropped over the
+**dimmed frozen room where the run ended**. Left column: character, floor reached, play time, rooms,
+kills, bosses, Shift spent (in Shift cyan), gold, cards played, damage taken, from `RunStats`. Right
+column: the WHOLE deck at true card aspect via `CardFace.Build` (hand + draw + discard, then
+exhausted cards dimmed to 0.38; Stagger excluded, it is never owned), sized to the largest card
+width that fits its area, then the relics. One shared inspect line reads whatever card or relic is
+under the pointer. PLAY AGAIN (same character, `CharacterSelection.Chosen` survives the reload) /
+MAIN MENU, marked in chalk exactly like the pause entries. Victory lights the title in `Salvage.Torch`.
+
+- ⚠️ **It arrives unprompted**, so it copies `BossRewardScreen`'s three input rules: 0.9s settle before
+  any input, Enter must be seen UP once before a press counts, and Space/E never confirm.
+- ⚠️ **The game stays paused through the scene load.** `LoadSceneAsync` with
+  `allowSceneActivation = false`, and the pause is released only at `progress >= 0.9`. Releasing
+  first un-froze the room behind the board for the whole ~1s load.
+- ⚠️ **`OnDestroy` skips the HUD hand-back while the app is quitting.** Alt+F4 on a death destroys the
+  HUD at the same time, and re-activating it mid-destroy logs an error into a playtester's log.
+- ⚠️ **Neither UI font has `—` or `·`.** They rendered through TMP's fallback font, visibly off.
+  Headers use "(11)", the inspect line uses "NAME:  text".
+- Verified: pointer raycasts hit every card, relic and button; PLAY AGAIN starts a clean run (hub,
+  starting deck, no relics, timeScale 1, HUD back); a real death shows it on its own.
 
 ### Settings — `GameSettings.cs` + `SettingsScreen.cs` (rebuilt 2026-08-09)
 
