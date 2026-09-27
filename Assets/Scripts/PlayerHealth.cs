@@ -47,6 +47,24 @@ public class PlayerHealth : MonoBehaviour
         OnArmourChanged?.Invoke(armour);
     }
 
+    /// <summary>
+    /// Takes armour away WITHOUT it being a hit: no hurt, no OnDamaged. For armour that was only ever
+    /// temporary — Brace's block fades when the brace ends.
+    /// </summary>
+    public void RemoveArmour(float amount)
+    {
+        if (amount <= 0f || armour <= 0f) return;
+        armour = Mathf.Max(0f, armour - amount);
+        OnArmourChanged?.Invoke(armour);
+    }
+
+    /// <summary>
+    /// True only while PayHealthCost is running, i.e. while OnDamaged is reporting a price the player
+    /// CHOSE to pay (Stagger's bill) rather than a hit. Listeners that reward being hit — Brace pays
+    /// Shift per hit — must ignore it, or paying Stagger would pay you back.
+    /// </summary>
+    public bool IsPayingCost { get; private set; }
+
     [Header("Audio")]
     [SerializeField] AudioClip hurtSound;
     [SerializeField] AudioClip deathSound;
@@ -172,7 +190,9 @@ public class PlayerHealth : MonoBehaviour
     public void PayHealthCost(float amount)
     {
         if (isDead || amount <= 0f) return;
-        ApplyDamage(amount, ignoreArmour: true);
+        IsPayingCost = true;
+        try { ApplyDamage(amount, ignoreArmour: true); }
+        finally { IsPayingCost = false; }
     }
 
     private void ApplyDamage(float damage, bool ignoreArmour = false)

@@ -55,6 +55,9 @@ public enum CardActionType
     // basic starter card and its usefulness is not worth protecting at the cost of the Samurai's
     // signature feeling bad.
     ThroughAndThrough = 22,
+    // "Brace" (designer, 2026-09-27): plant your feet for a few seconds behind a layer of armour, and
+    // every hit you take while braced pays Shift. A card that turns being hit into movement.
+    Brace = 23,
 }
 
 public enum SkillType

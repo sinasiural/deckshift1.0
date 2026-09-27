@@ -12,4 +12,6 @@ public enum ConflictFlags
     PlayerVelocity       = 32,
     Invincibility        = 64,
     AnimatorAttackState  = 128,
+    // Held by a running Brace, so a second Brace cannot stack another block on top of the first.
+    Brace                = 256,
 }

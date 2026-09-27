@@ -101,6 +101,9 @@ public class PlayerController : MonoBehaviour
     public AudioClip glassVailSound;
     public AudioClip glassParrySound;      // successful parry: chime + shatter
     public AudioClip freefallBladeSound;   // slash swipe
+    public AudioClip braceStartSound;      // Brace: planting into the stance
+    public AudioClip braceHitSound;        // Brace: a hit landing on the braced block
+    public AudioClip braceEndSound;        // Brace: letting the stance go
     public AudioClip jumpSound;
     public AudioClip leapSound;
     public AudioClip spendSound;

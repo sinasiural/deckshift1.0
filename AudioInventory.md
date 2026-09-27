@@ -104,6 +104,12 @@ clip is never overwritten. **It is also the undo** — swap back the other way.
 | `PlayerController.glassParrySound` | `GlassParry.wav` | Kenney `impactGlass_heavy_001` |
 | `PlayerController.freefallBladeSound` | `FreefallBlade.wav` | Kenney `knifeSlice` |
 
+**Brace (new card, 2026-09-27) went straight to Kenney, also picked by name:**
+`PlayerController.braceStartSound` = `impactPlate_heavy_000` (planting into the stance),
+`braceHitSound` = `impactMetal_heavy_000` (a hit on the block), `braceEndSound` =
+`impactPlate_light_001` (letting go). `PlayerBrace` falls back to `ProcSfx` (`BossStomp`,
+`WallBreak`, `PauseRelease`) if a slot is ever emptied, so it can't go silent.
+
 **Shortlist for the rest** — what in the Kenney packs is worth auditioning against each brief.
 The rest were deliberately NOT swapped: their briefs are LAYERED (see §5), and one sample from
 these packs covers only one layer, which is not obviously better than the placeholder.

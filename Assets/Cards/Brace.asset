@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27701a6f0f52d86438cb67605f92527c, type: 3}
+  m_Name: Brace
+  m_EditorClassIdentifier: 
+  cardName: Brace
+  description: Brace for 5 seconds with 10 armour. Every hit you take while braced
+    gives +1 Shift. Leftover armour fades when the brace ends.
+  cardArt: {fileID: -6484668450324971294, guid: dda30b5900a859143b92171d28e23702, type: 3}
+  nameIsPaintedIntoArt: 0
+  rarity: 2
+  actionType: 23
+  actionValue: 10
+  singleUse: 0
+  shiftCost: 1
+  maxUses: 3

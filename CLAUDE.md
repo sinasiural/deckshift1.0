@@ -10,7 +10,7 @@ This file is loaded automatically into Claude Code at the start of every session
 
 **Core concept:** "Movement is a Resource." Jumping consumes **Shift**, which does not regenerate on its own — and **Shift CARRIES OVER between rooms** (designer-confirmed 2026-07-13: it is a run-long resource, and this persistence is "the whole identity of the game" — spending Shift now means having less for the rest of the run). Do NOT describe or implement Shift as a per-room resource. Most other actions (attacks, special movement, utility) are delivered via cards. Cards have **charges**; when charges deplete the card moves to the exhaust pile and must be recovered via scrap.
 
-**Current state (re-counted 2026-09-24):** one long run through the Oxidation District — **acts were cut on 2026-08-21** (see Content) — and it is a prototype. **11 combat levels in the run pool**, plus the hub, **3 boss arenas** (`BossRoom` for the Moss Knight, `NinjaArena`, `KagemushaHall`) and **3 recharge rooms** (Foundry / Market / Well). About 15 more rooms meet the room contract but are unused (see `/deckshift-levels` → Room Pool). **20 CardData assets in `Assets/Cards/`**; 2 of them are not reward cards (`Stagger` is the fail-state card, `AnaKartVeritabanı` is the card *database* asset), so the real playable pool is **18**. **49 relics** (15 Common / 12 Rare / 18 Epic / 1 Legendary / 3 Boss). **8 quest assets, 7 of them offered.** **3 playable characters** in `Assets/Resources/Characters/` (see Characters). Target: a 45–50 minute run and 60+ cards at content-complete. **24 Blompo blessings** as of 2026-08-14: the card *pool* is still the bottleneck, but the enhancement multiplier on it is built.
+**Current state (re-counted 2026-09-24):** one long run through the Oxidation District — **acts were cut on 2026-08-21** (see Content) — and it is a prototype. **11 combat levels in the run pool**, plus the hub, **3 boss arenas** (`BossRoom` for the Moss Knight, `NinjaArena`, `KagemushaHall`) and **3 recharge rooms** (Foundry / Market / Well). About 15 more rooms meet the room contract but are unused (see `/deckshift-levels` → Room Pool). **21 CardData assets in `Assets/Cards/`** (re-counted 2026-09-27, after Brace); 2 of them are not reward cards (`Stagger` is the fail-state card, `AnaKartVeritabanı` is the card *database* asset), so the real playable pool is **19**. **49 relics** (15 Common / 12 Rare / 18 Epic / 1 Legendary / 3 Boss). **8 quest assets, 7 of them offered.** **3 playable characters** in `Assets/Resources/Characters/` (see Characters). Target: a 45–50 minute run and 60+ cards at content-complete. **24 Blompo blessings** as of 2026-08-14: the card *pool* is still the bottleneck, but the enhancement multiplier on it is built.
 
 ⚠️ **The run's deck comes from the chosen CHARACTER (`CharacterData.startingDeck`, 4 cards each). `DeckManager.startingDeck` is only a FALLBACK** for a character whose deck is empty. It currently holds 10 cards the designer uses for testing; do not balance against it and do not "fix" it. One live side effect worth knowing: the `Only Child` blessing keys off a deck under 10 cards, and every character starts with 4, so it fires until the deck grows past that.
 
@@ -22,7 +22,7 @@ This file is loaded automatically into Claude Code at the start of every session
 
 ⚠️ **Audio is the designer's stated top priority, and the real problem is not what it looked like.** It is not that the procedural clips are weak (they are, and `ProcSfx` should be read as a **sound-design brief** rather than a source — see `AudioInventory.md`). It was that **a large fraction of the game was literally SILENT** (103 empty `AudioClip` slots, including every zombie's swing and every boss death). **As of 2026-09-24 nothing on the run's path is silent**: every such slot holds a procedural placeholder baked by `Deckshift → Fill Silent Audio Slots`, and `BossDeathVFX` falls back to one in code. The placeholders are the shopping list: replace them with real clips. **Read `AudioInventory.md` before touching audio** — it holds the layout, the licence record, and that list.
 
-**The content gap is still real, just no longer first.** 11 combat rooms and 18 playable cards remain thin for a 45–50 minute run, the two named archetypes are the thinnest lines in the deck (Glass has 2 cards, Vampiric 1), and 3 bosses are built of the ~10 wanted. Do not read "polish first" as "content is solved".
+**The content gap is still real, just no longer first.** 11 combat rooms and 19 playable cards remain thin for a 45–50 minute run, the two named archetypes are the thinnest lines in the deck (Glass has 2 cards, Vampiric 1), and 3 bosses are built of the ~10 wanted. Do not read "polish first" as "content is solved".
 
 The player character was recently swapped from the skeleton rig (`PF Skeleton - Mage`) to `PF Pixel Character - Mage M` from the Cainos Customizable Pixel Character pack. The wizard identity is now the canonical character. The skeleton remains in the Player prefab disabled, intended for future use as an enemy. **Renderer facts (verified in-editor 2026-07-17): the Mage M body is 16 `SkinnedMeshRenderer` parts (Body, Hair, Hat, Cloth… — Cainos "Alpha Cut"/Body/Hair shaders); only the magic staff is a `SpriteRenderer`.** Any code that snapshots/copies the player's look must handle SkinnedMeshRenderers (e.g. `SkinnedMeshRenderer.BakeMesh`, as `CardAimIndicator`'s dash trail does) — a SpriteRenderer-only pass silently produces a staff-only ghost.
 
@@ -518,6 +518,23 @@ that was in his hand.
 **Card art:** real art (`Assets/Art/shuriken.png`, shared with Borrowed Steel) replaced the Freefall
 Blade placeholder on 2026-09-08 (not yet committed). `nameIsPaintedIntoArt` should stay `false` on any
 art that ships with an empty name plate, so the title draws in code.
+
+### Brace (built 2026-09-27)
+
+`CardActionType.Brace = 23`. Designer's brief: *"brace for 5 seconds. gain 10 block. for every hit you
+take, gain +1 shift."* Rare, 1 Shift, 3 charges, `actionValue` = the block (10). The effect lives in
+`PlayerBrace` (added to the player on first use); the visuals in `BraceVFX`, drawn from the card art
+(rings spreading behind the figure, a pale rim over the shoulders, the rig's crouch as the stance).
+
+- ⚠️ **The block is ARMOUR, and only for the brace.** It goes into the existing armour pool (so the
+  HUD bar and every armour rule apply), is spent FIRST, and whatever is left of the brace's own share
+  is taken back when it ends (`PlayerHealth.RemoveArmour`). The Samurai's Full Plate is never touched.
+- ⚠️ **A hit fully eaten by armour still pays Shift**, because `OnDamaged` fires for it (the armour
+  rule). Stagger's blood price also reports through `OnDamaged`, so it is excluded by
+  `PlayerHealth.IsPayingCost`; any future "on hit" trigger that must ignore self-inflicted costs should
+  check the same flag.
+- No Shift in a sandbox room. Its own ConflictFlag (`Brace`) refuses a second Brace while one runs,
+  so the block can never stack; every other card stays playable.
 
 ### Stagger Mechanic (REDESIGNED 2026-08-09 — it is no longer a three-strikes death sentence)
 
@@ -1061,6 +1078,10 @@ Known property support (verified by dumping `ShaderUtil.GetPropertyCount`):
 
 Also beware the inverse: `BreakableWall.cs` checks `HasProperty("_Color")` when *caching* the original colour but not when *setting* it — an asymmetry worth copying nowhere.
 
+### "SpriteRenderers sharing one custom material can be drawn with EACH OTHER'S texture" (2026-09-27)
+
+`BraceVFX` gave every one of its SpriteRenderers the same `Sprites/Default` material. Two of them, drawn back to back at the same depth, were intermittently merged into one draw carrying the FIRST one's texture: the shoulder arch came out as the footing ellipse stretched to the arch's size, chunky brackets round the head. It showed in some frames and not others, and a dump of the arch's own texture was perfect, which is what made it slow to find. The tell was geometric: the wrong shape matched another sprite's image exactly. **Give each image its own material** (`BraceVFX.MaterialFor`), or leave SpriteRenderers on the default sprite material as every other VFX here does. A LineRenderer / TrailRenderer on its own `Sprites/Default` instance (the common pattern in this project) is fine.
+
 ### "The project renders in LINEAR colour space, so low alphas composite far brighter than the number reads" (2026-08-09)
 
 Verified: `QualitySettings.activeColorSpace == Linear`. A small alpha of a bright, saturated colour over a dark panel therefore lands **much** higher in sRGB than the arithmetic suggests — the settings screen's selection plate at **alpha 0.065** of arc-cyan measured out near **0.36 sRGB** on screen and filled the whole selected row with a solid teal slab. It had to drop to 0.03.
@@ -1114,6 +1135,8 @@ The fix is **Z position**, not sorting order: push the prop farther from the cam
 — because `LevelManager` copied the entry point's **full Vector3** onto the player, so the player's depth was whatever that room's `GirisNoktasi` happened to sit at, while enemies sat wherever they were dropped and props ranged from −1.12 to +3.56. Sorting was luck, per room. That "sometimes" is the signature of two opaque things at the *same* Z.
 
 **The rule now: actors live at `PlayPlane.Z` (−2), everything else is behind it.** `PlayPlane.Apply(room)` runs on every spawn — it snaps every `EnemyHealth` onto the plane and pushes any opaque non-actor renderer found at or in front of it behind, moving the prop's top-level ancestor so multi-part props stay together. `LevelManager` now takes only X/Y from the entry point. Verified: all 11 rooms satisfy the invariant (every enemy on the plane, zero props in front), and the fix holds for rooms nobody has authored yet. **Z is free to move** — the camera is orthographic so depth changes cost zero pixels on screen, and Physics2D ignores Z entirely.
+
+⚠️ **A VFX meant to sit BEHIND the player but in front of the room goes at `PlayPlane.Z + 0.0005`** (2026-09-27, `BraceVFX`). PlayPlane only moves props that are *at or in front of* the plane; a prop already behind it is left where it is, which can be as close as 0.001 behind. Anything placed further back than that can be hidden by the nearest doorway (measured: the Brace arch lost its top to the entry door's frame at `Z + 0.06`).
 
 The historical per-prop fix below is now redundant but harmless; keep it as the explanation of *why* opaque sprites behave this way.
 
@@ -1375,7 +1398,7 @@ PlayerController overrides, and footstep wiring that was never committed had bee
 
 ### Content (TODO)
 
-- Scale to 60+ cards (currently **20 assets in `Assets/Cards/`, 18 genuinely playable** — `Stagger` is the fail-state card, `AnaKartVeritabanı` is the database asset). The map and Blompo it used to gate are both built. The two archetypes the GDD names are the thinnest lines in the deck: **Glass has 2 cards** (Glass Wail, Glass Parry) and **Vampiric has 1** (Vampiric Bite).
+- Scale to 60+ cards (currently **21 assets in `Assets/Cards/`, 19 genuinely playable** — `Stagger` is the fail-state card, `AnaKartVeritabanı` is the database asset). The map and Blompo it used to gate are both built. The two archetypes the GDD names are the thinnest lines in the deck: **Glass has 2 cards** (Glass Wail, Glass Parry) and **Vampiric has 1** (Vampiric Bite).
 - Expand the Glass and Vampiric archetypes.
 - ⚠️ **ACTS ARE GONE (designer, 2026-08-21). Do not plan around them.** A run is now ONE map of
   **20 floors** with **2–5 OPTIONAL boss nodes** the player routes into or around, ending at a

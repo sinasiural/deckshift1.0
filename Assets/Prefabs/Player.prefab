@@ -251,6 +251,9 @@ MonoBehaviour:
   glassVailSound: {fileID: 8300000, guid: 0335a30fbf68921448cf9922e6b028cb, type: 3}
   glassParrySound: {fileID: 8300000, guid: 21b051063aafbf942bc5d3c44e02ffcb, type: 3}
   freefallBladeSound: {fileID: 8300000, guid: 05eb4e89963aa1847a347481f814a337, type: 3}
+  braceStartSound: {fileID: 8300000, guid: f4e33aeb48aa72249868b3d5527df9b4, type: 3}
+  braceHitSound: {fileID: 8300000, guid: 95c7f369e4728b4499baac5510ce16f8, type: 3}
+  braceEndSound: {fileID: 8300000, guid: 9f796fc7e7f25444c81cfab33eadec10, type: 3}
   jumpSound: {fileID: 8300000, guid: e41a7d00afe07be4ebe4d42dc03c77b3, type: 3}
   leapSound: {fileID: 8300000, guid: e41a7d00afe07be4ebe4d42dc03c77b3, type: 3}
   spendSound: {fileID: 8300000, guid: 70cad06b332b69049ad572f5628c41c5, type: 3}

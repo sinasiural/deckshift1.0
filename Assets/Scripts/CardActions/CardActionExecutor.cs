@@ -48,6 +48,7 @@ public class CardActionExecutor : MonoBehaviour
             { CardActionType.Shuriken,       new ShurikenAction()       },
             { CardActionType.SalvagedShuriken, new SalvagedShurikenAction() },
             { CardActionType.ThroughAndThrough, new ThroughAndThroughAction() },
+            { CardActionType.Brace,          new BraceAction()          },
         };
     }
 
