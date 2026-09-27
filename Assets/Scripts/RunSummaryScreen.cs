@@ -56,6 +56,26 @@ public class RunSummaryScreen : GameScreen
     // The board lands with the pause screen's own halt, not the generic UI open.
     protected override bool PlaysDefaultOpenCloseSound => false;
 
+    // ⚠️ Quitting from this screen (Alt+F4 on a death is common) destroys it together with the HUD it
+    // would hand back, and re-activating a GameObject mid-destroy logs an error into the player's log.
+    // There is no game to hand back to at that point, so skip the hand-back entirely.
+    private static bool quitting;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetQuitFlag()
+    {
+        quitting = false;   // statics can survive between editor play sessions
+        Application.quitting -= MarkQuitting;
+        Application.quitting += MarkQuitting;
+    }
+
+    private static void MarkQuitting() { quitting = true; }
+
+    protected override void OnDestroy()
+    {
+        if (!quitting) base.OnDestroy();
+    }
+
     // ---- layout, canvas-centre coordinates (1920x1080 reference, width flexes) --------------------
 
     // ⚠️ 1400 wide for the same reason as the pause board: the canvas is 1440 wide at 4:3.
@@ -238,7 +258,7 @@ public class RunSummaryScreen : GameScreen
         cards.AddRange(exhausted);
 
         float areaW = DECK_RIGHT - DECK_LEFT;
-        ColumnHeader("YOUR DECK  ·  " + cards.Count, DECK_LEFT, DECK_RIGHT, HEADER_Y);
+        ColumnHeader("YOUR DECK  (" + cards.Count + ")", DECK_LEFT, DECK_RIGHT, HEADER_Y);
 
         if (cards.Count == 0)
         {
@@ -277,7 +297,7 @@ public class RunSummaryScreen : GameScreen
 
             RuntimeCard card = cards[i];
             string line = card.cardData.cardName.ToUpperInvariant() + (isExhausted ? "  (EXHAUSTED)" : "")
-                          + "  —  " + card.cardData.description;
+                          + ":  " + card.cardData.description;
             AddHover(host, line);
         }
     }
@@ -294,7 +314,7 @@ public class RunSummaryScreen : GameScreen
         RelicManager rm = RelicManager.instance;
         int count = rm != null ? rm.OwnedRelics.Count : 0;
 
-        ColumnHeader("RELICS  ·  " + count, DECK_LEFT, DECK_RIGHT, RELIC_HEADER_Y);
+        ColumnHeader("RELICS  (" + count + ")", DECK_LEFT, DECK_RIGHT, RELIC_HEADER_Y);
 
         if (count == 0)
         {
@@ -313,7 +333,7 @@ public class RunSummaryScreen : GameScreen
             Image icon = SalvageScreen.Img(printed, "Relic_" + i, r.relicArt, Color.white, true);
             icon.preserveAspect = true;
             Place(icon, pos, new Vector2(RELIC_SIZE, RELIC_SIZE));
-            AddHover(icon.rectTransform, r.relicName.ToUpperInvariant() + "  —  " + r.description);
+            AddHover(icon.rectTransform, r.relicName.ToUpperInvariant() + ":  " + r.description);
         }
     }
 
