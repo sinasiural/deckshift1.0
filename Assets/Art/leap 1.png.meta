@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 3486e909743eac04989c2e00edace966
+guid: dabdbdb3751401744a58e0e5294e6916
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 7949831557799742714
-    second: fireball 1_0
+      213: 5900194420254888146
+    second: leap 1_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: fireball 1_0
+      name: leap 1_0
       rect:
         serializedVersion: 2
-        x: 3
-        y: 4
-        width: 118
-        height: 199
+        x: 2
+        y: 3
+        width: 120
+        height: 201
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: afc08da8ea9735e60800000000000000
-      internalID: 7949831557799742714
+      spriteID: 2d0d80d8093b1e150800000000000000
+      internalID: 5900194420254888146
       vertices: []
       indices: 
       edges: []
@@ -134,8 +134,7 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable:
-      fireball 1_0: 7949831557799742714
+    nameFileIdTable: {}
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

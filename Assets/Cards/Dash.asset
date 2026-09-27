@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardName: Dash
   description: Rush forward. Nothing can hurt you while you are dashing.
-  cardArt: {fileID: 7110878671101974141, guid: 33cbc3a7cafceb44b9d86cf3043fe241, type: 3}
+  cardArt: {fileID: -6072538630434162108, guid: b9cb0314a0f4c15458ed818854c3ab65, type: 3}
   nameIsPaintedIntoArt: 0
   rarity: 0
   actionType: 1

@@ -15,9 +15,9 @@ MonoBehaviour:
   cardName: Through and Through
   description: Draw and lunge. Nothing can hurt you, you pass through enemies, and
     when the blade goes home every one you passed is cut for 40.
-  cardArt: {fileID: 3949312561008636491, guid: db24c03a6360afa44a906cd18adf60e6, type: 3}
+  cardArt: {fileID: 469989981619199206, guid: 11d7a546dd5a6eb46a9fa7782c3169c0, type: 3}
   nameIsPaintedIntoArt: 0
-  rarity: 0
+  rarity: 3
   actionType: 22
   actionValue: 40
   singleUse: 0

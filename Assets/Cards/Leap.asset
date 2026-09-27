@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardName: Leap
   description: Jump.
-  cardArt: {fileID: -2058102481636132610, guid: c52efeceb703a4b48be8e91770c5013e, type: 3}
+  cardArt: {fileID: 5900194420254888146, guid: dabdbdb3751401744a58e0e5294e6916, type: 3}
   nameIsPaintedIntoArt: 0
   rarity: 0
   actionType: 0

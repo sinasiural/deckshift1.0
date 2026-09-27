@@ -875,9 +875,15 @@ canonical frame. `CardFace` is the single source for every screen **including th
 
 ⚠️ **EVERY card has a Shift crystal, free ones included (designer, 2026-09-27)** — a Blompo blessing
 can give a card a cost, so the meter must always be there. Art that arrives without one is an art
-error, not a "free card" convention: the 2026-09-27 Dash / Leap / Fireball art was missing it and had
-the standard crystal composited in (Vampiric Bite's onto the checker frame, Adrenaline's, with its
-black ring, onto the rounded frame).
+error, not a "free card" convention: the first 2026-09-27 Dash / Leap / Fireball art was missing it,
+and the designer re-drew all three with the crystal the same day. **No card now carries a crystal
+Claude pasted in, and `CardFace` only ever draws the NUMBERS, never a crystal.** The only cards with no
+crystal are Floor is Lava and Glass Wail (old art, empty circles) and Stagger (bespoke: its cost is
+HP, drawn in the heart on the top edge).
+
+**Cards without art of their own (2026-09-27):** Floor is Lava and Glass Wail (old style, above), and
+Borrowed Steel, which shares Shuriken's picture. Through and Through got its own that evening (Epic
+frame, so its `rarity` is Epic). `redpact.png` is art for a card not built yet; leave it unassigned.
 
 ⚠️ **Card art must be a 1× export with real transparency, on the 124×204 canvas**, sprite cut at the
 card's opaque box + 1px (`x2 y2 120×201` for the 118-wide frame; the older 116-wide frame is
