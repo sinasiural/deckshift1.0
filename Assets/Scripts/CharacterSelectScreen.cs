@@ -331,8 +331,11 @@ public class CharacterSelectScreen : MonoBehaviour
         {
             Texture2D tex = art.wallTexture;
             if (wallSprite == null)
+                // FullRect: the default Tight mesh needs to read the pixels to trace an outline,
+                // and this pack texture is not readable in a build ("Sprite outline generation
+                // failed"). A tiled rectangle has no outline to trace anyway.
                 wallSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height),
-                                           new Vector2(0.5f, 0.5f), 100f);
+                                           new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
 
             // ⚠️ Measured on screen, not computed. At 0.15 the stone was invisible — the accent and
             // the vignette buried it and the backdrop was a flat void, which threw away the one

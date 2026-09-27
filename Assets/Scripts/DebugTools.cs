@@ -1,10 +1,15 @@
-#if UNITY_EDITOR
 using System.Collections.Generic;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using UnityEngine;
 
+// Editor-only relic cheat panel (F1). The CLASS exists in builds so the component on SampleScene's
+// DebugManager still resolves (a class compiled out entirely logs "referenced script is missing" on
+// every scene load); only its body is compiled out, so a build has no F1 panel.
 public class DebugTools : MonoBehaviour
 {
+#if UNITY_EDITOR
     private List<RelicData> allRelics = new List<RelicData>();
     private bool showPanel = false;
     private Vector2 scrollPos;
@@ -53,5 +58,5 @@ public class DebugTools : MonoBehaviour
         GUILayout.EndScrollView();
         GUILayout.EndArea();
     }
-}
 #endif
+}
