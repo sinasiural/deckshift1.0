@@ -230,6 +230,9 @@ MonoBehaviour:
   swimSurfaceOffset: 1.2
   swimSettleStrength: 8
   swimExitDuration: 0.35
+  splashInSound: {fileID: 0}
+  splashOutSound: {fileID: 0}
+  swimStrokeSound: {fileID: 0}
   pogoChainFalloff:
   - 0.7
   - 0.55
@@ -246,8 +249,8 @@ MonoBehaviour:
   createPlatformSound: {fileID: 8300000, guid: 1cac8dcf0c7c72e429604b798d25fa5d, type: 3}
   vampireBiteSound: {fileID: 8300000, guid: b99cde183dfddad499d2a40bc701e1e9, type: 3}
   glassVailSound: {fileID: 8300000, guid: 0335a30fbf68921448cf9922e6b028cb, type: 3}
-  glassParrySound: {fileID: 8300000, guid: a172e14be5e197b42b2f27c69e1ea36f, type: 3}
-  freefallBladeSound: {fileID: 8300000, guid: b14f02cf911d6d745b65f4fcdbad3e40, type: 3}
+  glassParrySound: {fileID: 8300000, guid: 21b051063aafbf942bc5d3c44e02ffcb, type: 3}
+  freefallBladeSound: {fileID: 8300000, guid: 05eb4e89963aa1847a347481f814a337, type: 3}
   jumpSound: {fileID: 8300000, guid: e41a7d00afe07be4ebe4d42dc03c77b3, type: 3}
   leapSound: {fileID: 8300000, guid: e41a7d00afe07be4ebe4d42dc03c77b3, type: 3}
   spendSound: {fileID: 8300000, guid: 70cad06b332b69049ad572f5628c41c5, type: 3}
@@ -348,6 +351,15 @@ MonoBehaviour:
   - {fileID: 9072995722623145976}
   - {fileID: 9072995722623145982}
   - {fileID: 1045048363762776297}
+  lungeSpeed: 30
+  lungeDuration: 0.17
+  lungeIFrameDuration: 0.45
+  lungeSheatheBeat: 0.16
+  lungeStreakColor: {r: 1, g: 0.82, b: 0.45, a: 1}
+  lungeMarkColor: {r: 1, g: 0.9, b: 0.7, a: 1}
+  lungeAfterimageTint: {r: 1, g: 0.93, b: 0.72, a: 0.5}
+  lungeDrawSound: {fileID: 0}
+  lungeSheatheSound: {fileID: 0}
   deadDropSpeed: 34
   grapnelRange: 12
   grapnelShiftCost: 2
@@ -641,6 +653,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 100
   isInvincible: 0
+  armourShatters: 0
   hurtSound: {fileID: 8300000, guid: 4bcb86928d613044aacc4a9458bd99f8, type: 3}
   deathSound: {fileID: 8300000, guid: 3e3343bf51da7cd4d835c7154b887582, type: 3}
   deathVolume: 1

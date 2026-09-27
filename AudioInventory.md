@@ -21,6 +21,8 @@ Assets/Audio/
     World/          crusher, lever
     UI/             card play, menu, level start
     _Unused/        kept but referenced by nothing — see §4
+  Kenney/           three CC0 packs to audition and swap in — see §2
+  Procedural/       baked placeholders — see §3
 ```
 
 ⚠️ **Files were moved with `AssetDatabase.MoveAsset`, which preserves the GUID**, so every
@@ -57,6 +59,14 @@ release.** Anything not confirmed CC0 or bought is a risk.
 **The AI-generated ones matter most.** Most services allow commercial use on paid tiers and
 not on free ones. Confirm which tier produced these and write the answer here.
 
+### ✅ Kenney packs — CC0, verified (added 2026-09-27)
+
+`Assets/Audio/Kenney/` holds three packs downloaded from kenney.nl, each with its own
+`License.txt`: **Impact Sounds** (130), **RPG Audio** (51), **Interface Sounds** (100).
+All three are **Creative Commons Zero** — public domain, commercial use fine, no attribution
+required. Nothing to confirm before a Steam release. Only clips a slot actually references go
+into a build, so the unused ones cost nothing.
+
 ---
 
 ## 3. ⚠️ THE SHOPPING LIST — what is silent right now
@@ -79,6 +89,34 @@ only ever writes to empty slots, so it never overwrites a clip you picked.
 | Drinking from the Well | `RestWell.drinkSound` (runtime fallback `ProcSfx.WellDraw`/`WellSurge`) | every Well |
 | **Portal opening** | `Portal.openSound` = the existing **`Portal.mp3`** (a real file, not a placeholder) | Portal card |
 | **Walking through a portal** | `Portal.traverseSound` (empty; runtime fallback `ProcSfx.PortalPass`) | Portal card |
+
+### Swapping a placeholder: `Deckshift → Replace Sound Everywhere` (2026-09-27)
+
+Drag the placeholder into **From**, the real clip into **To**, press the button: every prefab slot
+playing From now plays To. It only writes into each prefab's own components (never a nested
+instance, same rule as the filler), and only touches slots holding exactly From, so a hand-picked
+clip is never overwritten. **It is also the undo** — swap back the other way.
+
+**Swapped so far (picked by NAME against the ProcSfx brief, not by ear — listen before shipping):**
+
+| Slot | Was | Now |
+|---|---|---|
+| `PlayerController.glassParrySound` | `GlassParry.wav` | Kenney `impactGlass_heavy_001` |
+| `PlayerController.freefallBladeSound` | `FreefallBlade.wav` | Kenney `knifeSlice` |
+
+**Shortlist for the rest** — what in the Kenney packs is worth auditioning against each brief.
+The rest were deliberately NOT swapped: their briefs are LAYERED (see §5), and one sample from
+these packs covers only one layer, which is not obviously better than the placeholder.
+
+| Placeholder | Brief (ProcSfx) | Try in Kenney | Honest verdict |
+|---|---|---|---|
+| `ZombieSwing` (~27 enemies, **the most-heard placeholder**) | heavy swing through air + wet grunt | `cloth1`–`4` for the air only | **Not in these packs.** Source a whoosh + a grunt (Sonniss GDC bundle) |
+| `SpitterSpit` | wet gather + release | — | Not in these packs |
+| `WallBreak` | a crack, then rubble | `impactMining_000`–`004`, `impactPlate_heavy_*` | Crack only; rubble needs a second layer |
+| `BossStomp` | armoured foot on stone, room-shaking | `impactPunch_heavy_*`, `impactPlate_heavy_*` | Missing the sub-bass the brief asks for |
+| `BossDeath` | blow, armour collapse, toll, dust | `impactBell_heavy_000` (1.5s) for the toll | One layer of four — keep the placeholder until layered |
+| `AltarPay` / `AltarRefuse` | harmonic, rising / falling | `confirmation_*` / `error_*` | These are UI blips; the altar is the Shift (magic) family — probably keep |
+| `BossLeap`, Well, portal traversal | — | — | Not in these packs |
 
 ⚠️ **`BossDeathVFX` falls back to `ProcSfx.BossDeath` in code** when a boss passes it an empty
 slot. Every boss death goes through it, so a new boss can never be silent at death, even
