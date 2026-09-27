@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardName: Fireball
   description: Throw a fireball for 15 damage.
-  cardArt: {fileID: 5353841184698615464, guid: 54bca31bd7cf12444bd473555e123706, type: 3}
-  nameIsPaintedIntoArt: 1
+  cardArt: {fileID: 7949831557799742714, guid: 3486e909743eac04989c2e00edace966, type: 3}
+  nameIsPaintedIntoArt: 0
   actionType: 7
   actionValue: 15
   singleUse: 0

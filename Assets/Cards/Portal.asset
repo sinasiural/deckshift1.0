@@ -15,8 +15,8 @@ MonoBehaviour:
   cardName: Portal
   description: "Place two linked portals \u2014 the first near you, the second up
     to 15 tiles from it. Walk in or press E to travel."
-  cardArt: {fileID: -5816642994671486895, guid: 8c21a6b86ca92a6488daa504d8eb0160, type: 3}
-  nameIsPaintedIntoArt: 1
+  cardArt: {fileID: -5816642994671486895, guid: bebb0022e3a16664d9b83255fc11a6b9, type: 3}
+  nameIsPaintedIntoArt: 0
   actionType: 8
   actionValue: 2
   singleUse: 0

@@ -536,7 +536,9 @@ The Scrap Forge and Blompo used to build their own card chips: a FlatUI plate wi
 
 ### ⚠️ THE FREEFALL BLADE FRAME IS THE CANONICAL CARD FRAME (designer, 2026-08-17)
 
-**All new card art uses it**, and the layout is fixed for every card: the **red ball** (charges, left), the **blue crystal** (Shift cost, right), an **empty name plate** (drawn in code — see below), and on cards that deal damage a **heart container**. `CardFace.Gem` is therefore the layout to tune and trust; **`CardFace.Classic` is legacy** and exists only until the 14 old cards are re-cut. When they are, delete `Classic` and the chooser with it.
+**All new card art uses it**, and the layout is fixed for every card: the **red ball** (charges, left), the **blue crystal** (Shift cost, right), an **empty name plate** (drawn in code — see below), and on cards that deal damage a **heart container**. `CardFace.Gem` is therefore the layout to tune and trust; **`CardFace.Classic` is legacy** and exists only until the old cards are re-cut — **3 left as of 2026-09-27** (Floor is Lava, Glass Wail, Create Platform). When they are, delete `Classic` and the chooser with it.
+
+**The 118-wide frame (2026-09-27 art: Dash, Leap, Phase, Portal, Vampiric Bite, like Shuriken)** measures ball (0.2250, 0.8806) and crystal (0.8292, 0.8756) against `Gem`'s (0.2188, 0.8796) / (0.8330, 0.8767) — under one screen pixel at hand size, verified by screenshot in the hand and on the run summary. No third layout needed.
 
 ⚠️ **The heart container is NOT BUILT — it is the designer's stated plan, not a request.** Do not invent a different mechanism for "does this card deal damage" in the meantime. When it lands, the machinery already exists: `CardUI.RefreshCardFace` draws a number into a heart for **Stagger** today (the `HEART_*` fraction constants), which is the same problem in the same place.
 

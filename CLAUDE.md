@@ -848,8 +848,23 @@ pulse.
 ⚠️ **The Freefall Blade frame is the canonical card frame** (designer, 2026-08-17): red ball = charges
 left, blue crystal = Shift cost right, an **empty name plate** drawn in code, and a heart container on
 cards that deal damage. New card art uses it, and ships with the name plate EMPTY —
-`CardData.nameIsPaintedIntoArt` defaults to `false`; the 14 older cards have their titles painted in
-and set that flag. `CardFace` is the single source for every screen **including the hand**.
+`CardData.nameIsPaintedIntoArt` defaults to `false`. **As of 2026-09-27 only 3 cards are still on the
+old painted-name 1024×1536 art** (Floor is Lava, Glass Wail, Create Platform); everything else is the
+canonical frame. `CardFace` is the single source for every screen **including the hand**.
+
+⚠️ **EVERY card has a Shift crystal, free ones included (designer, 2026-09-27)** — a Blompo blessing
+can give a card a cost, so the meter must always be there. Art that arrives without one is an art
+error, not a "free card" convention: the 2026-09-27 Dash / Leap / Fireball art was missing it and had
+the standard crystal composited in (Vampiric Bite's onto the checker frame, Adrenaline's, with its
+black ring, onto the rounded frame).
+
+⚠️ **Card art must be a 1× export with real transparency, on the 124×204 canvas**, sprite cut at the
+card's opaque box + 1px (`x2 y2 120×201` for the 118-wide frame; the older 116-wide frame is
+`x3 y4 118×200`). The same 2026-09-27 delivery arrived as **4× screenshots of the drawing app**: the
+app's background `(32,33,37)`, a black canvas line, and its transparency checkerboard `(192,192,192)` /
+`(128,128,128)` were all baked in as opaque pixels — the "checkered border" is NOT part of the frame.
+They were recovered exactly (the zoom was an integer with no smoothing: sample one pixel per 4×4 block,
+flood the background and checker greys from the edge). If it happens again, ask for a 1× PNG export.
 ## Camera System
 
 ### CameraFollow.cs (custom)
