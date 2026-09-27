@@ -656,6 +656,7 @@ public class PlayerController : MonoBehaviour
     {
         currentGold += amount;
         OnGoldChanged?.Invoke(currentGold);
+        RunStats.NoteGold(amount);
 
         if (QuestSystem.instance != null)
         {
@@ -1987,6 +1988,7 @@ public class PlayerController : MonoBehaviour
         // Nest Egg reads the same total, for the same reason: one funnel, so no Shift cost added
         // later can forget to be counted.
         shiftSpentThisRoom += amount;
+        RunStats.NoteShiftSpent(amount);
     }
 
     // How much Shift this room has cost so far. Nest Egg is scored against it when the room is

@@ -232,6 +232,7 @@ public class DeckManager : MonoBehaviour
             // recording what this play actually cost so Toll Booth can refund the real number.
             CardEnhancements.NotePlayed(playedCard, cost);
             cardsPlayedThisRoom++;
+            RunStats.NoteCardPlayed(data.cardName);
 
             // Blompo: "Understudy" pulls its bound partner into hand.
             if (playedCard.enhancement == CardEnhancement.Understudy)

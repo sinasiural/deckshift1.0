@@ -154,6 +154,7 @@ public class LevelManager : MonoBehaviour
             hasSpawnedFirstRoom = true;
             usedRoomPrefabs.Clear();
             pendingRecharge = RechargeType.None;
+            RunStats.BeginRun();
             mapMgr.BeginRun(SpawnableRecharges());
             mapMgr.EnterStart();
             // The tutorial stands in for the hub as the first room. The map is still generated, so
@@ -389,6 +390,17 @@ public class LevelManager : MonoBehaviour
 
         RunMapManager mgr = RunMapManager.instance;
 
+        // ⚠️ LEAVING THE FINAL BOSS'S ROOM IS WINNING THE RUN. This used to fall through to
+        // SpawnNextRoom, find nothing above the top floor, and quietly start a fresh map from the
+        // hub with the player's deck, relics and gold intact — a leftover from when a run had acts.
+        // A player who beat the game was dropped back at the start with no sign they had won.
+        if (mgr != null && mgr.IsRunFinished)
+        {
+            RunStats.Note("Won the run");
+            RunSummaryScreen.ShowVictory();
+            return;
+        }
+
         if (mgr == null || !mgr.HasMap || mgr.AvailableNext().Count == 0)
         {
             SpawnNextRoom();
@@ -484,6 +496,7 @@ public class LevelManager : MonoBehaviour
 
         MapNode at = RunMapManager.instance != null ? RunMapManager.instance.CurrentNode : null;
         Debug.Log($"Spawning room: {selectedRoomPrefab.name}" + (at != null ? $" — map node {at}" : " — no map"));
+        RunStats.NoteRoomEntered(selectedRoomPrefab.name, at);
 
         currentRoom = Instantiate(selectedRoomPrefab, Vector3.zero, Quaternion.identity);
 
@@ -492,6 +505,10 @@ public class LevelManager : MonoBehaviour
         if (selectedRoomPrefab == OwnMirrorRoom)
             foreach (IMirrorBoss mirror in currentRoom.GetComponentsInChildren<IMirrorBoss>(true))
                 mirror.SetFinale(true);
+
+        // Leaving the finale room wins the run, so its exit must stay barred while the boss lives.
+        if (at != null && at.type == MapNodeType.FinalBoss)
+            currentRoom.AddComponent<FinaleExitLock>();
 
         // Put every actor on the shared draw plane and shove decoration behind it. Opaque sprites
         // sort by camera depth, not sortingOrder, and each room had been authored at its own Z —

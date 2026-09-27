@@ -184,6 +184,8 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         if (RelicManager.instance != null)
             RelicManager.instance.OnEnemyKilled();
 
+        RunStats.NoteKill();
+
         if (QuestSystem.instance != null)
         {
             QuestSystem.instance.ReportEvent(QuestType.KillEnemy, 1);

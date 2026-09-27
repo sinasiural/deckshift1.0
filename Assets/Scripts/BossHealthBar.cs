@@ -102,6 +102,10 @@ public class BossHealthBar : MonoBehaviour
         if (!string.IsNullOrEmpty(displayName)) bossName = displayName;
         SetName(bossName);
 
+        // Every boss wakes through here, so it is the one place the run summary learns who the
+        // player fought (and, if it goes badly, who got them).
+        RunStats.NoteBossEngaged(bossHealth, bossName);
+
         if (health != null && !subscribed)
         {
             health.OnDamaged += HandleDamaged;

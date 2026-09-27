@@ -190,7 +190,10 @@ public class PlayerHealth : MonoBehaviour
             OnArmourChanged?.Invoke(armour);
         }
 
+        float before = currentHealth;
         currentHealth = Mathf.Max(currentHealth - damage, 0f);
+        // ignoreArmour is only ever set by PayHealthCost, i.e. Stagger's bill.
+        RunStats.NoteDamage(before - currentHealth, ignoreArmour, currentHealth);
 
         SfxManager.PlayOn(audioSource, hurtSound);
 
@@ -272,7 +275,12 @@ public class PlayerHealth : MonoBehaviour
     private IEnumerator WaitAndReload()
     {
         yield return new WaitForSeconds(1.5f);
-        SceneManager.LoadScene("GameOverScene");
+        RunStats.Note("Died");
+
+        // The run summary drops in over the room where it happened. The old GameOverScene is kept
+        // only as the fallback for a scene with no canvas to build it on.
+        if (!RunSummaryScreen.ShowDefeat())
+            SceneManager.LoadScene("GameOverScene");
     }
 
     public void ApplyKnockback(Vector2 knockbackForce)
