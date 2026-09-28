@@ -238,7 +238,7 @@ MonoBehaviour:
   - 0.55
   - 0.42
   - 0.32
-  currentGold: 500
+  currentGold: 50
   currentScrap: 0
   audioSource: {fileID: 7872518250570301061}
   dashSound: {fileID: 8300000, guid: 1f3da61f1655f6e4488574b4e351c8ce, type: 3}

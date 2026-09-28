@@ -217,7 +217,7 @@ re-assign after a rebuild. Each is built around ONE verb the pool did not have y
   between two tool calls). Any capture that disables `CameraFollow` or hides `GameplayHUD` must put
   both back afterwards.
 
-#### The second batch of 2026-09-28 — NOT in `roomPrefabs` yet (designer judges first)
+#### The second batch of 2026-09-28 — in the pool since the same day (`roomPrefabs[21..24]`, for the v0.2 demo)
 
 Built as pairs: an Easy room that TEACHES a thing, and a Hard room that TESTS it (as the Chapel
 teaches the Gallows' trapdoors and the Mill teaches the Crusher Works' presses).
@@ -809,7 +809,7 @@ Verified, not assumed. The tilemaps render with **`Sprite-Lit-Default` (URP 2D l
 
 `LevelManager.roomPrefabs` holds the pool of room prefabs. **Element 0 must be the hub;** elements 1..n are the run's combat levels. Boss and recharge rooms are NOT in this list. Bosses live in **`bossRoomPrefabs`** (a list, drawn without repeats within a run) plus **`finalBossRoomPrefab`**, and the recharge rooms in `foundryRoomPrefab` / `marketRoomPrefab` / `wellRoomPrefab`. (The old single `bossRoomPrefab` slot no longer exists.) The played character's `CharacterData.bossRoom` overrides the finale and is filtered out of that run's mid-map boss draws.
 
-**Verified pool contents (2026-09-28):** `[0] hub, [1] efeslevel1, [2] efeslevel2, [3] efeslevel3, [4] EfeVrl4, [5] EfeVrl5, [6] EfeVrl6, [7] EfeVrl7, [8] GenLevel7, [9] GenLevel8, [10] GenLevel9, [11] GenLevel10, [12] Descent (Skirmish), [13] TwoRoads (Fight), [14] Cistern (Fight), [15] CrusherWorks (Elite), [16] LongJump (Skirmish), [17] Chapel (Skirmish), [18] Stacks (Fight), [19] Gallows (Fight), [20] Ossuary (Elite)` — 20 combat rooms (commit 135d83a). Bosses: `bossRoomPrefabs = [BossRoom, NinjaArena, KagemushaHall]`, `finalBossRoomPrefab = BossRoom` (now only the fallback for an empty boss list; a character with no mirror draws their finale from the list each run). Recharge: `Foundry`, `Market`, `Well` (all in `Assets/LevelGenerated/`). So the run is **15 combat levels**.
+**Verified pool contents (2026-09-28):** `[0] hub, [1] efeslevel1, [2] efeslevel2, [3] efeslevel3, [4] EfeVrl4, [5] EfeVrl5, [6] EfeVrl6, [7] EfeVrl7, [8] GenLevel7, [9] GenLevel8, [10] GenLevel9, [11] GenLevel10, [12] Descent (Skirmish), [13] TwoRoads (Fight), [14] Cistern (Fight), [15] CrusherWorks (Elite), [16] LongJump (Skirmish), [17] Chapel (Skirmish), [18] Stacks (Fight), [19] Gallows (Fight), [20] Ossuary (Elite), [21] Mill (Skirmish), [22] ArcheryRange (Skirmish), [23] Watchtower (Elite), [24] Pendulum (Elite)` — 24 combat rooms (the last four added for the v0.2 demo, 2026-09-28). Bosses: `bossRoomPrefabs = [BossRoom, NinjaArena, KagemushaHall]`, `finalBossRoomPrefab = BossRoom` (now only the fallback for an empty boss list; a character with no mirror draws their finale from the list each run). Recharge: `Foundry`, `Market`, `Well` (all in `Assets/LevelGenerated/`). So the run is **15 combat levels**.
 
 ⚠️ **A room tagged for a tier is FAVOURED 2:1 over an untagged room, not used exclusively
 (2026-09-27).** `TryPickRoomForTier` used to draw from the tagged rooms alone until they ran out.

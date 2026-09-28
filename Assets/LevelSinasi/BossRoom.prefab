@@ -791,6 +791,17 @@ MonoBehaviour:
   pressHead: {fileID: 6760616499600397883}
   chainRenderer: {fileID: 7117456230834261617}
   chainAnchor: {fileID: 7086217843438045635}
+  hangingChains: []
+  chainHookHeight: 0
+  headVisual: {fileID: 0}
+  windupTime: 0
+  windupShake: 0.03125
+  releaseSound: {fileID: 0}
+  releaseVolume: 0.8
+  dustChips: 0
+  dustColor: {r: 0.6117647, g: 0.58431375, b: 0.5372549, a: 1}
+  dustColorDark: {r: 0.5137255, g: 0.47843137, b: 0.42745098, a: 1}
+  dustHalfWidth: 1
   travelDistance: 10
   slamSpeed: 40
   raiseSpeed: 3.5
