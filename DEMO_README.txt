@@ -14,6 +14,16 @@ STARTING THE GAME
 The first time you press PLAY, the game offers a short tutorial. It's worth it: the game has one big rule you need to know.
 
 
+NEW IN v0.2 (if you played the first demo)
+----------------------------------------
+- 13 new rooms, so runs repeat far less.
+- The run is longer: 15 floors to the final boss instead of 10.
+- You start with 50 gold instead of 500. Gold is worth something now.
+- The Samurai boss (Kagemusha) is clearer to fight: his glowing copies can be broken to hurt him,
+  and he now comes after you on the platforms too.
+- New card: Brace. New art on most cards, and a new mouse cursor.
+
+
 THE BIG RULE
 ------------
 Jumping costs SHIFT, and Shift does not come back on its own. It carries over from room to room
