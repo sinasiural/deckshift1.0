@@ -103,7 +103,10 @@ public static class LevelTextImporter
     // against the rock and its travel is measured down to the floor below, so it lands exactly on
     // it. Wire it by putting an 'L' lever nearby — a lever drives its NEAREST gate or crusher. It
     // crushes enemies (80) and the player (20), so a lever beside a crusher is a weapon the room
-    // hands you. Extracted from BossRoom's press into Assets/Prefabs/CrusherTrap.prefab.
+    // hands you. Extracted from BossRoom's press into Assets/Prefabs/CrusherTrap.prefab, and rebuilt
+    // 2026-09-28 as a 2-tile riveted ram on two chains (CrusherArtBaker); the ram's crushing face,
+    // collider and kill box are all 2 wide, centred on the 'P' cell. The Moss Knight's press is a
+    // separate object and stays as it was.
     private const string CrusherPrefabPath = "Assets/Prefabs/CrusherTrap.prefab";
 
     // Non-prefab structural markers, built procedurally:

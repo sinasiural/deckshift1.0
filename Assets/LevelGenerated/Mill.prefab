@@ -18355,7 +18355,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1832264076135703163, guid: 7eb73e3a3deb6e74c8d40871b5a31293, type: 3}
       propertyPath: travelDistance
-      value: 6.2562504
+      value: 5.8125
       objectReference: {fileID: 0}
     - target: {fileID: 8748549173788462492, guid: 7eb73e3a3deb6e74c8d40871b5a31293, type: 3}
       propertyPath: m_LocalPosition.x
@@ -19444,7 +19444,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1832264076135703163, guid: 7eb73e3a3deb6e74c8d40871b5a31293, type: 3}
       propertyPath: travelDistance
-      value: 6.2562504
+      value: 5.8125
       objectReference: {fileID: 0}
     - target: {fileID: 8748549173788462492, guid: 7eb73e3a3deb6e74c8d40871b5a31293, type: 3}
       propertyPath: m_LocalPosition.x

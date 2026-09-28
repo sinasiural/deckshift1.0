@@ -82,7 +82,8 @@ KagemushaHall**, so rebuilding those rooms reproduces them exactly as designed.
   route is a FREE route. The validator models it (free 8-way movement; the exit kick is 9, vs 11
   for a ground jump, ≈3 tiles above the surface).
 - **`P` crusher** — `Assets/Prefabs/CrusherTrap.prefab`, extracted from BossRoom's press and
-  rebuilt from crisp parts (the BossRoom head is a 1-tile spike plate stretched 8x). Place it in
+  rebuilt from crisp parts (the BossRoom head is a 1-tile spike plate stretched 8x); rebuilt AGAIN
+  2026-09-28 as a 2-wide riveted ram on chains (see Lessons below). Place it in
   the cell under a ceiling; the importer measures the drop to the floor below. **A lever drives its
   NEAREST gate OR crusher** (crusher mode = Lever's own momentary pull + cooldown clock). It kills
   every ordinary enemy (80) and hits the player for 20.
@@ -240,9 +241,28 @@ teaches the Gallows' trapdoors and the Mill teaches the Crusher Works' presses).
   in the same phase. GenLevel7 (never re-imported) keeps its hand-tuned ball.
 
 **Lessons:**
-- **The crusher prefab DRAWS 9 wide but only its 3-wide HEAD descends** (collider 3 wide, damage box
-  +0.1 each side). The wide piece is a fixed crossbar. So a lever 3 short of the press centre is safe
-  even though it stands under the crossbar's edge.
+- **The level crusher was REBUILT 2026-09-28** (designer: "too easy to kill enemies with it … it does
+  not look great … make it less wide"). The old one drew a 3-tile stone platform sprite scaled 3x to
+  9 tiles, and all of it descended, but only its middle 3 tiles had a collider. It read as a floating
+  ledge. Now:
+  - **One honest width: 2 tiles.** Sprite face, collider and kill box (+0.1 each side) all match, centred
+    on the `P` cell. The rooms' levers stand 3-4 short of the press centre, so they stay safe.
+  - **Art is baked from pack pixels** by `CrusherArtBaker` (Deckshift → Art → Bake Crusher Head) into
+    `Assets/Art/Traps/CrusherHead.png`: three riveted plates cut from the insides of the pack's iron
+    beams, two straps with chain lugs, and a continuous steel shoe with 11 teeth rebuilt from the spike
+    plate. **The mount copies the pack's own Elevator**: pulley blocks bolted 3px into the ceiling,
+    tiled `Chain 01` sprites hanging from them to the lugs (only their length changes, as the
+    Elevator's do).
+  - **It now telegraphs:** a 0.2s shudder and a Kenney metal clank before the drop, so a pull has to
+    be timed. On impact the ram kicks back 2px and grit bursts from under both edges.
+  - ⚠️ **The dust is the pack's lightest STEEL, not its stone.** The stone's brightest pixel is the
+    floor's own colour, and on screen the chips vanished into it.
+  - ⚠️ **The ram rests 0.44 lower than the old head** (it hangs below the pulleys), so Mill and Crusher
+    Works had their `travelDistance` overrides cut by exactly 0.44375 in the YAML. Crusher Works is
+    in the pool and was NOT re-imported. The importer measures new rooms from the prefab itself.
+  - **The Moss Knight's press is a separate object** (in `BossRoom.prefab`) sharing `CrusherTrap.cs`.
+    Every new behaviour (hanging chains, wind-up, dust, bounce) is a field that defaults OFF, so the
+    boss press is untouched; checked after the change.
 - **A wrecking ball (`K` at a cell centre) hangs its ball centre 3.37 below the pivot**, collider
   radius 1.27, swinging ±45°. To sweep a jump over a gap whose edges stand at row T, put `K` at row
   T+5 with a roof beam above it: a player standing at the gap's edge is then just clear (0.12) of the
