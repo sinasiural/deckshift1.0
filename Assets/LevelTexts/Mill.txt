@@ -1,0 +1,43 @@
+// The Mill  (EASY, 56x20)  -  built 2026-09-28
+//
+// A mill's press floor: two CRUSHERS hung from the roof beams, each with a LEVER three tiles short
+// of it. Shamblers wander in from the east and walk straight under the presses to reach you.
+// Stand at the lever, wait, pull: every one it flattens is a card charge you did not spend.
+//
+// It is the gentle version of the Crusher Works (Hard): the same press and lever, flat floor, fodder
+// only, nothing to fall into. The presses gate nothing, so a player who never touches a lever
+// walks out the same way, fighting.
+//
+// ⚠️ Spacing follows the Crusher Works notes: shamblers wake at 7 tiles (strictly) and walk
+//   1.2-1.8 tiles/s, so each lever is 3 short of its press and each pack within 6-8 of its lever.
+//
+// THE LOFT: one jump up between the presses, the room's one chest (Easy allows one) and a crystal.
+//
+// LAW 1: flat walking; levers, presses and the loft gate nothing. LAW 2: the loft is a rise of 4.
+//   LAW 7: spawn (4,5) to exit (52,3) is 50 apart. LAW 8: the spawn landing stands 2 above the floor,
+//   which no shamblers climb; the nearest is 17 tiles off.
+!name: Mill
+!tier: easy
+!theme: cellar
+!camera: tight
+
+########################################################
+########################################################
+##...............###..............###.................##
+##...............###..............###.................##
+##...............###..............###.................##
+##...............###..............###.................##
+##...............###..............###.................##
+##...............###..............###.................##
+##...............###..............###.................##
+##................P................P..................##
+##......................+.............................##
+##....................................................##
+##........................D...........................##
+##......................#####.........................##
+##..S...g........................................+....##
+##########............................................##
+##########.....L.....z.z........L.....z.l.z...g.....X.##
+########################################################
+########################################################
+########################################################

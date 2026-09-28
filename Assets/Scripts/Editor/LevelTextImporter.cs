@@ -1210,6 +1210,15 @@ public static class LevelTextImporter
                             GroundToSurface(go, cellY);
                             if (c == 'T') FlushWalkingSurface(go, cellY);
                         }
+                        // Wrecking balls swing in a TRAVELLING WAVE, not in lockstep: PendulumMotion
+                        // runs off Time.time, so every ball in a room used to hang in the same phase.
+                        // Offsetting each by its column gives a row of them a moving gap to run
+                        // through (2026-09-28, the Pendulum room).
+                        if (c == 'K')
+                        {
+                            var pendulum = go.GetComponentInChildren<PendulumMotion>();
+                            if (pendulum != null) pendulum.startOffset = col * 0.55f;
+                        }
                         if (c == 'L')
                         {
                             var lever = go.GetComponent<Lever>();

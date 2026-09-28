@@ -90,12 +90,17 @@ public static class BossTestMenu
     [MenuItem("Deckshift/Test/Play Room/Two Roads (Medium)")]        private static void RoomTwoRoads() => GoToRoom("TwoRoads");
     [MenuItem("Deckshift/Test/Play Room/The Cistern (Medium)")]      private static void RoomCistern()  => GoToRoom("Cistern");
     [MenuItem("Deckshift/Test/Play Room/The Crusher Works (Hard)")]  private static void RoomCrusher()  => GoToRoom("CrusherWorks");
-    // 2026-09-28. Not in LevelManager.roomPrefabs until the designer has judged them.
+    // 2026-09-28, first batch (in the pool since the same day)
     [MenuItem("Deckshift/Test/Play Room/The Long Jump (Easy)")]      private static void RoomLongJump() => GoToRoom("LongJump");
     [MenuItem("Deckshift/Test/Play Room/The Chapel (Easy)")]         private static void RoomChapel()   => GoToRoom("Chapel");
     [MenuItem("Deckshift/Test/Play Room/The Stacks (Medium)")]       private static void RoomStacks()   => GoToRoom("Stacks");
     [MenuItem("Deckshift/Test/Play Room/The Gallows (Medium)")]      private static void RoomGallows()  => GoToRoom("Gallows");
     [MenuItem("Deckshift/Test/Play Room/The Ossuary (Hard)")]        private static void RoomOssuary()  => GoToRoom("Ossuary");
+    // 2026-09-28, second batch
+    [MenuItem("Deckshift/Test/Play Room/The Mill (Easy)")]           private static void RoomMill()     => GoToRoom("Mill");
+    [MenuItem("Deckshift/Test/Play Room/The Archery Range (Easy)")]  private static void RoomArchery()  => GoToRoom("ArcheryRange");
+    [MenuItem("Deckshift/Test/Play Room/The Watchtower (Hard)")]     private static void RoomTower()    => GoToRoom("Watchtower");
+    [MenuItem("Deckshift/Test/Play Room/The Pit and the Pendulum (Hard)")] private static void RoomPendulum() => GoToRoom("Pendulum");
 
     private static void GoToRoom(string name)
     {

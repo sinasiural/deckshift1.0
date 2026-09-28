@@ -131,6 +131,13 @@ player by offsetting from an enemy buries them inside terrain, so every LOS chec
 looks like the feature is broken. **Stand the test player on a real floor found by raycast, and
 always run the control to confirm the test can still detect the bug.**
 
+⚠️ **ARCHERS NOW CHECK FOR EDGES TOO (2026-09-28).** `RangedEnemyAI` walks toward a player 7-10
+tiles away to close to attack range, and unlike `MeleeEnemyAI` / `ZombieSpitterAI` / `MimicAI` it had
+no edge check (and `MonsterController` has none), so an archer on a ledge walked straight off it.
+Live in the Cistern. It now probes 0.6 ahead (not 0.5: from a ledge's last cell 0.5 hits the tile
+boundary exactly), on the Ground layer via `EnemySenses.ResolveBlockers`, so there is no Inspector
+mask to leave empty. Verified by luring one to the end of its step: it stopped 0.5 short.
+
 **Still open, deliberately not done:** enemies still never jump (`inputJump` is written exactly once
 in the whole AI codebase, in `SlimeAI.cs`, as `false`), so they still stop dead at ledges; and
 `MeleeEnemyAI` still does not patrol, so 27 enemies stand frozen until aggroed. Both change

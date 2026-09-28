@@ -16,6 +16,15 @@ public class RangedEnemyAI : MonoBehaviour
     [Tooltip("What blocks sight. Left empty it falls back to the Ground layer — see EnemySenses.")]
     public LayerMask sightBlockers;
 
+    // ⚠️ Every other walking enemy checks for floor before it steps; the archer did not, so an
+    // archer on a ledge walked straight off it whenever the player was 7-10 tiles away (it closes
+    // to attack range). 0.6 rather than the 0.5 the others use: from the centre of a ledge's last
+    // cell, 0.5 probes EXACTLY the tile boundary and can read as floor (the Long Jump's spitter
+    // walked off that way). 2026-09-28.
+    [Header("Edges")]
+    public float edgeCheckOffsetX = 0.6f;
+    public float edgeCheckDepth = 1f;
+
     [Header("Ses")]
     // Played when the archer fires. PlayClipAtPoint requires no AudioSource component.
     [SerializeField] private AudioClip shootSound;
@@ -86,13 +95,21 @@ public class RangedEnemyAI : MonoBehaviour
             }
             else
             {
-                // MENZİLDE DEĞİL, YAKLAŞ!
-                if (player.position.x > transform.position.x)
-                    controller.inputMove.x = 1f;
-                else
-                    controller.inputMove.x = -1f;
+                // MENZİLDE DEĞİL, YAKLAŞ! (but never off a ledge)
+                float dir = player.position.x > transform.position.x ? 1f : -1f;
+                if (!IsEdgeAhead(dir))
+                    controller.inputMove.x = dir;
             }
         }
+    }
+
+    private bool IsEdgeAhead(float dirX)
+    {
+        Vector2 checkPos = (Vector2)transform.position + new Vector2(dirX * edgeCheckOffsetX, -0.1f);
+        // Ground is also what blocks its sight, and ResolveBlockers falls back to it, so this needs
+        // no Inspector slot that could be left empty (an empty mask would read every step as an edge).
+        LayerMask ground = EnemySenses.ResolveBlockers(0);
+        return Physics2D.Raycast(checkPos, Vector2.down, edgeCheckDepth, ground).collider == null;
     }
 
     private void OnDrawGizmosSelected()

@@ -1,0 +1,45 @@
+// The Archery Range  (EASY, 66x20)  -  built 2026-09-28
+//
+// A barracks shooting range. Archers stand on FIRING STEPS 4 tiles above the floor, and an archer
+// only looses when its target is within 1.5 tiles of its own height (RangedEnemyAI.yTolerance).
+// So the floor is SAFE: walk the range end to end and not one arrow flies.
+//
+// The lesson is that HEIGHT IS COVER - and in a game about jumping, that jumping exposes you. A
+// jump from the floor peaks 4.9 up, right through an archer's line. The shamblers on the floor are
+// the temptation: hop one near a step and you rise into the arrows.
+//
+// THE LOOT IS IN THE LINE OF FIRE: a crystal on the near end of each step, the room's one chest on
+// the high step between them with its own archer. Climbing up means fighting an archer at its own
+// height, on its own ground.
+//
+// ⚠️ Needs the archer edge check (RangedEnemyAI, 2026-09-28): without it an archer on a step walks
+//   off it toward a player 7-10 tiles away.
+//
+// LAW 1: flat walking from door to door; every step is optional. LAW 2: every step is a rise of 4.
+//   LAW 7: spawn (4,5) to exit (62,3) is 60 apart. LAW 8: the spawn dais stands 2 above the floor,
+//   which no shambler climbs; the first archer is 29 tiles away, under a roof over the first stretch.
+!name: ArcheryRange
+!tier: easy
+!theme: barracks
+!camera: tight
+
+##################################################################
+##################################################################
+#############...................................................##
+#############...................................................##
+#############...................................................##
+#############...................................................##
+#############...................................................##
+#############.........................+.........................##
+#############...........................Dr......................##
+#############........................######.....................##
+#############...................................................##
+##...........................+..................................##
+##...............................r.............g...r............##
+##..........................#######...........#######...........##
+##..S..g........................................................##
+#########.......................................................##
+#########........z.....z.......z.................l........g...X.##
+##################################################################
+##################################################################
+##################################################################

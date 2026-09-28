@@ -155,10 +155,12 @@ Sources in `LevelTexts/`, prefabs in `LevelGenerated/`. The designer asked for t
 | **Cistern** | Medium | cellar | a flooded hall of aqueduct piers. Hop the pier tops (6 Shift) or swim under the arches (1 Shift) past snipers; the card chest is on the pool floor |
 | **CrusherWorks** | Hard | prison | three lever-fired presses over the packs; an optional upper route over the press beams to Blompo and a Shift-altar vault |
 
-#### The five rooms of 2026-09-28 — NOT in `roomPrefabs` yet (designer judges first)
+#### The five rooms of 2026-09-28 — IN `roomPrefabs[16..20]` (designer: "keep them in the game")
 
 Sources in `LevelTexts/`, prefabs in `LevelGenerated/`, each reachable from **Deckshift → Test →
-Play Room**. Each is built around ONE verb the pool did not have yet:
+Play Room**. ⚠️ They are now referenced by the scene, so **re-importing one renumbers its fileIDs and
+silently drops it out of the pool** (see "Deleting and re-importing a prefab"). Edit in place, or
+re-assign after a rebuild. Each is built around ONE verb the pool did not have yet:
 
 | room | tier | theme | the idea |
 |---|---|---|---|
@@ -213,6 +215,45 @@ Play Room**. Each is built around ONE verb the pool did not have yet:
 - ⚠️ **The designer may be PLAYING in the Editor while you work** (a whole Gallows run happened
   between two tool calls). Any capture that disables `CameraFollow` or hides `GameplayHUD` must put
   both back afterwards.
+
+#### The second batch of 2026-09-28 — NOT in `roomPrefabs` yet (designer judges first)
+
+Built as pairs: an Easy room that TEACHES a thing, and a Hard room that TESTS it (as the Chapel
+teaches the Gallows' trapdoors and the Mill teaches the Crusher Works' presses).
+
+| room | tier | theme | the idea |
+|---|---|---|---|
+| **Mill** | Easy | cellar | two presses, each with a lever 3 short of it; shamblers walk under them to reach you. The gentle Crusher Works |
+| **ArcheryRange** | Easy | barracks | archers on firing steps 4 above a floor they cannot hit; the loot sits in their line. Teaches that height is cover, and that a jump near a step rises into the arrows |
+| **Watchtower** | Hard | prison | a 10-jump climb up a tower shaft; three of the ledges you must land on are level with an ARCHER'S NEST cut into the wall, and each nest keeps loot behind its archer |
+| **Pendulum** ("The Pit and the Pendulum") | Hard | crypt | five pillars over spiked pits, six 5-wide gaps, a wrecking ball swinging over every gap at jump height. Time each jump; a hit drops you into a pit whose ledge climbs out onto the NEXT pillar |
+
+**Tool and enemy changes made for them:**
+- ⚠️ **ARCHERS NOW STOP AT LEDGE EDGES** (`RangedEnemyAI.IsEdgeAhead`, 2026-09-28). `MonsterController`
+  has no edge logic and the archer had no check of its own, so an archer on a ledge walked straight
+  off it whenever the player was 7-10 away (it closes to attack range). This was live in the
+  CISTERN, whose archer stands on a 6-wide floating ledge. Probe 0.6, not the others' 0.5 (0.5 lands
+  on the tile boundary from a ledge's last cell). Verified: lured toward the end of a step, the
+  archer stopped at 28.5 with the edge at 28.0.
+- **Wrecking balls (`K`) swing in a TRAVELLING WAVE**: the importer sets `PendulumMotion.startOffset`
+  to `col * 0.55`, so a row of them opens one after another. They used to all run off `Time.time`
+  in the same phase. GenLevel7 (never re-imported) keeps its hand-tuned ball.
+
+**Lessons:**
+- **The crusher prefab DRAWS 9 wide but only its 3-wide HEAD descends** (collider 3 wide, damage box
+  +0.1 each side). The wide piece is a fixed crossbar. So a lever 3 short of the press centre is safe
+  even though it stands under the crossbar's edge.
+- **A wrecking ball (`K` at a cell centre) hangs its ball centre 3.37 below the pivot**, collider
+  radius 1.27, swinging ±45°. To sweep a jump over a gap whose edges stand at row T, put `K` at row
+  T+5 with a roof beam above it: a player standing at the gap's edge is then just clear (0.12) of the
+  ball at full swing, and a player jumping across is not.
+- **An archer on a firing step cannot see the floor near the step**: the step's own stone blocks its
+  sight line. Height is cover twice over.
+- **A floating strip is stamped from whole platform shapes, and their tops do not always line up**
+  (the Archery Range steps show a ~0.2 step between two pieces; an archer stood at y 6.79 on a 7.00
+  step). Existing importer behaviour, accepted in GenLevel7-10; noted so it is not mistaken for a bug.
+- ⚠️ **`recompile` can report `up_to_date` while edited scripts are NOT compiled.** Check with
+  reflection for the new member; `CompilationPipeline.RequestScriptCompilation()` forces it.
 
 ### TUTORIAL ROOM (built 2026-09-24) — the first room a new player sees
 
@@ -748,7 +789,7 @@ Verified, not assumed. The tilemaps render with **`Sprite-Lit-Default` (URP 2D l
 
 `LevelManager.roomPrefabs` holds the pool of room prefabs. **Element 0 must be the hub;** elements 1..n are the run's combat levels. Boss and recharge rooms are NOT in this list. Bosses live in **`bossRoomPrefabs`** (a list, drawn without repeats within a run) plus **`finalBossRoomPrefab`**, and the recharge rooms in `foundryRoomPrefab` / `marketRoomPrefab` / `wellRoomPrefab`. (The old single `bossRoomPrefab` slot no longer exists.) The played character's `CharacterData.bossRoom` overrides the finale and is filtered out of that run's mid-map boss draws.
 
-**Verified pool contents (2026-09-27):** `[0] hub, [1] efeslevel1, [2] efeslevel2, [3] efeslevel3, [4] EfeVrl4, [5] EfeVrl5, [6] EfeVrl6, [7] EfeVrl7, [8] GenLevel7, [9] GenLevel8, [10] GenLevel9, [11] GenLevel10, [12] Descent (Skirmish), [13] TwoRoads (Fight), [14] Cistern (Fight), [15] CrusherWorks (Elite)`. Bosses: `bossRoomPrefabs = [BossRoom, NinjaArena, KagemushaHall]`, `finalBossRoomPrefab = BossRoom` (now only the fallback for an empty boss list; a character with no mirror draws their finale from the list each run). Recharge: `Foundry`, `Market`, `Well` (all in `Assets/LevelGenerated/`). So the run is **15 combat levels**.
+**Verified pool contents (2026-09-28):** `[0] hub, [1] efeslevel1, [2] efeslevel2, [3] efeslevel3, [4] EfeVrl4, [5] EfeVrl5, [6] EfeVrl6, [7] EfeVrl7, [8] GenLevel7, [9] GenLevel8, [10] GenLevel9, [11] GenLevel10, [12] Descent (Skirmish), [13] TwoRoads (Fight), [14] Cistern (Fight), [15] CrusherWorks (Elite), [16] LongJump (Skirmish), [17] Chapel (Skirmish), [18] Stacks (Fight), [19] Gallows (Fight), [20] Ossuary (Elite)` — 20 combat rooms (commit 135d83a). Bosses: `bossRoomPrefabs = [BossRoom, NinjaArena, KagemushaHall]`, `finalBossRoomPrefab = BossRoom` (now only the fallback for an empty boss list; a character with no mirror draws their finale from the list each run). Recharge: `Foundry`, `Market`, `Well` (all in `Assets/LevelGenerated/`). So the run is **15 combat levels**.
 
 ⚠️ **A room tagged for a tier is FAVOURED 2:1 over an untagged room, not used exclusively
 (2026-09-27).** `TryPickRoomForTier` used to draw from the tagged rooms alone until they ran out.
