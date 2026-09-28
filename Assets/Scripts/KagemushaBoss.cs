@@ -31,9 +31,19 @@ public interface IMirrorBoss
 ///                  they all land at once. There is always a gap — and always one ON THE FLOOR, so
 ///                  a player at 0 Shift who cannot jump still has an answer. Reaches every ledge,
 ///                  so no tier is a refuge.
+///   THE LEAP       (2026-09-28) his answer to a player standing ABOVE him, where the Crossing runs
+///                  underneath. A gold column marks where he will come down; he leaps onto the
+///                  player's ledge with a downward cut and a shockwave runs along it both ways.
+///                  Jump off, or stand clear and hop the wave. He lands stuck for a beat: punish it.
 ///   THE REVEAL     finale only, at 40% health: his shadows stop fading — a Crossing leaves a SOLID
 ///                  him behind, marked like the real one — and Hundred Cuts fires twice. He
 ///                  doesn't pay Shift.
+///
+/// THE ONE RULE ABOUT SHADOWS (2026-09-28): a shadow you can see is a shadow you can break. It glows
+/// and a ring closes on it while it is breakable, and it dissolves at the click. It used to stand
+/// for seven seconds after the click looking exactly the same while quietly hurting the PLAYER on
+/// touch, which is why breaking one "did not always hurt him". Only the finale's Reveal keeps
+/// shadows after the click, because not being able to tell is the Reveal.
 ///
 /// ⚠️ HE NEVER TELEPORTS. Teleport-to-marker is the Ninja's identity. The Crossing is a dash you
 /// can watch; the shadow is where he WAS.
@@ -119,6 +129,32 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     public Color laneColor = new Color(0.980f, 0.706f, 0.365f, 1f);       // Torch gold, not the Ninja's red
     [Tooltip("The streak he leaves when he crosses. Cold steel against the player's warm gold.")]
     public Color streakColour = new Color(0.78f, 0.86f, 1f, 1f);
+    [Tooltip("The first Crossing that goes through the player slows time for a moment, with the shadow " +
+             "lit, so everyone sees the shadow once. 1 = off.")]
+    [Range(0.05f, 1f)] public float teachTimeScale = 0.3f;
+    [Tooltip("How long that slow moment lasts, in real seconds.")]
+    public float teachSeconds = 0.6f;
+
+    [Header("The Leap (TUNE BY EYE)")]
+    [Tooltip("He leaps only at a player standing at least this far above his feet. A low ledge is 3.")]
+    public float leapMinRise = 1.5f;
+    [Tooltip("Seconds between leaps. While it cools he crosses as usual, underneath you.")]
+    public float leapCooldown = 4f;
+    [Tooltip("The crouch before the leap. The landing column is drawn for all of it.")]
+    public float leapWindup = 0.7f;
+    public float leapFlightTime = 0.75f;
+    [Tooltip("How far above the higher end of the jump the arc peaks.")]
+    public float leapApexAbove = 2.5f;
+    [Tooltip("Width of the landing cut, and of the column that warns of it.")]
+    public float leapHitWidth = 2.6f;
+    public float leapDamage = 20f;
+    public float leapKnockback = 8f;
+    [Tooltip("The shockwave that runs along the ledge from where he lands. One hit per leap in total.")]
+    public float waveSpeed = 13f;
+    public float waveHeight = 0.9f;
+    public float waveDamage = 14f;
+    [Tooltip("He stands on your ledge this long after landing. The punish window.")]
+    public float leapRecovery = 1.1f;
 
     [Header("Hundred Cuts (TUNE BY EYE)")]
     [Tooltip("Seconds between Hundred Cuts. It has first refusal in the loop, on a timer.")]
@@ -196,6 +232,15 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     // The Crossing's pending cut. The shadow that can cancel it is `crossingShadow`.
     private ShadowDouble crossingShadow;
     private bool crossingCancelled;
+    private HangingCut pendingCut;         // the cut hanging on the player until the click
+    private bool taughtCrossing;
+    private bool teachSlowing;             // true while THIS boss holds Time.timeScale at teachTimeScale
+
+    private float nextLeap;
+    private LaneTelegraph leapColumn;      // held as fields so death can clear them mid-leap
+    private SpriteRenderer leapSpot;
+    private CutStreak waveL, waveR;
+    private bool leaping;                  // in the air: animator VelocityY is driven by the arc, not the body
 
     private void RestoreGravity() { if (rb != null) rb.gravityScale = baseGravityScale; }
 
@@ -265,9 +310,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     private void OnDestroy()
     {
         if (health != null) health.OnDied -= OnBossDied;
-        ClearAnimatorState();
-        RestoreGravity();
-        SetPlayerCollision(true);
+        ReleaseLatches();
         if (dim != null) Destroy(dim.gameObject);
         // ⚠️ FAIL TOWARD PASSABLE. However he leaves the world, the exit must not stay sealed.
         if (exit != null) exit.SetLocked(false);
@@ -328,8 +371,9 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     }
 
     // ---- the loop ----------------------------------------------------------------------------------
-    // Two attacks. Hundred Cuts has first refusal on its timer; otherwise he crosses. That is the
-    // rhythm: cross, cross, the room goes dark, cross, cross…
+    // Hundred Cuts has first refusal on its timer. Otherwise: a player standing above him gets the
+    // Leap (on its cooldown), and everyone else gets crossed. So every height has an answer — the
+    // floor is crossed, a ledge is leapt onto, and Hundred Cuts reaches everywhere.
     private IEnumerator FightLoop()
     {
         while (health != null && health.CurrentHealth > 0f)
@@ -338,15 +382,28 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
                 player = GameManager.instance.player.transform;
             if (player == null) { yield return null; continue; }
 
+            int chain = twisted ? 3 : (finale ? 2 : 1);
             if (Time.time >= nextCuts && IsGrounded())
             {
                 nextCuts = Time.time + cutsInterval;
                 yield return StartCoroutine(HundredCutsRoutine());
                 if (twisted) yield return StartCoroutine(HundredCutsRoutine());   // the Reveal: twice
             }
+            else if (IsGrounded() && Time.time >= nextLeap && FindPlayerLedge(out Vector2 landing, out float left, out float right))
+            {
+                nextLeap = Time.time + leapCooldown;
+                bool leapt = false;
+                yield return StartCoroutine(LeapRoutine(landing, left, right, ok => leapt = ok));
+                // No clear arc to the ledge from anywhere he can reach: cross instead.
+                if (!leapt) yield return StartCoroutine(CrossingRoutine(chain));
+            }
+            else if (IsGrounded() && PlayerBelow())
+            {
+                yield return StartCoroutine(StepDown());
+                continue;                                  // decide again from the floor
+            }
             else if (IsGrounded())
             {
-                int chain = twisted ? 3 : (finale ? 2 : 1);
                 yield return StartCoroutine(CrossingRoutine(chain));
             }
 
@@ -370,9 +427,13 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
             if (player == null) break;
             float ddx = want - transform.position.x;
             float step = Mathf.Sign(ddx);
-            bool moving = Mathf.Abs(ddx) > 0.4f && !WallAhead(step) && IsGrounded();
+            bool grounded = IsGrounded();
+            bool moving = Mathf.Abs(ddx) > 0.4f && !WallAhead(step) && grounded;
             if (moving) { rb.linearVelocity = new Vector2(step * walkSpeed, rb.linearVelocity.y); FaceDirection(step); }
-            else rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            // ⚠️ Hold him still only while he STANDS. Zeroing his sideways speed in the air stopped
+            // him dead the moment his centre passed a ledge's end, perched on its corner, and then
+            // cancelled SlipOffCorner's push every frame. In the air, leave him to the physics.
+            else if (grounded) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
             if (animator != null)
             {
                 animator.SetBool("IsMoving", moving);
@@ -381,7 +442,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
             }
             yield return null;
         }
-        rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        if (IsGrounded()) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
         if (animator != null) { animator.SetBool("IsMoving", false); animator.SetFloat("MoveBlendX", 0f); }
         FaceTowardPlayer();
     }
@@ -428,7 +489,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
             if (shadow != null)
             {
                 shadow.Appear(transform.position, facingRight, twisted ? 1f : doubleAlpha);
-                shadow.SetState(ShadowDouble.State.Armed);
+                shadow.Arm(markColour);                     // glowing, ring open: breakable
                 shadow.ShowMark(twisted, markColour);
                 shadow.Pose(true, false, 0, false);          // crouched, hand on hilt — as he was
                 shadows.Add(shadow);
@@ -462,11 +523,16 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
                     rb.linearVelocity = new Vector2(dir * crossSpeed, 0f);
                     streak.SetEnd(ChestPoint);
 
-                    // Crossed, not cut. A spark says "that counted"; the damage waits for the click.
+                    // Crossed, not cut. The cut HANGS on the player from here until the click, so
+                    // they can see it is coming and that it has not landed yet.
                     if (!crossedPlayer && PlayerInBox(ChestPoint, new Vector2(1.2f, crossHeight)))
                     {
                         crossedPlayer = true;
-                        if (player != null) Puff((Vector2)player.position + Vector2.up * 0.9f, 6, 1.2f, dir);
+                        if (player != null)
+                        {
+                            Puff((Vector2)player.position + Vector2.up * 0.9f, 6, 1.2f, dir);
+                            if (pendingCut == null) pendingCut = HangingCut.Hang(player, new Vector2(0f, 0.95f), markColour);
+                        }
                         if (HitStop.instance != null) HitStop.instance.Stop(0.03f);
                     }
 
@@ -489,28 +555,43 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         }
 
         // ---- the window -------------------------------------------------------------------------
-        // He stands. You have crossSheatheDelay to reach a shadow. The mark pulses on him — the
-        // only motion on him while the cut hangs.
+        // He stands. You have crossSheatheDelay to reach a shadow. Every shadow's ring starts closing
+        // now and reaches its smallest on the click; the cut on the player flickers faster in step.
+        foreach (var s in shadows) if (s != null) s.StartClock(crossSheatheDelay);
+        if (!taughtCrossing && crossedPlayer && shadows.Count > 0)
+        {
+            taughtCrossing = true;
+            StartCoroutine(TeachBeat());
+        }
+
         float wait = 0f;
         while (wait < crossSheatheDelay && !crossingCancelled)
         {
             wait += Time.deltaTime;
             if (rb != null && IsGrounded()) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
             if (mark != null) mark.color = new Color(markColour.r, markColour.g, markColour.b, 0.35f + 0.35f * Mathf.PingPong(wait * 4f, 1f));
+            if (pendingCut != null) pendingCut.SetUrgency(wait / crossSheatheDelay);
             yield return null;
         }
         if (mark != null) mark.color = new Color(markColour.r, markColour.g, markColour.b, 0.55f);
         crossingShadow = null;
 
         // ---- the click ----------------------------------------------------------------------------
+        // The shadows go with it. Only the Reveal leaves them standing — solid, marked, and cutting
+        // whoever touches them — because there, not being able to tell is the point.
         foreach (var s in shadows)
-            if (s != null && s.Current == ShadowDouble.State.Armed) s.SetState(ShadowDouble.State.Standing);
+        {
+            if (s == null || s.Current != ShadowDouble.State.Armed) continue;
+            if (twisted) s.SetState(ShadowDouble.State.Standing);
+            else s.StartCoroutine(s.Dissolve(0.3f));
+        }
         doublesExpire = Time.time + doubleLifetime;
 
         if (!crossingCancelled)
         {
             SfxManager.PlayOn(sfx, SheatheClip, sfxVolume);
             FaceTowardPlayer();
+            if (pendingCut != null) { pendingCut.Land(); pendingCut = null; }
             if (crossedPlayer && player != null)
             {
                 var pc = player.GetComponent<PlayerController>();
@@ -575,6 +656,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
         if (HitStop.instance != null) HitStop.instance.Stop(0.06f);
 
         crossingCancelled = true;
+        if (pendingCut != null) { pendingCut.Cancel(); pendingCut = null; }   // the cut falls off you
         if (health != null) health.TakeDamage(shatterDamage);
 
         if (shiftCrystalPrefab != null)
@@ -584,6 +666,308 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
                 if (c.GetComponent<TemporaryObject>() == null) c.AddComponent<TemporaryObject>();
             }
     }
+
+    // The first time a Crossing goes through the player, time slows for a moment with the shadow
+    // glowing and the cut hanging on them: everyone sees the shadow once; after that it is theirs.
+    // ⚠️ Time.timeScale is taken only if it is exactly 1 (not paused, not mid hit-stop, not
+    // Adrenaline's slow motion) and given back only if it is still ours. Whatever changed it in
+    // between owns it now. Released from death and OnDestroy too: a stopped coroutine skips finally.
+    private IEnumerator TeachBeat()
+    {
+        if (teachTimeScale >= 0.999f || !Mathf.Approximately(Time.timeScale, 1f)) yield break;
+        Time.timeScale = teachTimeScale;
+        teachSlowing = true;
+        try { yield return new WaitForSecondsRealtime(teachSeconds); }
+        finally { EndTeachBeat(); }
+    }
+
+    private void EndTeachBeat()
+    {
+        if (!teachSlowing) return;
+        teachSlowing = false;
+        if (Mathf.Approximately(Time.timeScale, teachTimeScale)) Time.timeScale = 1f;
+    }
+
+    // ================================================================================================
+    // THE LEAP
+    // ================================================================================================
+    // His answer to a player standing above him, where the Crossing runs underneath (designer,
+    // 2026-09-28: "we need the high attack as well"). He goes somewhere he can jump from, crouches
+    // under a gold column that marks where he will come down, leaps in a high arc onto the player's
+    // ledge and lands with a downward cut; then a shockwave runs along the ledge both ways.
+    //
+    // THE COLUMN IS THE CONTRACT: the landing is fixed when it is drawn and never follows the
+    // player, so stepping off the ledge during the crouch is the dodge. The wave is what makes the
+    // rest of the ledge unsafe, so standing clear of the landing still costs a jump (Shift). He then
+    // stands on YOUR ledge for leapRecovery: the punish window.
+    //
+    // ⚠️ The arc is flown KINEMATIC (no collision with the room) and checked clear of rock at every
+    // step before he commits. That is what keeps the stuck-watchdog from firing mid-flight without
+    // an exemption flag, and why a ledge right above him is jumped to from beside it, not through it.
+    private IEnumerator LeapRoutine(Vector2 landing, float left, float right, System.Action<bool> done)
+    {
+        // ---- somewhere to jump from ---------------------------------------------------------------
+        if (!ArcClear(transform.position, landing))
+        {
+            float? takeoff = FindTakeoff(landing);
+            if (takeoff == null) { done(false); yield break; }
+            yield return StartCoroutine(WalkTo(takeoff.Value, 1.4f));
+            if (!IsGrounded() || !ArcClear(transform.position, landing)) { done(false); yield break; }
+        }
+        Vector2 from = transform.position;
+
+        // ---- the crouch, under the column -----------------------------------------------------------
+        FaceDirection(landing.x - from.x);
+        if (rb != null) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        if (animator != null) { animator.SetBool("IsMoving", false); animator.SetFloat("MoveBlendX", 0f); animator.SetBool("IsCrouching", true); }
+
+        Vector2 colTop = landing + Vector2.up * (leapApexAbove + 3f);
+        Vector2 colFoot = landing + Vector2.up * 0.05f;
+        leapColumn = LaneTelegraph.Build(colTop, colFoot, leapHitWidth, LaneTelegraph.Style.Default(laneColor));
+        leapSpot = LandingSpot(landing);
+        float t = 0f;
+        while (t < leapWindup)
+        {
+            t += Time.deltaTime;
+            leapColumn.SetIntensity(Mathf.Clamp01(t / leapWindup));
+            leapSpot.color = new Color(laneColor.r, laneColor.g, laneColor.b, Mathf.Lerp(0.35f, 0.75f, t / leapWindup));
+            yield return null;
+        }
+
+        // ---- the flight -----------------------------------------------------------------------------
+        if (animator != null) { animator.SetBool("IsCrouching", false); animator.SetBool("IsGrounded", false); }
+        SfxManager.PlayOn(sfx, DrawClip, sfxVolume);
+        Puff(from, 8, 1.1f, from.x < landing.x ? -1f : 1f);
+        SetPlayerCollision(false);
+        leaping = true;
+        try
+        {
+            if (rb != null) { rb.linearVelocity = Vector2.zero; rb.bodyType = RigidbodyType2D.Kinematic; }
+            float ft = 0f, lastY = from.y;
+            while (ft < leapFlightTime)
+            {
+                ft += Time.fixedDeltaTime;
+                Vector2 p = ArcPoint(from, landing, Mathf.Clamp01(ft / leapFlightTime));
+                if (rb != null) rb.MovePosition(p); else transform.position = new Vector3(p.x, p.y, transform.position.z);
+                if (animator != null) animator.SetFloat("VelocityY", (p.y - lastY) / Time.fixedDeltaTime);
+                lastY = p.y;
+                yield return new WaitForFixedUpdate();
+            }
+            transform.position = new Vector3(landing.x, landing.y, transform.position.z);
+            if (rb != null) rb.position = landing;
+        }
+        finally
+        {
+            leaping = false;
+            if (rb != null) { rb.bodyType = RigidbodyType2D.Dynamic; rb.linearVelocity = Vector2.zero; }
+            RestoreGravity();
+            // ⚠️ He lands where the player was standing, so the two bodies usually OVERLAP here.
+            // Turning collision straight back on made the solver pop him ~3 units into the air
+            // (measured). Rejoin once the landing knockback has separated them.
+            if (PlayerInBox(ChestPoint, CapsuleSize)) StartCoroutine(RejoinPlayerCollision());
+            else SetPlayerCollision(true);
+            ClearLeapTelegraph();
+        }
+
+        // ---- the landing cut --------------------------------------------------------------------------
+        FaceTowardPlayer();
+        if (animator != null) { animator.SetBool("IsGrounded", true); animator.SetInteger("AttackAction", SWIPE_ACTION); animator.SetBool("IsAttacking", true); }
+        SfxManager.PlayOn(sfx, LandClip, sfxVolume);
+        if (CameraShake.instance != null) CameraShake.instance.Shake(0.28f, 0.45f);
+        Puff(landing, 10, 1.3f, -1f);
+        Puff(landing, 10, 1.3f, 1f);
+
+        bool hit = false;
+        if (PlayerInBox(landing + Vector2.up * 1f, new Vector2(leapHitWidth, 2f)))
+        {
+            hit = true;
+            HurtPlayer(leapDamage, leapKnockback, landing.x);
+        }
+
+        // ---- the shockwave along the ledge ------------------------------------------------------------
+        float reachL = Mathf.Max(0f, landing.x - left), reachR = Mathf.Max(0f, right - landing.x);
+        Vector2 line = landing + Vector2.up * 0.08f;
+        waveL = CutStreak.Begin(line, laneColor, 0.07f, 9);
+        waveR = CutStreak.Begin(line, laneColor, 0.07f, 9);
+        float travelled = 0f, nextPuff = 0f;
+        while (travelled < Mathf.Max(reachL, reachR))
+        {
+            travelled += waveSpeed * Time.deltaTime;
+            float xl = landing.x - Mathf.Min(travelled, reachL);
+            float xr = landing.x + Mathf.Min(travelled, reachR);
+            waveL.SetEnd(new Vector2(xl, line.y));
+            waveR.SetEnd(new Vector2(xr, line.y));
+
+            Vector2 box = new Vector2(0.8f, waveHeight);
+            if (!hit && ((travelled <= reachL && PlayerInBox(new Vector2(xl, landing.y + waveHeight * 0.5f), box)) ||
+                         (travelled <= reachR && PlayerInBox(new Vector2(xr, landing.y + waveHeight * 0.5f), box))))
+            {
+                hit = true;
+                HurtPlayer(waveDamage, leapKnockback * 0.75f, landing.x);
+            }
+
+            if (travelled >= nextPuff)
+            {
+                nextPuff = travelled + 0.7f;
+                if (travelled <= reachL) Puff(new Vector2(xl, landing.y), 4, 0.8f, -1f);
+                if (travelled <= reachR) Puff(new Vector2(xr, landing.y), 4, 0.8f, 1f);
+            }
+            yield return null;
+        }
+        ReleaseWave();
+
+        // ---- stuck on your ledge ------------------------------------------------------------------------
+        yield return new WaitForSeconds(0.25f);
+        if (animator != null) animator.SetBool("IsAttacking", false);
+        yield return new WaitForSeconds(leapRecovery);
+        done(true);
+    }
+
+    private IEnumerator RejoinPlayerCollision()
+    {
+        float t = 0f;
+        while (t < 0.6f && PlayerInBox(ChestPoint, CapsuleSize)) { t += Time.deltaTime; yield return null; }
+        SetPlayerCollision(true);
+    }
+
+    private void HurtPlayer(float damage, float knockback, float fromX)
+    {
+        if (player == null) return;
+        var pc = player.GetComponent<PlayerController>();
+        if (pc == null) return;
+        float kdir = Mathf.Sign(player.position.x - fromX); if (kdir == 0f) kdir = 1f;
+        CutMark.Spawn((Vector2)player.position + Vector2.up * 0.9f, streakColour, 1.5f);
+        if (HitStop.instance != null) HitStop.instance.Stop(0.08f);
+        pc.TakeDamage(damage);
+        pc.ApplyKnockback(new Vector2(kdir * knockback, knockback * 0.7f));
+    }
+
+    // A soft gold pool on the ledge where he will land, under the column.
+    private SpriteRenderer LandingSpot(Vector2 at)
+    {
+        var go = new GameObject("LeapLandingSpot");
+        go.AddComponent<TemporaryObject>();
+        go.transform.position = new Vector3(at.x, at.y + 0.08f, PlayPlane.Z + 0.05f);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = FlatUI.SoftGlow();
+        sr.sortingOrder = 2;
+        Vector2 native = sr.sprite.bounds.size;
+        go.transform.localScale = new Vector3(leapHitWidth * 1.15f / native.x, 0.6f / native.y, 1f);
+        sr.color = new Color(laneColor.r, laneColor.g, laneColor.b, 0.35f);
+        return sr;
+    }
+
+    // Is the player standing on something above him? Then where on it can he land, and how wide is it.
+    private bool FindPlayerLedge(out Vector2 landing, out float left, out float right)
+    {
+        landing = default; left = right = 0f;
+        if (player == null) return false;
+        int ground = LayerMask.GetMask("Ground");
+        var hit = Physics2D.Raycast((Vector2)player.position + Vector2.up * 0.1f, Vector2.down, 0.6f, ground);
+        if (hit.collider == null) return false;                              // mid-air: nothing to aim at
+        if (hit.point.y < transform.position.y + leapMinRise) return false;   // his level: cross them
+
+        SurfaceExtent(hit.point, out left, out right);
+        float margin = Mathf.Min(1f, (right - left) * 0.5f);
+        landing = new Vector2(Mathf.Clamp(player.position.x, left + margin, right - margin), hit.point.y);
+        return !Blocked(landing + Vector2.up * 0.05f + BodyOffset, CapsuleSize * 0.9f);
+    }
+
+    // Walk a standing surface out both ways from `p` until the ground ends or a wall starts.
+    private static void SurfaceExtent(Vector2 p, out float left, out float right)
+    {
+        left = right = p.x;
+        for (float x = p.x; x > p.x - 40f; x -= 0.25f) { if (!SurfaceAt(new Vector2(x, p.y))) break; left = x; }
+        for (float x = p.x; x < p.x + 40f; x += 0.25f) { if (!SurfaceAt(new Vector2(x, p.y))) break; right = x; }
+    }
+
+    private static bool SurfaceAt(Vector2 p)
+    {
+        bool floor = Physics2D.Raycast(p + Vector2.up * 0.3f, Vector2.down, 0.6f, LayerMask.GetMask("Ground")).collider != null;
+        return floor && !Blocked(p + Vector2.up * 0.6f, new Vector2(0.1f, 0.6f));
+    }
+
+    // Nearest spot on his own floor from which the whole arc is clear. The whole floor is scanned
+    // rather than a few spots beside the ledge: in the Hall the ONLY ways up to the shelf are the
+    // two 2-tile gaps between it and the low ledges, and fixed guesses either side of the shelf
+    // all came out underneath a ledge.
+    private float? FindTakeoff(Vector2 landing)
+    {
+        float y = transform.position.y, best = float.MaxValue;
+        float? pick = null;
+        for (float x = landing.x - 14f; x <= landing.x + 14f; x += 0.5f)
+        {
+            var down = Physics2D.Raycast(new Vector2(x, y + 1f), Vector2.down, 1.5f, LayerMask.GetMask("Ground"));
+            if (down.collider == null || Mathf.Abs(down.point.y - y) > 0.3f) continue;   // not his floor
+            Vector2 at = new Vector2(x, down.point.y);
+            if (Blocked(at + Vector2.up * 0.05f + BodyOffset, CapsuleSize * 0.9f)) continue;
+            if (!ArcClear(at, landing)) continue;
+            float d = Mathf.Abs(x - transform.position.x);
+            if (d < best) { best = d; pick = x; }
+        }
+        return pick;
+    }
+
+    // A pounce, not a lob: the sideways travel is eased in (t squared), so he springs mostly UP
+    // first and swoops across onto the ledge at the end. A plain parabola drifted sideways while
+    // still low and clipped the underside of whatever ledge stood beside the take-off.
+    private Vector2 ArcPoint(Vector2 a, Vector2 b, float t)
+    {
+        float apex = Mathf.Max(a.y, b.y) + leapApexAbove;
+        float h = apex - (a.y + b.y) * 0.5f;
+        return new Vector2(Mathf.Lerp(a.x, b.x, t * t), Mathf.Lerp(a.y, b.y, t) + 4f * h * t * (1f - t));
+    }
+
+    private bool ArcClear(Vector2 a, Vector2 b)
+    {
+        const int Steps = 40;
+        Vector2 size = CapsuleSize * 0.9f;
+        for (int i = 1; i <= Steps; i++)
+        {
+            Vector2 p = i == Steps ? b + Vector2.up * 0.05f : ArcPoint(a, b, i / (float)Steps);
+            if (Blocked(p + BodyOffset, size)) return false;
+        }
+        return true;
+    }
+
+    // Walk (the pack's walk blend) to x, stopping at walls; gives up after `timeout`. Walks off
+    // ledges on purpose: that is how he steps down to a player below him.
+    private IEnumerator WalkTo(float x, float timeout)
+    {
+        float t = 0f;
+        while (t < timeout && rb != null)
+        {
+            t += Time.deltaTime;
+            float ddx = x - transform.position.x;
+            if (Mathf.Abs(ddx) < 0.2f) break;
+            float step = Mathf.Sign(ddx);
+            if (WallAhead(step)) break;
+            rb.linearVelocity = new Vector2(step * walkSpeed, rb.linearVelocity.y);
+            FaceDirection(step);
+            if (animator != null) { animator.SetBool("IsMoving", true); animator.SetFloat("MoveBlendX", 1f); animator.SetFloat("MoveSpeedMul", 1f); }
+            yield return null;
+        }
+        if (rb != null) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        if (animator != null) { animator.SetBool("IsMoving", false); animator.SetFloat("MoveBlendX", 0f); }
+    }
+
+    // He is up on a ledge and the player is below: walk off toward them and drop, rather than
+    // crossing thin air at ledge height.
+    private bool PlayerBelow() =>
+        player != null && player.position.y < transform.position.y - leapMinRise;
+
+    private IEnumerator StepDown()
+    {
+        // Off whichever end of his ledge is nearer the player — walking toward the player's x alone
+        // would strand him on the ledge above a player standing right underneath it.
+        SurfaceExtent(transform.position, out float l, out float r);
+        float x = Mathf.Abs(player.position.x - l) < Mathf.Abs(player.position.x - r) ? l - 1f : r + 1f;
+        yield return StartCoroutine(WalkTo(x, 2f));
+        float t = 0f;
+        while (t < 2f && !IsGrounded()) { t += Time.deltaTime; yield return null; }
+    }
+
+    private Vector2 BodyOffset => body != null ? body.offset : Vector2.up;
 
     // ================================================================================================
     // HUNDRED CUTS
@@ -786,9 +1170,10 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     {
         if (!fightStarted) return;
         EnsureNotStuck();
+        SlipOffCorner();
 
         bool grounded = IsGrounded();
-        if (animator != null)
+        if (animator != null && !leaping)   // mid-leap the arc drives these (a kinematic body reports no velocity)
         {
             animator.SetBool("IsGrounded", grounded);
             animator.SetFloat("VelocityY", rb != null ? rb.linearVelocity.y : 0f);
@@ -816,9 +1201,7 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
     private void OnBossDied()
     {
         StopAllCoroutines();
-        ClearAnimatorState();
-        SetPlayerCollision(true);
-        RestoreGravity();
+        ReleaseLatches();
         OpenExit();
         if (dim != null) dim.gameObject.SetActive(false);
         if (MusicManager.instance != null) MusicManager.instance.StopBossMusic();
@@ -958,11 +1341,60 @@ public class KagemushaBoss : MonoBehaviour, IBossFight, IMirrorBoss
             }
     }
 
+    // ⚠️ PERCHED ON A CORNER. Walking off the end of a ledge, his capsule can come to rest on the
+    // ledge's very corner with the centre ray over empty air: not grounded, so the fight loop waits
+    // for ground, and not falling, so the ground never comes. Found in play the first time he had a
+    // ledge to walk off (2026-09-28): he froze on the Hall's left ledge for good. Slide him off the
+    // side that is not holding him. Skipped while gravity is off (a Crossing) or he is leaping.
+    private void SlipOffCorner()
+    {
+        if (leaping || rb == null || rb.bodyType != RigidbodyType2D.Dynamic || rb.gravityScale <= 0f) { perchedFor = 0f; return; }
+        if (IsGrounded() || Mathf.Abs(rb.linearVelocity.y) > 0.05f) { perchedFor = 0f; return; }
+        perchedFor += Time.deltaTime;
+        if (perchedFor < 0.15f) return;
+
+        int ground = LayerMask.GetMask("Ground");
+        float halfW = CapsuleSize.x * 0.5f, reach = CapsuleSize.y * 0.5f + 0.3f;
+        Vector2 c = ChestPoint;
+        bool leftHeld = Physics2D.Raycast(c + Vector2.left * halfW, Vector2.down, reach, ground).collider != null;
+        bool rightHeld = Physics2D.Raycast(c + Vector2.right * halfW, Vector2.down, reach, ground).collider != null;
+        float away = leftHeld && !rightHeld ? 1f : rightHeld && !leftHeld ? -1f : (facingRight ? 1f : -1f);
+        rb.linearVelocity = new Vector2(away * 3f, -1f);
+    }
+    private float perchedFor;
+
     private void SetPlayerCollision(bool enabled)
     {
         if (body == null || GameManager.instance == null || GameManager.instance.player == null) return;
         var pc = GameManager.instance.player.GetComponent<Collider2D>();
         if (pc != null) Physics2D.IgnoreCollision(body, pc, !enabled);
+    }
+
+    // Everything a stopped coroutine could leave held. Called from death and OnDestroy, because
+    // StopAllCoroutines skips `finally` blocks: the finallys alone are not enough.
+    private void ReleaseLatches()
+    {
+        ClearAnimatorState();
+        leaping = false;
+        if (rb != null && rb.bodyType != RigidbodyType2D.Dynamic) rb.bodyType = RigidbodyType2D.Dynamic;
+        RestoreGravity();
+        SetPlayerCollision(true);
+        EndTeachBeat();
+        if (pendingCut != null) { pendingCut.Cancel(); pendingCut = null; }
+        ClearLeapTelegraph();
+        ReleaseWave();
+    }
+
+    private void ClearLeapTelegraph()
+    {
+        if (leapColumn != null) { leapColumn.Clear(); leapColumn = null; }
+        if (leapSpot != null) { Destroy(leapSpot.gameObject); leapSpot = null; }
+    }
+
+    private void ReleaseWave()
+    {
+        if (waveL != null) { waveL.Release(0.3f); waveL = null; }
+        if (waveR != null) { waveR.Release(0.3f); waveR = null; }
     }
 
     // ⚠️ Called from death and OnDestroy too. These bools live on a controller the PLAYER also

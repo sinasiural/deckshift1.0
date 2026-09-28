@@ -118,6 +118,9 @@ public class ShadowDouble : MonoBehaviour
     {
         transform.position = new Vector3(position.x, position.y, PlayPlane.Z);
         gameObject.SetActive(true);
+        // A shadow recycled while an old Dissolve is still running would be faded out and switched
+        // off by it a moment after appearing.
+        StopAllCoroutines();
         Face(faceRight);
         SetAlpha(withAlpha);
         Current = State.Standing;
@@ -147,6 +150,89 @@ public class ShadowDouble : MonoBehaviour
     }
 
     public void SetState(State s) => Current = s;
+
+    // ---- the armed cue ---------------------------------------------------------------------------
+    // ⚠️ AN ARMED SHADOW MUST LOOK BREAKABLE. It used to be a faded figure crouching and nothing
+    // more: no player could tell that touching it was the fight's damage route, or that it had a
+    // deadline (designer, 2026-09-28: "it needs to be clearer"). Now it glows in the fight's warning
+    // gold, and a ring round it closes on the moment he sheathes. The cue shows exactly while the
+    // state is Armed, so it can never promise a break that will not happen.
+    private SpriteRenderer aura, ring;
+    private Color cueColour = Color.white;
+    private float clockLength = 1f, clockT;
+    private bool clockRunning;
+    private const float RingStart = 2.8f, RingEnd = 1.0f;   // world diameters
+
+    /// <summary>Breakable from now until it strikes or is sheathed: glowing, ring open.</summary>
+    public void Arm(Color colour)
+    {
+        Current = State.Armed;
+        cueColour = colour;
+        clockRunning = false;
+        clockT = 0f;
+        BuildCue();
+        UpdateCue();
+    }
+
+    /// <summary>Start the ring closing: it reaches its smallest in exactly `seconds`.</summary>
+    public void StartClock(float seconds)
+    {
+        if (Current != State.Armed) return;
+        clockLength = Mathf.Max(0.05f, seconds);
+        clockT = 0f;
+        clockRunning = true;
+    }
+
+    private void BuildCue()
+    {
+        if (aura != null) return;
+        aura = CueSprite("Aura", FlatUI.SoftGlow(), -2, 0.08f);
+        ring = CueSprite("Ring", FlatUI.Ring(), 12, -0.08f);
+    }
+
+    private SpriteRenderer CueSprite(string name, Sprite sprite, int order, float z)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(transform, false);
+        go.transform.localPosition = new Vector3(0f, 1.0f, z);   // centred on the chest
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sortingOrder = order;
+        return sr;
+    }
+
+    private void Update() => UpdateCue();
+
+    private void UpdateCue()
+    {
+        if (aura == null) return;
+        bool armed = Current == State.Armed;
+        aura.enabled = armed;
+        ring.enabled = armed;
+        if (!armed) return;
+
+        if (clockRunning) clockT += Time.deltaTime;
+        float k = clockRunning ? Mathf.Clamp01(clockT / clockLength) : 0f;
+        Color c = cueColour;
+
+        // A slow breath while it waits, quickening as the ring closes.
+        float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Lerp(6f, 20f, k));
+        aura.color = new Color(c.r, c.g, c.b, Mathf.Lerp(0.30f, 0.55f, pulse));
+        SizeTo(aura, 2.0f, 2.9f);
+
+        float d = Mathf.Lerp(RingStart, RingEnd, k);
+        SizeTo(ring, d, d);
+        ring.color = new Color(c.r, c.g, c.b, Mathf.Lerp(0.55f, 1f, k));
+    }
+
+    // ⚠️ Scale TO a world size, never BY one: both sprites are 100-PPU textures of fixed pixel size.
+    private static void SizeTo(SpriteRenderer sr, float w, float h)
+    {
+        Vector2 native = sr.sprite.bounds.size;
+        Vector3 parent = sr.transform.parent != null ? sr.transform.parent.lossyScale : Vector3.one;
+        sr.transform.localScale = new Vector3(w / (native.x * Mathf.Max(0.0001f, Mathf.Abs(parent.x))),
+                                              h / (native.y * Mathf.Max(0.0001f, Mathf.Abs(parent.y))), 1f);
+    }
 
     public void Face(bool right)
     {
@@ -251,8 +337,11 @@ public class ShadowDouble : MonoBehaviour
             return;
         }
 
-        // Touched at or after the strike: it cuts like he does. Rate-limited, because a player
-        // standing inside a Standing double would otherwise be hit every physics step.
+        // Touched at or after the strike: it cuts like he does. Since 2026-09-28 a shadow only
+        // outlives the click in the finale's Reveal, where "you can't tell" is the point; everywhere
+        // else it dissolves at the click, so a copy you can see is always a copy you can break.
+        // Rate-limited, because a player standing inside a Standing double would otherwise be hit
+        // every physics step.
         if (Time.time < nextTouchTime) return;
         nextTouchTime = Time.time + 0.6f;
         float dirX = Mathf.Sign(pc.transform.position.x - transform.position.x);

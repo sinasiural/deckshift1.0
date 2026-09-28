@@ -138,10 +138,12 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         currentHealth -= damage;
 
         // Executioner's Seal (relic): a hit that leaves a non-boss enemy at/under 20% HP finishes it.
-        // NOTE: only the Moss Knight is excluded today — future bosses must be added to this guard.
+        // ⚠️ Bosses are recognised by IBossFight, which every boss implements (the awaken trigger
+        // needs it). This used to name the Moss Knight alone, so the Seal executed the Ninja and
+        // Kagemusha outright at 20%.
         if (currentHealth > 0 && currentHealth <= maxHealth * 0.2f
             && RelicManager.instance != null && RelicManager.instance.HasRelic("ExecutionersSeal")
-            && GetComponent<MossKnightBoss>() == null)
+            && GetComponent<IBossFight>() == null)
         {
             currentHealth = 0;
         }

@@ -39,6 +39,16 @@ testing traps it paid for. The rules shared by all of them:
 - **Every boss gives a card-free way to hurt it and a Shift income**, because a 0-Shift player with no
   attack cards must still be able to win (Kagemusha: break his shadow before he sheathes; the Ninja:
   pick up and throw back his shurikens as Borrowed Steel).
+- ⚠️ **The card-free route must LOOK like one, and must never change sides silently.** Kagemusha's
+  shadows used to hurt him before the click and the PLAYER after it, looking identical, so "breaking a
+  copy did not always hurt him" (fixed 2026-09-28: they glow, a ring closes on the deadline, and they
+  vanish at the click). If a thing the player is meant to touch can also punish them, it must look
+  different in each state.
+- **Every boss implements `IBossFight`, and boss exclusions key off it**, never off a named boss type.
+  The Executioner's Seal named only the Moss Knight and so executed the Ninja and Kagemusha outright
+  at 20% until 2026-09-28.
+- **A boss must threaten every height it lets you stand at.** Kagemusha's Crossing was flat, so every
+  ledge was a refuge until the Leap was added (`BossDesign_Samurai.md` → KIT v2.1).
 - ⚠️ **Killing a boss in the same code call that spawned its room proves nothing**: `Start()` has not
   run yet. Spawn in one call, act in the next (or use `wait_for`).
 - ⚠️ **A locked arena is centred ABOVE the hand rail**; see the levels skill.

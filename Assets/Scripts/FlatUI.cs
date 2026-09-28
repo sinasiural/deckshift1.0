@@ -28,7 +28,7 @@ public static class FlatUI
     private static Sprite softGlow, verticalFade, horizontalFade, bottomGlow, fadedRule, rivet, pixel;
     private static Sprite emberDot, fourPointStar, arcaneSigil, arcaneSeal;
     private static Sprite calibrationMark, sweepLine;
-    private static Sprite pinTack, waxSeal;
+    private static Sprite pinTack, waxSeal, ring;
     private static Sprite[] raritySigils;   // one glyph per Rarity — see RaritySigil
 
     // Solid chamfered plate. chamfer 10 = windows, 5 = cards and buttons.
@@ -507,6 +507,27 @@ public static class FlatUI
     private static float Falloff(float d, float reach)
     {
         return Mathf.Pow(Mathf.Clamp01(1f - d / reach), 1.4f);
+    }
+
+    // A thin anti-aliased ring. A deadline you can see: scaled down around something until the
+    // moment it runs out (the Kagemusha's armed shadows).
+    public static Sprite Ring()
+    {
+        if (ring != null) return ring;
+        const int S = 128;
+        const float Thick = 6f;
+        Texture2D tex = NewTex(S);
+        float c = (S - 1) * 0.5f, rOut = c - 1f, rIn = rOut - Thick;
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float d = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c));
+                float a = Mathf.Clamp01(rOut - d + 0.5f) * Mathf.Clamp01(d - rIn + 0.5f);
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+        tex.Apply();
+        ring = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f);
+        return ring;
     }
 
     // 1x1 white — flat fills and hard edges.

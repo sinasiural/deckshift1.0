@@ -322,13 +322,13 @@ MonoBehaviour:
   markColour: {r: 0.98, g: 0.706, b: 0.365, a: 1}
   betweenAttacks: 1
   walkSpeed: 4.5
-  preferredRange: 6
-  repositionJitter: 2.5
+  preferredRange: 5
+  repositionJitter: 1.5
   crossWindup: 0.55
   crossSpeed: 34
   crossOvershoot: 3.2
   crossMaxLength: 14
-  crossSheatheDelay: 1.1
+  crossSheatheDelay: 1.7
   crossDamage: 20
   crossKnockback: 8
   crossHeight: 2
@@ -338,6 +338,20 @@ MonoBehaviour:
   crystalsPerShatter: 1
   laneColor: {r: 0.98, g: 0.706, b: 0.365, a: 1}
   streakColour: {r: 0.78, g: 0.86, b: 1, a: 1}
+  teachTimeScale: 0.3
+  teachSeconds: 0.6
+  leapMinRise: 1.5
+  leapCooldown: 4
+  leapWindup: 0.7
+  leapFlightTime: 0.75
+  leapApexAbove: 2.5
+  leapHitWidth: 2.6
+  leapDamage: 20
+  leapKnockback: 8
+  waveSpeed: 13
+  waveHeight: 0.9
+  waveDamage: 14
+  leapRecovery: 1.1
   cutsInterval: 11
   cutsCount: 12
   cutsLineInterval: 0.09

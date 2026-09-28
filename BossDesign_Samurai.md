@@ -35,7 +35,7 @@ The two references that could not be hand-written (a Cainos preset is a prefab V
 fileID is Unity-computed) were assigned through the editor and are now in the asset.
 | Per-character finale plumbing (`CharacterData.bossRoom`, `IMirrorBoss`) | ✅ built 2026-09-17 |
 | Arena `KagemushaHall.txt` → prefab, `RoomCamera` 10, bounds bound to interior, trigger | ✅ built, in `bossRoomPrefabs` |
-| `KagemushaBoss` — kneel, awaken, Draw, Overhead, Split, Sheathe, death | ✅ **built and smoke-tested** |
+| `KagemushaBoss` — kneel, awaken, Draw, Overhead, Split, Sheathe, death | ✅ **built and smoke-tested** (kit v2, then v2.1 on 2026-09-28: readable shadows + the Leap; see "KIT v2.1") |
 | `ShadowDouble` — mirror, strike, shatter, crystal | ✅ **built and verified** |
 | `LaneTelegraph` — standalone lane warning (cut / streaks / notch / premonition) | ✅ |
 | `BossHealthBar_Kagemusha.prefab` (12 steel plates, Wound-red chunk, lacquer frame) | ✅ |
@@ -291,6 +291,64 @@ declined. Kept: the kneeling trio at the start.
 **Smoke-tested, zero errors:** the Crossing runs and leaves Standing shadows; Hundred Cuts dims
 the hall, draws twelve lines with a legible floor pocket, and lands. Ability FEEL is the
 designer's to judge.
+
+## KIT v2.1 — clarity, and a move for the ledges (designer, 2026-09-28)
+
+The designer's report after playing: *"it is still unclear to me how we damage the boss itself, and the
+boss only has 1 attack that damages you if you are on any of the floating platforms."* They like the
+shadow idea; it was not reading. What was actually wrong, found in the code:
+
+- **A shadow had two states that looked identical.** Armed (before the click) it hurt HIM for 12.
+  After the click it stood for another **7 seconds**, unchanged, and touching it hurt the PLAYER for 12.
+  So "breaking a copy" genuinely did not always hurt him. That was the "does not deal damage every
+  time" report.
+- **Nothing said a shadow was breakable, or that it had a deadline.** A faded man crouching, nothing more.
+- **The cut hanging over you was one spark.** Nothing said "it lands when he sheathes; you can still stop it".
+- **The window was 1.1s**, and the shadow could be ~8.5 tiles behind you (you are watching him, not it).
+- **The Crossing is a flat dash at his own height.** A player on any ledge was safe from it, and could
+  drop down, break the shadow he left for free damage and a crystal, and climb back.
+
+**What changed:**
+
+| | now |
+|---|---|
+| **The rule** | *A shadow you can see is a shadow you can break.* It dissolves at the click. Only the finale's Reveal keeps shadows after it (solid, and they cut) because not being able to tell IS the Reveal. |
+| **The shadow** | glows in the fight's warning gold, and a ring round it closes on the click (`ShadowDouble.Arm` / `StartClock`). |
+| **The cut on you** | `HangingCut`: a gold slash across the player's chest from the moment he passes through until the click, flickering faster as it nears. Breaking a shadow makes it fall off. |
+| **The window** | 1.1 → **1.7s**, and he crosses from closer (`preferredRange` 6 → 5, jitter 2.5 → 1.5), so the shadow is 3.5–6.5 tiles away. |
+| **Teaching** | the first Crossing that goes through you slows time to 0.3 for 0.6s real, shadow glowing, cut hanging. Once per fight. |
+| **THE LEAP** (new) | when you stand **1.5+ above his feet**: a gold column marks your spot, he crouches (0.7s), pounces onto your ledge (20) and a shockwave runs along it both ways (14; one hit per leap). Then he stands on your ledge for 1.1s: punish it. 4s cooldown; while it cools he crosses underneath as before. |
+| **Stepping down** | if he is up on a ledge and you are below, he walks off the nearer end rather than crossing thin air. |
+
+So every height has an answer: **the floor is crossed, a ledge is leapt onto, Hundred Cuts reaches everywhere.**
+
+**Traps paid for while building it (all in `KagemushaBoss.cs`):**
+- ⚠️ **The leap is flown KINEMATIC and checked clear of rock before he commits**, so the stuck-watchdog
+  never fires mid-flight and needs no exemption flag. The arc is a **pounce** (sideways travel eased in,
+  t²): a plain parabola drifted sideways while still low and clipped the ledge beside the take-off.
+- ⚠️ **In the Hall the only ways up to the shelf are the two 2-tile gaps beside it.** The stamped ledge
+  pieces are wider than the text grid (x 10–18 and 30–38, tops at 8.78/9.0; the shelf top is 12.92), so
+  fixed take-off guesses all landed under a ledge. `FindTakeoff` scans his whole floor for the nearest
+  clear arc.
+- ⚠️ **He could PERCH on a ledge's corner and freeze for good**: centre ray over air (not grounded, so
+  every attack waited) and not falling. Caused by `RepositionRoutine` zeroing his sideways speed the
+  moment he lost ground, which also cancelled any push off. It now only holds him still while he
+  stands, and `SlipOffCorner` slides him off whichever side is not holding him.
+- ⚠️ **He lands where the player stood, so the bodies overlap**; re-enabling collision at once popped
+  him ~3 units into the air. Collision rejoins once the knockback has separated them (≤0.6s).
+- ⚠️ **The teaching slow-motion takes `Time.timeScale` only if it is exactly 1 and gives it back only
+  if it is still its own** (pause, hit-stop and Adrenaline all write it too).
+
+**Also fixed here:** the **Executioner's Seal** relic (finish any non-boss at ≤20%) excluded only the
+Moss Knight by name, so it **executed Kagemusha and the Ninja outright at 20%**. It now excludes
+anything implementing `IBossFight`. Verified: Seal held, 50 → 40 HP, he lives.
+
+**Verified in play, 2026-09-28:** breaking a shadow mid-window: 220 → 208 and again 208 → 196, player
+untouched, shadow gone; an unbroken window: the cut lands and both shadows are gone at the click; the
+leap onto a low ledge (the landing cut, 100 → 80) and onto the shelf through the gap (take-off found at
+x 29.5); a player who stepped 3 tiles clear of the column was caught by the wave (100 → 86); a landing
+on the player stayed at shelf height (12.93) with no pop; afterwards he walks off and fights on from
+the floor. **Not judged: how it FEELS.** That is the designer's to play.
 
 ## 3. The Kagemusha — the thesis, and why he is not the Ninja again
 

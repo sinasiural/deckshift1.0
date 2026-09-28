@@ -98,6 +98,82 @@ public class CutStreak : MonoBehaviour
     }
 }
 
+/// <summary>
+/// A cut that has been MADE but has not LANDED: a hairline across a target's chest that hangs there,
+/// follows them, and flickers faster as the moment it lands comes closer. The Kagemusha's Crossing
+/// hangs one on the player, and that is its whole job — to say "you have been cut, it lands when he
+/// sheathes, and you can still stop it". Before it existed the only sign was a single spark.
+/// Land() snaps it into a CutMark; Cancel() lets it fall away.
+/// </summary>
+public class HangingCut : MonoBehaviour
+{
+    private Transform target;
+    private Vector2 offset;
+    private SpriteRenderer core, glow;
+    private Color colour;
+    private float size, urgency, fadeT = -1f;
+    private const float FALL = 0.25f;
+
+    public static HangingCut Hang(Transform target, Vector2 offset, Color colour, float size = 1.3f)
+    {
+        var go = new GameObject("HangingCut");
+        go.AddComponent<TemporaryObject>();
+        var h = go.AddComponent<HangingCut>();
+        h.target = target; h.offset = offset; h.colour = colour; h.size = size;
+        h.glow = CutStreak.Strip(go.transform, "Glow", 10);
+        h.core = CutStreak.Strip(go.transform, "Core", 11);
+        h.Follow();
+        h.Redraw(1f);
+        return h;
+    }
+
+    /// <param name="k">0 when the cut is made, 1 at the moment it lands.</param>
+    public void SetUrgency(float k) => urgency = Mathf.Clamp01(k);
+
+    public void Land()
+    {
+        CutMark.Spawn(transform.position, colour, size * 1.2f);
+        Destroy(gameObject);
+    }
+
+    public void Cancel() { if (fadeT < 0f) fadeT = 0f; }
+
+    private void LateUpdate()
+    {
+        if (target == null) { Destroy(gameObject); return; }
+
+        if (fadeT >= 0f)
+        {
+            // Cancelled: it drops off the body and fades, rather than blinking out.
+            fadeT += Time.deltaTime;
+            offset += Vector2.down * (2f * Time.deltaTime);
+            Follow();
+            float k = 1f - fadeT / FALL;
+            if (k <= 0f) { Destroy(gameObject); return; }
+            Redraw(k * 0.8f);
+            return;
+        }
+
+        Follow();
+        float rate = Mathf.Lerp(4f, 14f, urgency);                 // flickers faster as it nears
+        Redraw(0.7f + 0.3f * Mathf.Sin(Time.time * rate * Mathf.PI * 2f));
+    }
+
+    private void Follow() =>
+        transform.position = new Vector3(target.position.x + offset.x, target.position.y + offset.y, PlayPlane.Z);
+
+    private void Redraw(float a)
+    {
+        Vector2 c = transform.position;
+        CutStreak.Size(core, size, 0.06f);
+        CutStreak.Aim(core, c, 35f, 0.07f);
+        CutStreak.Size(glow, size * 1.05f, 0.24f);
+        CutStreak.Aim(glow, c, 35f, 0.08f);
+        core.color = new Color(1f, 1f, 1f, a);
+        glow.color = new Color(colour.r, colour.g, colour.b, 0.65f * a);
+    }
+}
+
 /// <summary>An X snapping open at a point of contact and fading. See CutStreak.</summary>
 public class CutMark : MonoBehaviour
 {
