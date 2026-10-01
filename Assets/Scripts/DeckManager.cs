@@ -39,6 +39,19 @@ public class DeckManager : MonoBehaviour
     // BASE capacity. Read HandCapacity, never this — a character's trait can raise it.
     public int handCapacity = 4;
 
+    // ⚠️ PLAYTEST RULE (designer, 2026-10-02). ON: a played card goes back into its own slot instead
+    // of the discard pile, so it can be played again and again until its charges run out. Recall is
+    // unchanged — it still discards the whole hand and draws a new one, at the same escalating price.
+    // OFF: the original rule, where a played card is gone until the next Recall.
+    //
+    // Why it is being tried: under the original rule a card's real Shift price is a share of a Recall
+    // that gets dearer every time, so a missed Fireball is billed later, and bigger, as an extra
+    // refill. Kept as a switch so both rules can be played in the same build.
+    [Header("Playtest Rule")]
+    [Tooltip("ON: played cards stay in your hand until their charges run out; Recall swaps the hand. " +
+             "OFF: the original rule — played cards go to the discard pile until you Recall.")]
+    public bool cardsStayInHand = true;
+
     // ⚠️ THE ONE PLACE HAND SIZE IS DECIDED. Every full-hand check goes through here, so a trait
     // that grants a slot cannot be honoured by the draw and then forgotten by, say, the Teacher's
     // Pet pull or the Stagger check. Same reasoning as CardEnhancements.EffectiveCost.
@@ -296,14 +309,25 @@ public class DeckManager : MonoBehaviour
                 return;
             }
 
+            // Still has charges to give (or is in a room that never spends them). Under the original
+            // rule this is exactly the set of cards that goes to the discard pile.
+            bool stillCharged = keepCharges
+                || (playedCard.isInfinite || playedCard.currentUses > 0) && (!data.singleUse || playedCard.isInfinite);
+
+            // Playtest rule: every card that would have been discarded goes back into its slot
+            // instead. A card that has run dry falls through to the exhaust routing below as usual.
+            if (cardsStayInHand && (stillCharged || CardEnhancements.StaysInHand(playedCard)))
+            {
+                ReturnToHand(playedCard, index);
+            }
             // Blompo: "Clingy" never leaves the hand at all — it goes straight back, so it costs a
             // hand slot forever in exchange for always being available. Once it runs dry it falls
             // through to the normal routing below and burns out like anything else.
-            if (CardEnhancements.StaysInHand(playedCard))
+            else if (CardEnhancements.StaysInHand(playedCard))
             {
                 hand.Add(playedCard);
             }
-            else if (keepCharges || (playedCard.isInfinite || playedCard.currentUses > 0) && (!data.singleUse || playedCard.isInfinite))
+            else if (stillCharged)
             {
                 discardPile.Add(playedCard);
             }
@@ -313,7 +337,8 @@ public class DeckManager : MonoBehaviour
             // leaves the broader one available for a different card.
             else if (CardEnhancements.RescueFromExhaust(playedCard))
             {
-                discardPile.Add(playedCard);
+                if (cardsStayInHand) ReturnToHand(playedCard, index);
+                else discardPile.Add(playedCard);
             }
             else if (!clampUsedThisRoom && RelicManager.instance != null
                      && RelicManager.instance.HasRelic("ReclaimersClamp"))
@@ -422,6 +447,18 @@ public class DeckManager : MonoBehaviour
         }
         // Not found means it is exhausted, or it is the card that was just played. Silently doing
         // nothing is right: the bond is a bonus, and failing it must never block the play.
+    }
+
+    // Playtest rule (cardsStayInHand): put a card that was just played back into the slot it was
+    // played from. The SAME slot, not the end of the hand, so the key that played it plays it again;
+    // appending would reshuffle every [1]-[9] hint after each play. The hand UI shows the play as a
+    // copy floating off while the card settles back in with its new charge count.
+    private void ReturnToHand(RuntimeCard card, int index)
+    {
+        // PlayCard has already cleared selectedIndex. A card left flagged as selected would still
+        // draw lifted in the hand while no card is actually selected.
+        card.isSelected = false;
+        hand.Insert(Mathf.Clamp(index, 0, hand.Count), card);
     }
 
     // "Echo": recast after a delay, so the first cast's ConflictFlags have expired.

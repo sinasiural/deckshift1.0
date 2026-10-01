@@ -451,6 +451,15 @@ The gravity reversal factor compensates for the 180° Z rotation inverting the v
 
 `DeckManager` maintains four piles: `drawPile`, `hand`, `discardPile`, `exhaustPile`. **Recall** (R key) is the player's manual refresh action — costs Shift, redraws the hand, cost increases each use within a level.
 
+⚠️ **PLAYTEST RULE, switched ON 2026-10-02: `DeckManager.cardsStayInHand`.** A played card goes back
+into its own slot instead of the discard pile, so it can be replayed until its charges run out; only
+Recall discards (unchanged, same escalating price). **The designer is TRYING it, not keeping it yet** —
+untick the box for the original rule. Known side effects while it is on, deliberately left for the
+verdict: **Never Say Die** turns a card into an unlimited free attack (the cut innate attack — must be
+fixed if the rule stays), **Clingy** only keeps its survive-Recall half, **Understudy** can push the
+hand one card over its limit, the Ninja's **Fast Hands** and the Recall relics lose most of their
+point, and **tutorial sign 6** still describes the old rule.
+
 ### Card Enhancements — Blompo's blessings (24 of them, rebuilt 2026-08-14)
 
 **`CardEnhancements.cs` is the whole system: the enum, the metadata, the eligibility rules AND every runtime hook.** Adding a blessing is one file, not eight.
