@@ -246,7 +246,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4813e138349d3bd47bc9e51b493d345a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 40
+  maxHealth: 30
   playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
@@ -256,7 +256,7 @@ MonoBehaviour:
   stunSkinnedRenderers:
   - {fileID: 4620261557865731894}
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
-  scrapDropOverride: -1
+  scrapDropOverride: 3
 --- !u!70 &3441777526412479726
 CapsuleCollider2D:
   m_ObjectHideFlags: 0

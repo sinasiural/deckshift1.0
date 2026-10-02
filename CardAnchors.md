@@ -96,7 +96,8 @@ The card's total effect — damage + heal-value + condition-value — should lan
 |---|---|---|---|
 | **Fodder** | 12 | **1 (one-shot)** | Zombie Shambler `z` (12), Slime (10), Spitter `s` (18, ranged glass) |
 | **Grunt** | 25 | 2 | Zombie Rotbrute `Z` (25), Ranged (25) |
-| **Soldier** | 40 | 3 (or 1 Comet Dive) | Melee (40), Mimic (30), Shield ~40 (no sprite) |
+| **Soldier** | 40 | 3 (or 1 Comet Dive) | Shield ~40 (no sprite) |
+| *(between)* | 30 | 2 | Melee skeleton (30 since 2026-10-02, still drops 3 scrap), Mimic (30) |
 | **Elite** | 70 | ~5 | future |
 | **Mini-boss** | 140 | ~10 | future |
 | **Boss** | 300 | — | Moss Knight (keep) |
@@ -154,6 +155,10 @@ the two `m_Materials.Array.data[0]` modifications on the nested FBX instance.
 - ~~**Retune existing enemy HP**~~ **DONE 2026-07-16.** Melee 30→40, Ranged 20→25. Slime 10 (fodder,
   kept), Shambler 12 (fodder), Boss 300 (kept). Mimic left at 30 — sits between grunt (25) and
   soldier (40); designer's call whether to snap it to a tier.
+- **Melee back 40 → 30 (designer, 2026-10-02).** Three Fireballs on the most common real enemy was
+  the "my main attack can't even kill a skeleton" feeling, and with charges now the only per-play
+  limit on a card (played cards stay in the hand), every extra hit is a charge gone for the run.
+  Its scrap is pinned at 3 by `scrapDropOverride`, so the cut in HP is not also a cut in income.
 - ~~**Fix the 3 new cards' placeholder numbers**~~ **DONE 2026-07-16** — see §4.
 
 ---

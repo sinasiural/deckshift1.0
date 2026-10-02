@@ -84,7 +84,7 @@ not a hand-kept list — adding a character is dropping in an asset, with nothin
 | | deck | trait |
 |---|---|---|
 | **Wizard** | Fireball ×2, Create Platform, Dash | *Big Sleeves* — +1 hand |
-| **Ninja** | Shuriken ×2, Dash, Leap | *Fast Hands* — Recall never escalates, **−1 hand** |
+| **Ninja** | Shuriken ×2, Dash, Leap | *Fast Hands* — Recall never escalates, **−1 hand** (⚠️ under rework since 2026-10-02, see Deck Structure) |
 | **Samurai** (2026-09-17) | Through and Through ×2, Glass Parry, Leap | *Full Plate* — +5 **armour** on entering each COMBAT room; armour carries over |
 
 **Every playable character is also a boss** (designer, 2026-09-17; see memory "bosses are characters"):
@@ -451,14 +451,28 @@ The gravity reversal factor compensates for the 180° Z rotation inverting the v
 
 `DeckManager` maintains four piles: `drawPile`, `hand`, `discardPile`, `exhaustPile`. **Recall** (R key) is the player's manual refresh action — costs Shift, redraws the hand, cost increases each use within a level.
 
-⚠️ **PLAYTEST RULE, switched ON 2026-10-02: `DeckManager.cardsStayInHand`.** A played card goes back
-into its own slot instead of the discard pile, so it can be replayed until its charges run out; only
-Recall discards (unchanged, same escalating price). **The designer is TRYING it, not keeping it yet** —
-untick the box for the original rule. Known side effects while it is on, deliberately left for the
-verdict: **Never Say Die** turns a card into an unlimited free attack (the cut innate attack — must be
-fixed if the rule stays), **Clingy** only keeps its survive-Recall half, **Understudy** can push the
-hand one card over its limit, the Ninja's **Fast Hands** and the Recall relics lose most of their
-point, and **tutorial sign 6** still describes the old rule.
+⚠️ **A PLAYED CARD STAYS IN YOUR HAND (designer, 2026-10-02, kept after playtesting both rules).** It
+goes back into its own slot and can be replayed until its charges run out; **only Recall discards**
+(unchanged: discard the hand, redraw, escalating price). The hand is a per-room **loadout** now, not a
+cycle, and Recall is a **swap**, not a refill. Why: under the old rule every card's real Shift price
+was a hidden share of an escalating Recall, so a missed Fireball was billed later and bigger, and big
+rooms were taxed quadratically. Consequences that are now rules:
+- ⚠️ **Charges are the only per-play limit on most cards.** Anything that removes them (an infinite
+  card, a blessing that never spends one) becomes an unlimited free action held all room, which is
+  the innate attack that was cut. That is why **Never Say Die** is now "+3 charges each room, up to
+  the max" instead of infinite.
+- **Hand size is the strongest stat in the game** (each slot is a tool held all room). Every "is the
+  hand full?" check goes through `DeckManager.SlotsUsed()`, never `hand.Count`, because **Clingy** cards
+  take no slot.
+- **Understudy's partner joins even a full hand** (one over the limit until the next Recall) on purpose.
+- **The Ninja's trait is UNDER REWORK** (designer, 2026-10-02): Fast Hands (flat Recall, −1 hand) lost
+  its upside. "Recall swaps only the selected card" was proposed and rejected (it makes reaching one
+  specific strong card random). Do not ship a replacement without the designer.
+- **Still to judge in play, deliberately untouched:** Flywheel, Tunnel Vision, Long Fuse, Second
+  Nature and Offering (all Recall/hand relics, now weaker or different); the No Take-Backs oath (nearly
+  free for the Wizard, who holds her whole deck); per-card charge counts (Shuriken's 10 are 80 damage
+  in seconds); boss HP against hoarded charges; Teacher's Pet (Common, now a guaranteed loadout slot).
+  `RunStats.Recalls` / `RecallShift` (in the F8 bug report) say how much Shift Recall still eats.
 
 ### Card Enhancements — Blompo's blessings (24 of them, rebuilt 2026-08-14)
 
@@ -480,8 +494,8 @@ It went 7 → 24 because the designer's verdict on the original seven was *"too 
 | `ShouldSpendCharge` | `PlayCard` | Sleight of Hand, Slow Burn, Teacher's Pet |
 | `NotePlayed` / `NoteKill` | `PlayCard` / `EnemyHealth.Die` | Compound Interest, Donor Card, Toll Booth, Grudge |
 | `RescueFromExhaust` / `OnExhausted` | `PlayCard` routing | Last Call, Inheritance |
-| `BeginRoom` | `PlayerController.OnNewRoomEnter` | Time Will Come, Only Child, Teacher's Pet |
-| `StaysInHand` / `RetainsThroughRecall` | `PlayCard`, `ReloadRoutine` | Clingy, Teacher's Pet |
+| `BeginRoom` | `PlayerController.OnNewRoomEnter` | Time Will Come, Only Child, Teacher's Pet, Never Say Die |
+| `TakesNoSlot` / `RetainsThroughRecall` | `DeckManager.SlotsUsed`, `ReloadRoutine` | Clingy, Teacher's Pet |
 
 ⚠️ **`EffectiveCost` is the ONE place a card's cost is computed.** DeckManager, CardAimIndicator and BlompoScreen all call it. They used to each carry a copy of the rule with a comment begging whoever edited one to remember the others.
 

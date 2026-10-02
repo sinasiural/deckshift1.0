@@ -35,7 +35,8 @@ public static class ScrapEconomy
     {
         if (maxHealth <= 20f) return 1;    // fodder   — Shambler 12, Slime 10, Spitter 18
         if (maxHealth <= 30f) return 2;    // grunt    — Rotbrute 25, RangedEnemy 25, Mimic 30
-        if (maxHealth <= 60f) return 3;    // soldier  — MeleeEnemy 40
+        if (maxHealth <= 60f) return 3;    // soldier  — nothing here since MeleeEnemy went 40 → 30
+                                           //            (2026-10-02); it keeps 3 via scrapDropOverride
         if (maxHealth <= 150f) return 6;   // heavy    — nothing here yet; reserved for elites
         return 20;                         // boss     — MossKnight 300
     }

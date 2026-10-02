@@ -156,6 +156,8 @@ public class BugReport : MonoBehaviour
         sb.AppendLine("Play time:  " + RunStats.FormatTime(RunStats.PlaySeconds)
                       + "   rooms " + RunStats.RoomsCleared + "   kills " + RunStats.Kills
                       + "   cards played " + RunStats.CardsPlayed);
+        sb.AppendLine("Shift spent: " + RunStats.ShiftSpent + "  (" + RunStats.RecallShift + " of it on "
+                      + RunStats.Recalls + " Recalls)");
 
         DeckManager dm = DeckManager.instance;
         if (dm != null)

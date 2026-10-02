@@ -14,6 +14,9 @@ using UnityEngine;
 ///   · cards      — DeckManager.PlayCard, on a play that actually left the hand
 ///   · Shift      — PlayerController.SpendShift (every Shift cost funnels through it; callers already
 ///                  apply the sandbox rule, so hub spending is never counted)
+///   · recalls    — DeckManager.TryRecall, on a Recall that went through (outside sandbox rooms).
+///                  RecallShift is the part of ShiftSpent that went on Recall, which is the number
+///                  that says how much of the run's Shift the hand is eating rather than the jumps.
 ///   · gold       — PlayerController.AddGold
 ///   · damage     — PlayerHealth.ApplyDamage (HP actually lost, after armour)
 ///   · rooms      — ExitDoor, on leaving a COMBAT room (same test the flawless-clear payout uses)
@@ -26,6 +29,8 @@ public static class RunStats
     public static int Kills { get; private set; }
     public static int CardsPlayed { get; private set; }
     public static int ShiftSpent { get; private set; }
+    public static int Recalls { get; private set; }
+    public static int RecallShift { get; private set; }
     public static int GoldCollected { get; private set; }
     public static float DamageTaken { get; private set; }
 
@@ -52,7 +57,7 @@ public static class RunStats
     public static void BeginRun()
     {
         StartTime = Time.time;
-        RoomsCleared = Kills = CardsPlayed = ShiftSpent = GoldCollected = 0;
+        RoomsCleared = Kills = CardsPlayed = ShiftSpent = Recalls = RecallShift = GoldCollected = 0;
         DamageTaken = 0f;
         BossesKilled.Clear();
         engaged.Clear();
@@ -78,6 +83,15 @@ public static class RunStats
     }
 
     public static void NoteShiftSpent(int amount) { if (amount > 0) ShiftSpent += amount; }
+
+    // shiftPaid is 0 for a free Recall (Second Nature, Tunnel Vision, or Offering, which pays in HP).
+    // The Shift itself is already in ShiftSpent through SpendShift; this only labels that share.
+    public static void NoteRecall(int shiftPaid)
+    {
+        Recalls++;
+        if (shiftPaid > 0) RecallShift += shiftPaid;
+        Note("Recalled" + (shiftPaid > 0 ? " (" + shiftPaid + " Shift)" : " (free)"));
+    }
     public static void NoteGold(int amount) { if (amount > 0) GoldCollected += amount; }
 
     public static void NoteDamage(float hpLost, bool stagger, float hpLeft)

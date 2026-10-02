@@ -39,19 +39,6 @@ public class DeckManager : MonoBehaviour
     // BASE capacity. Read HandCapacity, never this — a character's trait can raise it.
     public int handCapacity = 4;
 
-    // ⚠️ PLAYTEST RULE (designer, 2026-10-02). ON: a played card goes back into its own slot instead
-    // of the discard pile, so it can be played again and again until its charges run out. Recall is
-    // unchanged — it still discards the whole hand and draws a new one, at the same escalating price.
-    // OFF: the original rule, where a played card is gone until the next Recall.
-    //
-    // Why it is being tried: under the original rule a card's real Shift price is a share of a Recall
-    // that gets dearer every time, so a missed Fireball is billed later, and bigger, as an extra
-    // refill. Kept as a switch so both rules can be played in the same build.
-    [Header("Playtest Rule")]
-    [Tooltip("ON: played cards stay in your hand until their charges run out; Recall swaps the hand. " +
-             "OFF: the original rule — played cards go to the discard pile until you Recall.")]
-    public bool cardsStayInHand = true;
-
     // ⚠️ THE ONE PLACE HAND SIZE IS DECIDED. Every full-hand check goes through here, so a trait
     // that grants a slot cannot be honoured by the draw and then forgotten by, say, the Teacher's
     // Pet pull or the Stagger check. Same reasoning as CardEnhancements.EffectiveCost.
@@ -309,27 +296,23 @@ public class DeckManager : MonoBehaviour
                 return;
             }
 
-            // Still has charges to give (or is in a room that never spends them). Under the original
-            // rule this is exactly the set of cards that goes to the discard pile.
+            // ⚠️ A PLAYED CARD STAYS IN YOUR HAND (designer, 2026-10-02, after a playtest of both
+            // rules). It goes back into its own slot and can be played again until its charges run
+            // out; only Recall discards. It used to go to the discard pile, which made every card's
+            // real Shift price a share of a Recall that got dearer each time: a missed Fireball was
+            // billed later, and bigger, as an extra refill, and big rooms were taxed quadratically.
+            // The Ninja's quiver below had already been given this rule for exactly that reason.
+            //
+            // Charges are now the only per-play limit on most cards, so anything that removes them
+            // (an infinite card, a blessing that never spends one) is an unlimited free action held
+            // all room. That is the innate attack that was cut — see Never Say Die for how it was
+            // capped instead.
             bool stillCharged = keepCharges
                 || (playedCard.isInfinite || playedCard.currentUses > 0) && (!data.singleUse || playedCard.isInfinite);
 
-            // Playtest rule: every card that would have been discarded goes back into its slot
-            // instead. A card that has run dry falls through to the exhaust routing below as usual.
-            if (cardsStayInHand && (stillCharged || CardEnhancements.StaysInHand(playedCard)))
+            if (stillCharged)
             {
                 ReturnToHand(playedCard, index);
-            }
-            // Blompo: "Clingy" never leaves the hand at all — it goes straight back, so it costs a
-            // hand slot forever in exchange for always being available. Once it runs dry it falls
-            // through to the normal routing below and burns out like anything else.
-            else if (CardEnhancements.StaysInHand(playedCard))
-            {
-                hand.Add(playedCard);
-            }
-            else if (stillCharged)
-            {
-                discardPile.Add(playedCard);
             }
             // Blompo: "Last Call" — the first burnout of the run refills the card instead. Checked
             // ahead of Reclaimer's Clamp on purpose: this is once per RUN and card-specific, the
@@ -337,8 +320,7 @@ public class DeckManager : MonoBehaviour
             // leaves the broader one available for a different card.
             else if (CardEnhancements.RescueFromExhaust(playedCard))
             {
-                if (cardsStayInHand) ReturnToHand(playedCard, index);
-                else discardPile.Add(playedCard);
+                ReturnToHand(playedCard, index);
             }
             else if (!clampUsedThisRoom && RelicManager.instance != null
                      && RelicManager.instance.HasRelic("ReclaimersClamp"))
@@ -347,7 +329,7 @@ public class DeckManager : MonoBehaviour
                 // it returns to hand with a single charge instead of going to the exhaust pile.
                 clampUsedThisRoom = true;
                 playedCard.currentUses = 1;
-                hand.Add(playedCard);
+                ReturnToHand(playedCard, index);
             }
             // Long Fuse: a burnt-out card goes back into the DRAW pile with a single charge instead
             // of the exhaust pile. Checked last of the rescues on purpose — Last Call is once per
@@ -420,7 +402,7 @@ public class DeckManager : MonoBehaviour
             RuntimeCard c = drawPile[i];
             if (!CardEnhancements.WantsOpeningHand(c)) continue;
             if (hand.Contains(c)) continue;
-            if (hand.Count >= HandCapacity)
+            if (SlotsUsed() >= HandCapacity)
             {
                 RuntimeCard bumped = null;
                 for (int h = hand.Count - 1; h >= 0; h--)
@@ -436,9 +418,15 @@ public class DeckManager : MonoBehaviour
     }
 
     // "Understudy": pull the bound partner out of wherever it is and into hand.
+    //
+    // ⚠️ It joins even a FULL hand, deliberately. PlayCard calls this after taking the played card out
+    // and before putting it back in its slot, so the partner takes the vacated slot and the played
+    // card then makes the hand one over its limit until the next Recall. Since played cards stopped
+    // leaving the hand, that is the only way the bond can ever fire — and "playing this brings its
+    // partner along" is the blessing.
     private void DrawSpecificCard(RuntimeCard target)
     {
-        if (target == null || hand.Contains(target) || hand.Count >= HandCapacity) return;
+        if (target == null || hand.Contains(target) || SlotsUsed() >= HandCapacity) return;
 
         if (drawPile.Remove(target) || discardPile.Remove(target))
         {
@@ -449,16 +437,27 @@ public class DeckManager : MonoBehaviour
         // nothing is right: the bond is a bonus, and failing it must never block the play.
     }
 
-    // Playtest rule (cardsStayInHand): put a card that was just played back into the slot it was
-    // played from. The SAME slot, not the end of the hand, so the key that played it plays it again;
-    // appending would reshuffle every [1]-[9] hint after each play. The hand UI shows the play as a
-    // copy floating off while the card settles back in with its new charge count.
+    // Put a card that was just played back into the slot it was played from. The SAME slot, not the
+    // end of the hand, so the key that played it plays it again; appending would reshuffle every
+    // [1]-[9] hint after each play. The hand UI shows the play as a copy floating off while the card
+    // settles back in with its new charge count.
     private void ReturnToHand(RuntimeCard card, int index)
     {
         // PlayCard has already cleared selectedIndex. A card left flagged as selected would still
         // draw lifted in the hand while no card is actually selected.
         card.isSelected = false;
         hand.Insert(Mathf.Clamp(index, 0, hand.Count), card);
+    }
+
+    // How many hand slots are taken. Every "is the hand full?" check reads THIS, not hand.Count,
+    // because Clingy cards ride along without a slot of their own. Stagger and the Ninja's quiver
+    // DO count: they are appended past the limit, and a Recall then trims the hand back around them.
+    private int SlotsUsed()
+    {
+        int used = 0;
+        foreach (RuntimeCard c in hand)
+            if (!CardEnhancements.TakesNoSlot(c)) used++;
+        return used;
     }
 
     // "Echo": recast after a delay, so the first cast's ConflictFlags have expired.
@@ -684,6 +683,7 @@ public class DeckManager : MonoBehaviour
 
         bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
         bool overclocked = RelicManager.instance != null && RelicManager.instance.HasRelic("OverclockedRecall");
+        int shiftPaid = 0;
 
         if (overclocked)
         {
@@ -716,6 +716,7 @@ public class DeckManager : MonoBehaviour
             // 3. Shift Harca + 4. Maliyeti Artır (Level bitene kadar)
             if (!inHub && !relicFree)
             {
+                shiftPaid = currentRecallCost;
                 player.SpendShift(currentRecallCost);
                 // The Ninja's "Fast Hands": the price never climbs, so cycling the hand is a real
                 // strategy instead of something the escalation quietly teaches you not to do. The
@@ -752,6 +753,7 @@ public class DeckManager : MonoBehaviour
         // Oath tracking, placed after every early-return above so a REFUSED recall (not enough
         // Shift) doesn't break the No Take-Backs oath — the player didn't get one.
         if (QuestSystem.instance != null) QuestSystem.instance.NoteRecall();
+        if (!inHub) RunStats.NoteRecall(shiftPaid);
 
         // Recall discards the hand, so a Portal that placed its first half and never its second
         // would leave that half orphaned in the room with firstPortalInstance still pointing at it.
@@ -775,9 +777,9 @@ public class DeckManager : MonoBehaviour
         DeselectCard();
         yield return new WaitForSeconds(0.2f);
 
-        // Blompo: "Clingy" cards are held back instead of being discarded, so they survive the
-        // Recall and are still in hand afterwards. They occupy their slot, so a hand full of
-        // Clingy cards simply doesn't refresh — that's the intended trade-off.
+        // Blompo: "Clingy" and "Teacher's Pet" cards are held back instead of being discarded, so
+        // they survive the Recall and are still in hand afterwards. A Teacher's Pet keeps its slot;
+        // a Clingy card never had one (see SlotsUsed), so the draw below fills the hand around it.
         //
         // ⚠️ STAGGER IS RETAINED THE SAME WAY, AND CAN NEVER BE DISCARDED. Recalling it away would
         // be the obvious dodge — spend a Shift you don't have to make the bill disappear — and the
@@ -798,7 +800,9 @@ public class DeckManager : MonoBehaviour
         hand.Clear();
         hand.AddRange(retained);
 
-        for (int i = hand.Count; i < HandCapacity; i++)
+        // Counted in SLOTS, not cards: a Clingy card drawn here takes none, so the draw carries on
+        // past it. Every pass draws a card or stops, so this ends however the deck is made up.
+        while (SlotsUsed() < HandCapacity)
         {
             if (drawPile.Count == 0 && discardPile.Count > 0)
             {
@@ -807,13 +811,12 @@ public class DeckManager : MonoBehaviour
                 ShuffleDeck();
             }
 
-            if (drawPile.Count > 0)
-            {
-                RuntimeCard c = drawPile[0];
-                drawPile.RemoveAt(0);
-                c.isSelected = false;
-                hand.Add(c);
-            }
+            if (drawPile.Count == 0) break;
+
+            RuntimeCard c = drawPile[0];
+            drawPile.RemoveAt(0);
+            c.isSelected = false;
+            hand.Add(c);
         }
 
         // EL YENÝLENDÝ: Animasyon ÝSTÝYORUZ (true)
@@ -823,7 +826,7 @@ public class DeckManager : MonoBehaviour
 
     public void DrawCard()
     {
-        if (hand.Count >= HandCapacity) return;
+        if (SlotsUsed() >= HandCapacity) return;
 
         if (drawPile.Count == 0)
         {

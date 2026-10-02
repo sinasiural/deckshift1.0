@@ -28,7 +28,7 @@
 !sign3: | Grab the crystal. Crystals give Shift back, and so do wells.
 !sign4: 1 2 3 4 L-CLICK R-CLICK | Pick a card with 1-4, left-click to cast it, right-click to put it back. That zombie is holding the gate shut.
 !sign5: | Too tall to jump. Cards move you too: pick CREATE PLATFORM, left-click beside the wall, climb.
-!sign6: R | Hand running dry? RECALL puts your played cards back in your hand. It costs Shift, more each time in the same room.
+!sign6: R | Cards stay in your hand until their charges run out. RECALL swaps your hand for a new one. It costs Shift, more each time in the same room.
 !sign7: E | Use things. This altar opens the gate, for a price in Shift.
 !sign8: CTRL | Hold and aim the mouse to look around. Look down before you drop: something is waiting.
 !sign10: | This crack drinks Shift. At zero, a STAGGER card appears in your hand: it buys 2 Shift with your health, and costs more each time. Play it, then jump out.
