@@ -259,11 +259,12 @@ public class DeckManager : MonoBehaviour
                 player.ExecuteAction(data.actionType, actionValue, out bool _);
             }
             bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
-            // The tutorial keeps charges too, though it is not a sandbox (it charges Shift): a new
-            // player who wasted Create Platform's charges would otherwise be stuck under the wall it
-            // teaches, with no way to finish the room.
-            bool keepCharges = inHub
-                || (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomTutorial());
+            // The tutorial SPENDS charges (2026-10-02), so the red number visibly drops — its sign 6
+            // teaches what that number is — but never the LAST one: a new player who wasted Create
+            // Platform's charges would otherwise be stuck under the wall it teaches. It used to keep
+            // every charge, which made the number a decoration that never moved.
+            bool inTutorial = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomTutorial();
+            bool keepCharges = inHub || (inTutorial && !playedCard.isInfinite && playedCard.currentUses <= 1);
             // Blompo: several blessings can skip the charge (Sleight of Hand, Slow Burn, the first
             // Teacher's Pet play each room). `- 1` because this card's own play was just counted.
             bool spendCharge = CardEnhancements.ShouldSpendCharge(playedCard, cardsPlayedThisRoom - 1);
@@ -964,6 +965,31 @@ public class DeckManager : MonoBehaviour
     {
         RuntimeCard newCardInstance = new RuntimeCard(newCardData);
         discardPile.Add(newCardInstance);
+    }
+
+    /// <summary>
+    /// The tutorial's scripted deck (TutorialRoom): throws away every pile and lines up exactly these
+    /// cards — the opening hand first, in order, then the held-back ones — and deals. Not shuffled, so
+    /// the room can rely on which cards are in hand and which are still in the deck.
+    ///
+    /// The deal takes from the top of the draw pile, so the opening hand is what comes out. If a deal
+    /// is already under way (the run's first, still waiting its 0.2s), that one takes these cards. An
+    /// opening hand shorter than HandCapacity would be topped up from the held-back cards.
+    /// </summary>
+    public void DealScripted(IList<CardData> openingHand, IList<CardData> heldBack)
+    {
+        drawPile.Clear();
+        hand.Clear();
+        discardPile.Clear();
+        exhaustPile.Clear();
+        heldEmpty.Clear();
+        selectedIndex = -1;
+
+        foreach (CardData c in openingHand) if (c != null) drawPile.Add(new RuntimeCard(c));
+        foreach (CardData c in heldBack) if (c != null) drawPile.Add(new RuntimeCard(c));
+
+        OnHandChanged?.Invoke(false);
+        ReloadHand();
     }
 
     /// <summary>

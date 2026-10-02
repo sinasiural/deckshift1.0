@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 // Marks a room prefab as THE tutorial (same convention as HubMarker / RechargeRoomMarker — its
@@ -18,18 +20,39 @@ public class TutorialRoom : MonoBehaviour
              "who spent it all can never be left unable to jump.")]
     [SerializeField] private int respawnShiftFloor = 10;
 
+    // The tutorial's own deck, from Tutorial.txt's !deck line (filled in by TutorialRoomBuilder; do
+    // not edit here, the next build overwrites it). The opening hand is dealt in this order and the
+    // held-back cards wait in the deck.
+    //
+    // ⚠️ THIS IS WHAT MAKES RECALL TEACHABLE (2026-10-02). Since played cards stay in the hand, the
+    // Wizard holds her entire 4-card deck, so a Recall dealt her the same four cards and showed
+    // nothing. With Create Platform held back, the 8-tall wall cannot be climbed until the player
+    // Recalls for it — and no card in the opening hand climbs it instead.
+    public List<CardData> openingHand = new List<CardData>();
+    public List<CardData> heldBack = new List<CardData>();
+
     private PlayerController player;
     private PlayerHealth health;
     private float furthestCheckpointX = float.NegativeInfinity;
 
     private void Start()
     {
+        if (openingHand.Count > 0) StartCoroutine(DealScriptedDeck());
+
         player = GameManager.instance != null ? GameManager.instance.player : null;
         if (player == null) player = FindFirstObjectByType<PlayerController>();
         if (player == null) return;
 
         health = player.GetComponent<PlayerHealth>();
         if (health != null) health.OnFallRespawn += OnRespawn;
+    }
+
+    // One frame late on purpose: DeckManager.Start builds the character's own deck, and the order of
+    // Start between the scene's managers and this freshly spawned room is not defined.
+    private IEnumerator DealScriptedDeck()
+    {
+        yield return null;
+        if (DeckManager.instance != null) DeckManager.instance.DealScripted(openingHand, heldBack);
     }
 
     private void OnDestroy()

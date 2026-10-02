@@ -56,7 +56,13 @@ public static class TutorialRoomBuilder
 
         int width, height;
         List<DrainSpec> drains;
-        List<SignSpec> signs = ReadLayout(out width, out height, out drains);
+        List<string> handNames, heldNames;
+        List<SignSpec> signs = ReadLayout(out width, out height, out drains, out handNames, out heldNames);
+
+        // Resolved BEFORE anything is deleted, so a misspelt card name fails the build with the old
+        // prefab still in place rather than halfway through replacing it.
+        List<CardData> openingHand = ResolveCards(handNames);
+        List<CardData> heldBack = ResolveCards(heldNames);
 
         // 1 — import. Delete first: the importer never overwrites (it would write "Tutorial 1.prefab").
         if (AssetDatabase.LoadAssetAtPath<GameObject>(Output) != null) AssetDatabase.DeleteAsset(Output);
@@ -72,7 +78,10 @@ public static class TutorialRoomBuilder
         int gateCount = 0, watchedCount = 0;
         try
         {
-            if (root.GetComponent<TutorialRoom>() == null) root.AddComponent<TutorialRoom>();
+            TutorialRoom tutorialRoom = root.GetComponent<TutorialRoom>();
+            if (tutorialRoom == null) tutorialRoom = root.AddComponent<TutorialRoom>();
+            tutorialRoom.openingHand = openingHand;
+            tutorialRoom.heldBack = heldBack;
 
             // ⚠️ CLAMP THE CAMERA TO THE ROOM'S OWN EDGES. The importer pads every zone by 2 tiles and
             // enforces a 20-tall minimum, so the view could slide past the outer wall and under the
@@ -151,17 +160,47 @@ public static class TutorialRoomBuilder
         WireIntoScene(AssetDatabase.LoadAssetAtPath<GameObject>(built));
 
         return $"{built}\n{signs.Count} signs, {gateCount} kill-gate(s) watching {watchedCount} enemies, " +
-               $"{drains.Count} Shift drain(s).\nWired into SampleScene → LevelManager → Tutorial Room Prefab.";
+               $"{drains.Count} Shift drain(s), deck {openingHand.Count} in hand + {heldBack.Count} held back." +
+               "\nWired into SampleScene → LevelManager → Tutorial Room Prefab.";
+    }
+
+    // Card names from the !deck line, matched against every CardData's cardName (case-insensitive).
+    // By the name the player reads, not the asset file: the files are not reliably named after their
+    // cards (Create Platform lives in PlaformCreate.asset). A name that matches nothing fails the build.
+    private static List<CardData> ResolveCards(List<string> names)
+    {
+        var all = new List<CardData>();
+        foreach (string guid in AssetDatabase.FindAssets("t:CardData"))
+        {
+            CardData c = AssetDatabase.LoadAssetAtPath<CardData>(AssetDatabase.GUIDToAssetPath(guid));
+            if (c != null) all.Add(c);
+        }
+
+        var cards = new List<CardData>();
+        foreach (string name in names)
+        {
+            CardData match = all.Find(c => string.Equals(c.cardName, name, StringComparison.OrdinalIgnoreCase));
+            if (match == null) throw new Exception($"!deck names a card '{name}' that no CardData is called.");
+            cards.Add(match);
+        }
+        return cards;
     }
 
     // Reads the !signN lines, finds each digit anchor ('1'-'9' = signs 1-9, '0' = sign 10) and each
     // run of '%' (a Shift drain) in the grid. The importer treats all of those as air. Parsing mirrors
     // LevelTextImporter: '//' comments and '!' directives are skipped, and fully empty lines are
     // trimmed from both ends of the grid.
-    private static List<SignSpec> ReadLayout(out int width, out int height, out List<DrainSpec> drains)
+    //
+    // Also reads the !deck line: "hand cards | held-back cards", comma-separated card names. The hand
+    // is dealt in that order and the held-back cards wait in the deck, so the room can need a card
+    // the player is not holding (see TutorialRoom.DealScriptedDeck).
+    private static List<SignSpec> ReadLayout(out int width, out int height, out List<DrainSpec> drains,
+                                             out List<string> handNames, out List<string> heldNames)
     {
         var text = new Dictionary<int, string>();
         var grid = new List<string>();
+        handNames = new List<string>();
+        heldNames = new List<string>();
         foreach (string raw in File.ReadAllLines(Source))
         {
             string line = raw.TrimEnd('\r', '\n');
@@ -173,6 +212,12 @@ public static class TutorialRoomBuilder
                 string key = colon > 1 ? t.Substring(1, colon - 1).Trim().ToLowerInvariant() : "";
                 if (key.StartsWith("sign") && int.TryParse(key.Substring(4), out int n))
                     text[n] = t.Substring(colon + 1).Trim();
+                else if (key == "deck")
+                {
+                    string[] halves = t.Substring(colon + 1).Split('|');
+                    handNames = SplitNames(halves[0]);
+                    heldNames = halves.Length > 1 ? SplitNames(halves[1]) : new List<string>();
+                }
                 continue;
             }
             grid.Add(line);
@@ -212,6 +257,17 @@ public static class TutorialRoomBuilder
             }
         signs.Sort((a, b) => a.number.CompareTo(b.number));
         return signs;
+    }
+
+    private static List<string> SplitNames(string list)
+    {
+        var names = new List<string>();
+        foreach (string part in list.Split(','))
+        {
+            string name = part.Trim();
+            if (name.Length > 0) names.Add(name);
+        }
+        return names;
     }
 
     private static void WireIntoScene(GameObject prefab)

@@ -292,6 +292,15 @@ apply here. The flip side: **hand edits to the prefab are lost on the next build
   caption) there. Each `!signN` line is `KEYS | caption`, KEYS optional and space-separated
   (`1 2 3 4 L-CLICK R-CLICK`). Place the anchor on a STANDING cell: its bottom edge is the floor, and
   the sign doubles as the respawn checkpoint.
+- **`!deck: Fireball, Fireball, Dash, Shuriken | Create Platform`** (2026-10-02) is the tutorial's
+  scripted deck: the opening hand, then the cards held back in the deck, matched by `cardName` (a
+  misspelt name fails the build). Dealt in order by `TutorialRoom` one frame after spawn, never
+  shuffled. It is what makes sign 5's wall the Recall lesson: Create Platform is not in the hand, so
+  the player must Recall for it. ⚠️ Keep anything that could climb an 8-tall wall (Leap) OUT of the
+  opening hand, or the lesson can be skipped.
+- ⚠️ **Build it from code with `TutorialRoomBuilder.Build()`** (public; returns the report) when
+  driving the editor remotely: the menu item shows a modal dialog that blocks the editor, and the
+  MCP bridge, until someone clicks OK.
 - **A run of `%` is the Shift drain** (`TutorialShiftDrain`, 2026-09-26), lying on the floor of those
   cells: the Stagger lesson. A cyan crack that visibly drinks motes of Shift; when the player lands
   near it, it pulls every point of their Shift out (counter ticks to 0), and DeckManager's own rule

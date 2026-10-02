@@ -696,13 +696,19 @@ and drop the player's next PLAY back into the tutorial.
 
 ⚠️ **The tutorial is NEITHER a sandbox NOR combat.** Jumps, Recall and altars cost Shift there, by
 design: the player must see the counter fall. What it waives instead are the two things that could
-strand a new player: **card charges** are never spent (`DeckManager`, the `keepCharges` flag), and
-**death** respawns the player at the last sign, healed, with Shift topped up to at least 10
+strand a new player: a card's **last charge** is never spent (`DeckManager`, the `keepCharges` flag;
+since 2026-10-02 every other charge IS, so the red number visibly drops while sign 6 explains it),
+and **death** respawns the player at the last sign, healed, with Shift topped up to at least 10
 (`PlayerHealth` + `TutorialRoom`). Not combat, so leaving it pays no flawless clear, oath step or
 Nest Egg. The room is also the one approved exception to Level Design Law 1: two gates open only on
 a kill (`TutorialGate`) and one wall needs Create Platform. Its last lesson is **Stagger**: a
 `TutorialShiftDrain` in a pit takes all the player's Shift, the real Stagger rule conjures the card,
 and playing it pays the jump out.
+
+⚠️ **The tutorial deals a SCRIPTED deck** (`Tutorial.txt`'s `!deck: hand | held back`, dealt in order,
+never shuffled; `TutorialRoom` + `DeckManager.DealScripted`). Since played cards stay in the hand,
+the Wizard holds her whole 4-card deck and Recall showed nothing, so **Create Platform is held back**
+and the 8-tall wall (sign 5) is the Recall lesson. Nothing in the opening hand may climb that wall.
 
 ⚠️ **Card keys go 1-9 (fixed 2026-09-26).** They used to stop at 4 while the hand labels every card
 `[n]`, so a Stagger appended to the Wizard's full 4-card hand read `[5]` and pressing 5 did nothing,
