@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // The Ninja's thrown star. House pattern: built ENTIRELY in code, sprite included, like ScrapPickup
@@ -5,10 +6,48 @@ using UnityEngine;
 //
 // ⚠️ IT FLIES WHERE THE CURSOR WAS, NOT WHERE THE PLAYER FACES. That is the entire point of the
 // card and the one thing that separates it from Fireball. Direction is handed in at spawn.
+//
+// ⚠️ THE NINJA'S STARS CAN STICK (his trait, "Finders Keepers", 2026-10-02). A star that misses —
+// meets terrain instead of an enemy — buries itself in the wall like the Ninja boss's do, glows gold,
+// and walking into it puts the charge back on the card that threw it. Every other thrower's star
+// breaks on the wall exactly as before. Only a throw that actually COST a charge can stick, so a
+// free throw (Sleight of Hand, the hub) can never mint one.
 public class Shuriken : MonoBehaviour
 {
     private float damage;
     private bool hasHit;
+
+    // ---- fetching (the Ninja's trait) ----------------------------------------------------------
+    private bool fetchable;       // decided at spawn, never changes
+    private bool stuck;
+    private float flightTime;
+    private Vector2 lastPos;
+    private Rigidbody2D body;
+    private SpriteRenderer face;
+    private SpriteRenderer keyline;
+    private SpriteRenderer outline;
+    private StarAfterimages trail;
+    private float glint;
+
+    private const float PICKUP_R = 0.7f;   // forgiving: brushing past it is enough
+    private const float EMBED = 0.12f;     // how far into the surface it buries, so it reads as stuck
+
+    // Every fetchable star in flight or in a wall. DeckManager asks this whether an empty Shuriken
+    // still has stars out (see DeckManager.HoldEmpty). Entries remove themselves in OnDestroy and
+    // every read prunes nulls — a static list that outlives a domain reload is a known trap here.
+    private static readonly List<Shuriken> live = new List<Shuriken>();
+
+    public static int LiveStarsOf(RuntimeCard card)
+    {
+        if (card == null) return 0;
+        int n = 0;
+        for (int i = live.Count - 1; i >= 0; i--)
+        {
+            if (live[i] == null) { live.RemoveAt(i); continue; }
+            if (live[i].sourceCard == card && !live[i].hasHit) n++;
+        }
+        return n;
+    }
 
     private static Sprite cachedSprite;
 
@@ -16,31 +55,19 @@ public class Shuriken : MonoBehaviour
     private const float LIFE = 1.3f;      // ~28 units of range
     private const float SPIN = 1440f;     // deg/sec — fast enough to read as a blur, not a shape
 
-    private static readonly Color Steel = new Color(0.82f, 0.86f, 0.92f, 1f);
-
-    // ⚠️ THE STREAK IS HOT AT THE HEAD AND DEAD AT THE TAIL, and it used to be neither.
+    // ⚠️ THE TRAIL IS A CHAIN OF FADING COPIES OF THE STAR, NOT A STREAK (designer, 2026-10-02: "i
+    // dont really like the trails anyway ... i think they are misaligned sometimes"). It used to be
+    // a TrailRenderer — a smooth gradient ribbon on a separate object chasing the star's position —
+    // and it lost twice: a soft ribbon is a different drawing language from pixel art, and being a
+    // separate object it could fall out of step with the star. Each copy is the star's own pixels,
+    // dropped exactly where the star was (see StarAfterimages), so it cannot drift.
     //
-    // It was one flat dark grey (0.34, 0.36, 0.43) at alpha 0.40, chosen on the reasoning that a pale
-    // streak would be "the loudest thing on screen". That reasoning was sound and the result was not:
-    // the dungeon's own stone measures #444548, so a 0.35 grey at 40% over it composites to almost
-    // exactly the background. The designer's report was that the traces are "almost unseeable"
-    // (2026-08-22), and they were right — the trail was drawing itself in the wall's colour.
-    //
-    // The fix is not "brighter everywhere", which really would be a pale worm following the star
-    // around. It is a GRADIENT: bright for the first few pixels behind the blade and gone by the end.
-    // A short hot head reads as speed; a long even streak reads as an object. Combined with the 0.11s
-    // lifetime, what is on screen at any moment is a stub, not a banner.
-    // ⚠️ AND THE PLAYER'S STAR IS SHIFT CYAN, NOT WHITE — measured on screen, not reasoned about.
-    // Near-white at these alphas photographed as a solid glowing lozenge with the four-bladed
-    // silhouette completely washed out of it: legible, and no longer legible AS A SHURIKEN. Cyan
-    // carries far less luminance at the same alpha, so the dark blade shape survives on top of it.
-    //
-    // It also does a second job for free. In this fight his stars and your stars are in the air at
-    // the same time constantly — you are throwing his own ammo back at him — and the ONE thing the
-    // player must never misread is which of them is going to hurt them. His are Wound red; yours are
-    // Shift cyan. Both are already the game's own accents, so this spends no new hue.
-    private static readonly Color StreakHot = new Color(0.72f, 0.97f, 1f, 1f);
-    private static readonly Color StreakCool = new Color(0.16f, 0.34f, 0.42f, 1f);
+    // ⚠️ THE PLAYER'S TRAIL IS SHIFT CYAN, THE BOSS'S IS WOUND RED. In the Ninja fight his stars and
+    // yours are in the air at the same time constantly — you are throwing his own ammo back at him —
+    // and the ONE thing the player must never misread is which of them is going to hurt them. Both
+    // are already the game's own accents, so this spends no new hue. (Not white: near-white at these
+    // alphas washed the four-bladed silhouette out into a glowing lozenge, measured on screen.)
+    private static readonly Color YourGhost = new Color(Salvage.Shift.r, Salvage.Shift.g, Salvage.Shift.b, 0.5f);
     private static readonly Color KeyShift =
         new Color(Salvage.Shift.r, Salvage.Shift.g, Salvage.Shift.b, 0.45f);
 
@@ -56,7 +83,10 @@ public class Shuriken : MonoBehaviour
         dir.Normalize();
 
         var go = new GameObject("Shuriken");
-        go.transform.position = pos;
+        // ⚠️ ON THE PLAY PLANE, like the boss's stars. The throw origin is a 2D point, so this used
+        // to fly at z = 0 — BEHIND the plane every actor stands on, where any prop between the two
+        // drew over the star and its trail. That is why the trail could look broken or missing.
+        go.transform.position = new Vector3(pos.x, pos.y, PlayPlane.Z);
 
         int layer = LayerMask.NameToLayer("PlayerProjectile");
         if (layer >= 0) go.layer = layer;
@@ -94,12 +124,26 @@ public class Shuriken : MonoBehaviour
         var s = go.AddComponent<Shuriken>();
         s.damage = damage;
         s.sourceCard = source;
+        s.body = rb;
+        s.face = sr;
+        s.lastPos = go.transform.position;
 
-        AttachKeyline(go.transform, sr, KeyShift);
-        AttachStreak(go.transform, sr.sortingOrder, StreakHot, StreakCool, 0.70f);
-        Destroy(go, LIFE);
+        // The thrower's own card reports whether this throw cost a charge; DeckManager set it on the
+        // click, THROW_RELEASE before this spawn.
+        s.fetchable = source != null && source.lastPlaySpentCharge
+                      && DeckManager.instance != null && DeckManager.instance.FetchesStars(source);
+
+        s.keyline = AttachKeyline(go.transform, sr, KeyShift);
+        s.trail = StarAfterimages.Attach(go.transform, sr, YourGhost);
+
+        // A fetchable star times out only while it is still FLYING (see Update); once it is in a
+        // wall it waits there for the player, or for the room to end.
+        if (s.fetchable) live.Add(s);
+        else Destroy(go, LIFE);
         return s;
     }
+
+    private void OnDestroy() { live.Remove(this); }
 
     // The card that threw it, stamped at spawn. Same reason Fireball carries one: the shot lands
     // after ExecuteAction has returned and cleared DeckManager.AttributedCard, so without this
@@ -108,12 +152,40 @@ public class Shuriken : MonoBehaviour
 
     private void Update()
     {
+        if (stuck) { UpdateStuck(); return; }
+
         transform.Rotate(0f, 0f, SPIN * Time.deltaTime);
+
+        if (fetchable)
+        {
+            flightTime += Time.deltaTime;
+            if (flightTime >= LIFE) Destroy(gameObject);   // flew off into nothing: that one is gone
+        }
+    }
+
+    // ⚠️ A FETCHABLE STAR FINDS TERRAIN BY RAYCAST TOO, not only by trigger. At 22 u/s a physics
+    // step moves it ~0.44 units, so a trigger alone can let it slip through a thin wall — a star
+    // buried on the far side of a wall is a charge the player can see and never reach. The sweep
+    // from the previous position also gives the exact surface point to bury it at. Same reasoning
+    // as BossShuriken's.
+    private void FixedUpdate()
+    {
+        if (!fetchable || stuck || hasHit) return;
+
+        Vector2 now = transform.position;
+        Vector2 delta = now - lastPos;
+        if (delta.sqrMagnitude > 0.000001f)
+        {
+            RaycastHit2D hit = Physics2D.Raycast(lastPos, delta.normalized, delta.magnitude,
+                                                 LayerMask.GetMask("Ground"));
+            if (hit.collider != null) { Stick(hit.point); return; }
+        }
+        lastPos = now;
     }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (hasHit) return;
+        if (hasHit || stuck) return;
         if (other.GetComponent<Portal>() != null) return;
         if (other.GetComponentInParent<PlayerController>() != null) return;
 
@@ -142,9 +214,80 @@ public class Shuriken : MonoBehaviour
 
         // Triggers (pickups, zones, water) are passed straight through; anything else is terrain.
         if (other.isTrigger) return;
+
+        if (fetchable)
+        {
+            // Triggers report AFTER the physics step has already carried the star into the wall,
+            // so find the surface it crossed by sweeping back along this step's flight line.
+            Vector2 flight = body != null && body.linearVelocity.sqrMagnitude > 0.001f
+                ? body.linearVelocity.normalized : Vector2.right;
+            Vector2 from = lastPos;
+            float reach = Vector2.Distance(from, transform.position) + 0.5f;
+            RaycastHit2D hit = Physics2D.Raycast(from, flight, reach, LayerMask.GetMask("Ground"));
+            Stick(hit.collider != null ? hit.point : (Vector2)transform.position);
+            return;
+        }
+
         hasHit = true;
         // A smaller shower off stone — it glances, it doesn't bite.
         SparkBurst(transform.position, 4, 0.7f);
+        Destroy(gameObject);
+    }
+
+    private void Stick(Vector2 point)
+    {
+        stuck = true;
+
+        Vector2 flight = body != null && body.linearVelocity.sqrMagnitude > 0.001f
+            ? body.linearVelocity.normalized : Vector2.right;
+        if (body != null)
+        {
+            body.linearVelocity = Vector2.zero;
+            body.simulated = false;
+        }
+
+        // It no longer touches anything: an enemy walking through a stuck star must not be hit by
+        // it, and the pickup is a plain distance check (UpdateStuck), which does not depend on how
+        // the PlayerProjectile layer is set up against the player in the collision matrix.
+        var col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+
+        // Buried a little way along its own flight line, angled the way it flew, and moved onto the
+        // play plane. ⚠️ Z is set by hand: assigning a Vector2 to a position silently zeroes it, and a
+        // star off the plane renders behind the room's props (BossShuriken paid for that one).
+        Vector2 rest = point + flight * EMBED;
+        transform.position = new Vector3(rest.x, rest.y, PlayPlane.Z);
+        transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(flight.y, flight.x) * Mathf.Rad2Deg);
+
+        // A star in a wall wears a thin white outline: "yours, come and get it". Same treatment as the
+        // boss's stars on the floor. See AttachOutline for why it is a traced outline, not a tint.
+        if (trail != null) trail.enabled = false;
+        if (keyline != null) keyline.enabled = false;
+        outline = AttachOutline(transform, face, Color.white);
+
+        SfxManager.PlayAtPoint(ProcSfx.ShurikenStick, transform.position, 0.55f);
+        SparkBurst(transform.position, 4, 0.7f);
+    }
+
+    private void UpdateStuck()
+    {
+        // A slow glint on the OUTLINE so it reads as loot rather than scenery. Brightening the dark
+        // star itself is invisible against dark stone; the white edge is where the contrast is.
+        glint += Time.deltaTime * 3.2f;
+        float k = 0.78f + 0.22f * Mathf.Sin(glint);
+        if (outline != null) outline.color = new Color(1f, 1f, 1f, 0.6f + 0.4f * k);
+
+        PlayerController p = GameManager.instance != null ? GameManager.instance.player : null;
+        if (p == null) return;
+        Collider2D capsule = p.GetComponent<CapsuleCollider2D>();
+        Vector2 here = transform.position;
+        Vector2 nearest = capsule != null ? capsule.ClosestPoint(here) : (Vector2)p.transform.position;
+        if ((nearest - here).sqrMagnitude > PICKUP_R * PICKUP_R) return;
+
+        hasHit = true;
+        if (DeckManager.instance != null) DeckManager.instance.ReturnStarCharge(sourceCard);
+        SfxManager.PlayAtPoint(ProcSfx.ShurikenCatch, transform.position, 0.9f);
+        SparkBurst(transform.position, 5, 0.8f);
         Destroy(gameObject);
     }
 
@@ -176,42 +319,31 @@ public class Shuriken : MonoBehaviour
     }
 
     /// <summary>
-    /// The motion streak. SHARED with the boss's stars (see BossShuriken) so the ammo he throws and
-    /// the ammo you throw back are visibly the same object in different hands — only the colour is
-    /// his or yours.
+    /// A one-pixel outline traced around the star's own pixels, as a child that spins with it.
+    /// SHARED with the boss's stars: a star lying in a wall, his or yours, wears a thin white one
+    /// (designer, 2026-10-02: "a small white outline to the black shurikens that are dropped").
+    ///
+    /// ⚠️ TRACED, NOT TINTED. The keyline below is the star's own sprite scaled up and tinted, and a
+    /// tint MULTIPLIES — on the pack's dark-metal star, "gold" or "white" comes out as a muddy dark
+    /// rim, which is why the old gold "take me" edge read as brown. Tracing the silhouette gives a
+    /// flat colour that is actually that colour, one art pixel thick, so it stays pixel art.
     /// </summary>
-    public static GameObject AttachStreak(Transform star, int baseOrder, Color hot, Color cool, float headAlpha)
+    public static SpriteRenderer AttachOutline(Transform star, SpriteRenderer sr, Color colour)
     {
-        var trailGO = new GameObject("Streak");
-        trailGO.transform.SetParent(star, false);
+        if (sr == null || sr.sprite == null) return null;
+        Sprite ring = StarArt.Outline(sr.sprite);
+        if (ring == null) return null;
 
-        var trail = trailGO.AddComponent<TrailRenderer>();
-        trail.time = 0.11f;
-        trail.startWidth = 0.24f;
-        trail.endWidth = 0f;
-        trail.minVertexDistance = 0.04f;
-        trail.autodestruct = false;
-        trail.numCapVertices = 2;
-        trail.sortingOrder = baseOrder - 2;      // behind both the star and its keyline
-        trail.material = new Material(Shader.Find("Sprites/Default"));
+        var go = new GameObject("Outline");
+        go.transform.SetParent(star, false);   // same pixels-per-unit, so scale 1 lines it up exactly
 
-        // Hot for the first 35% and out by the end. See the StreakHot/StreakCool note above for why
-        // this is a gradient rather than one colour at a higher alpha.
-        var grad = new Gradient();
-        grad.SetKeys(
-            new[] { new GradientColorKey(hot, 0f), new GradientColorKey(cool, 0.35f), new GradientColorKey(cool, 1f) },
-            new[] { new GradientAlphaKey(headAlpha, 0f), new GradientAlphaKey(headAlpha * 0.42f, 0.35f), new GradientAlphaKey(0f, 1f) });
-        trail.colorGradient = grad;
-
-        // ⚠️ The streak must NOT inherit the star's spin, or it whips round in a circle instead of
-        // trailing behind the flight. Detaching it from the rotation is what keeps it a streak.
-        trailGO.transform.SetParent(null, true);
-        // ...and detaching preserves the WORLD transform, so it would keep the star's art-derived
-        // scale and multiply the widths above by it. The streak's width is already in world units.
-        trailGO.transform.localScale = Vector3.one;
-        trailGO.AddComponent<TrailFollow>().Init(star);
-        trailGO.AddComponent<TemporaryObject>();
-        return trailGO;
+        var o = go.AddComponent<SpriteRenderer>();
+        o.sprite = ring;
+        o.sharedMaterial = StarArt.MaterialFor(ring);   // unlit: white stays white in a dark room
+        o.color = colour;
+        o.sortingLayerID = sr.sortingLayerID;
+        o.sortingOrder = sr.sortingOrder - 1;
+        return o;
     }
 
     /// <summary>
@@ -226,8 +358,8 @@ public class Shuriken : MonoBehaviour
     /// because a smooth gradient is simply a different drawing language from the sprite it is behind.
     /// Scaling the sprite itself keeps one language, and it spins with the star for free.
     ///
-    /// ⚠️ Returned so callers can RECOLOUR it. On the boss's stars it carries the whole state
-    /// machine — red in flight means "dodge", gold on the floor means "take me".
+    /// ⚠️ Returned so callers can RECOLOUR or HIDE it. On the boss's stars the red keyline means
+    /// "dodge"; once a star is in a wall the keyline is hidden and the white outline takes over.
     /// </summary>
     public static SpriteRenderer AttachKeyline(Transform star, SpriteRenderer sr, Color tint, float grow = 1.30f)
     {
@@ -324,21 +456,274 @@ public class Shuriken : MonoBehaviour
 
 }
 
-// Keeps the streak on the star's POSITION without inheriting its rotation, and takes itself away
-// once the star is gone so the tail can finish fading instead of vanishing mid-air.
-public class TrailFollow : MonoBehaviour
+// A star's trail: flat-colour copies of its silhouette dropped along the path it actually flew, each
+// fading and shrinking on its own. Shared by the player's stars (Shift cyan) and the Ninja boss's
+// (Wound red). See the note above Shuriken.YourGhost for why it replaced the TrailRenderer streak.
+//
+// ⚠️ SPACED BY DISTANCE, NOT BY TIME. Copies are laid at fixed intervals along the segment the star
+// covered since last frame, so the chain looks the same at 30 fps and at 144 — dropping one per frame
+// would bunch them up on a fast machine and leave gaps on a slow one. Disable the component to stop
+// the trail (a star stuck in a wall); re-enabling starts a fresh chain from wherever the star is.
+public class StarAfterimages : MonoBehaviour
 {
-    private Transform target;
-    private float orphan;
+    private const float SPACING = 0.3f;     // world units between copies; the star is 0.62 wide
+    private const float LIFE = 0.13f;       // so roughly five copies are on screen at full speed
+    private const float END_SCALE = 0.55f;
 
-    public void Init(Transform t) { target = t; }
+    private Sprite ghost;
+    private Material material;
+    private Color colour;
+    private int sortingLayer;
+    private int order;
+    private Vector3 last;
+    private float sinceLast;
+
+    public static StarAfterimages Attach(Transform star, SpriteRenderer sr, Color colour)
+    {
+        if (sr == null || sr.sprite == null) return null;
+        Sprite ghost = StarArt.Silhouette(sr.sprite);
+        if (ghost == null) return null;
+
+        var t = star.gameObject.AddComponent<StarAfterimages>();
+        t.ghost = ghost;
+        t.material = StarArt.MaterialFor(ghost);
+        t.colour = colour;
+        t.sortingLayer = sr.sortingLayerID;
+        t.order = sr.sortingOrder - 2;       // behind the star and its keyline
+        t.last = star.position;
+        return t;
+    }
+
+    private void OnEnable()
+    {
+        last = transform.position;
+        sinceLast = 0f;
+    }
 
     private void LateUpdate()
     {
-        if (target != null) { transform.position = target.position; return; }
+        Vector3 now = transform.position;
+        Vector3 step = now - last;
+        float length = step.magnitude;
+        if (length < 0.0001f) return;
 
-        orphan += Time.deltaTime;
-        if (orphan > 0.25f) Destroy(gameObject);
+        // Walk this frame's segment, dropping a copy every SPACING units of travel.
+        for (float at = SPACING - sinceLast; at <= length; at += SPACING)
+            Drop(last + step * (at / length));
+
+        sinceLast = (sinceLast + length) % SPACING;
+        last = now;
+    }
+
+    private void Drop(Vector3 where)
+    {
+        var go = new GameObject("StarGhost");
+        // Just behind the play plane: behind the actor who threw it, in front of the room — the
+        // spot BraceVFX measured (PlayPlane.Z + 0.0005), since PlayPlane leaves props that close.
+        go.transform.position = new Vector3(where.x, where.y, PlayPlane.Z + 0.0005f);
+        go.transform.rotation = transform.rotation;
+        go.transform.localScale = transform.lossyScale;
+        go.AddComponent<TemporaryObject>();
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = ghost;
+        sr.sharedMaterial = material;
+        sr.color = colour;
+        sr.sortingLayerID = sortingLayer;
+        sr.sortingOrder = order;
+
+        go.AddComponent<AfterimageFade>().Init(colour, LIFE, END_SCALE);
+    }
+}
+
+// Fades and shrinks one trail copy, then removes it. Scaled time, like SparkFade: it lives in the
+// world, so a HitStop freeze holds it still with everything else.
+public class AfterimageFade : MonoBehaviour
+{
+    private SpriteRenderer sr;
+    private Color colour;
+    private float life;
+    private float endScale;
+    private Vector3 startScale;
+    private float t;
+
+    public void Init(Color c, float lifetime, float shrinkTo)
+    {
+        sr = GetComponent<SpriteRenderer>();
+        colour = c;
+        life = Mathf.Max(0.01f, lifetime);
+        endScale = shrinkTo;
+        startScale = transform.localScale;
+    }
+
+    private void Update()
+    {
+        t += Time.deltaTime;
+        float k = Mathf.Clamp01(t / life);
+        if (sr != null) sr.color = new Color(colour.r, colour.g, colour.b, colour.a * (1f - k));
+        transform.localScale = startScale * Mathf.Lerp(1f, endScale, k);
+        if (k >= 1f) Destroy(gameObject);
+    }
+}
+
+// Flat-colour versions of a star's art, generated once per sprite and cached: a SILHOUETTE (every
+// opaque pixel white, for the trail) and an OUTLINE (a one-pixel ring around those pixels, for a star
+// in a wall). Both are white so the renderer's colour IS the colour — tinting the star's own dark
+// art can only ever darken it.
+//
+// ⚠️ THE PIXELS ARE READ THROUGH A RENDER TEXTURE, so this works on art that was not imported as
+// Read/Write — the pack's sprites are not, and flipping that import setting on a shared pack asset is
+// not this code's business. Only ALPHA is read, which is the same in linear and gamma space.
+public static class StarArt
+{
+    private static readonly Dictionary<Sprite, Sprite> silhouettes = new Dictionary<Sprite, Sprite>();
+    private static readonly Dictionary<Sprite, Sprite> outlines = new Dictionary<Sprite, Sprite>();
+    private static readonly Dictionary<Sprite, Material> materials = new Dictionary<Sprite, Material>();
+
+    public static Sprite Silhouette(Sprite src)
+    {
+        if (src == null) return null;
+        if (silhouettes.TryGetValue(src, out Sprite cached) && cached != null) return cached;
+
+        bool[] solid = ReadSolid(src, out int w, out int h);
+        if (solid == null) return null;
+
+        var px = new Color32[w * h];
+        for (int i = 0; i < px.Length; i++)
+            px[i] = solid[i] ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
+
+        Sprite s = Make(px, w, h, src.pivot, src.pixelsPerUnit, "silhouette");
+        silhouettes[src] = s;
+        return s;
+    }
+
+    public static Sprite Outline(Sprite src)
+    {
+        if (src == null) return null;
+        if (outlines.TryGetValue(src, out Sprite cached) && cached != null) return cached;
+
+        bool[] solid = ReadSolid(src, out int w, out int h);
+        if (solid == null) return null;
+
+        // One pixel bigger on every side, so the ring has room around the blade tips.
+        int W = w + 2, H = h + 2;
+
+        // ⚠️ THE OUTSIDE EDGE ONLY. A star with a pierced centre would otherwise get a second little
+        // ring inside the hole, which at game size reads as a stray white dot in the middle of it.
+        // "Outside" = the clear pixels reachable from the border of the canvas without crossing art.
+        bool[] outside = new bool[W * H];
+        var open = new Queue<int>();
+        for (int x = 0; x < W; x++) { Seed(outside, open, solid, w, h, W, x, 0); Seed(outside, open, solid, w, h, W, x, H - 1); }
+        for (int y = 0; y < H; y++) { Seed(outside, open, solid, w, h, W, 0, y); Seed(outside, open, solid, w, h, W, W - 1, y); }
+        while (open.Count > 0)
+        {
+            int i = open.Dequeue();
+            int x = i % W, y = i / W;
+            if (x > 0) Seed(outside, open, solid, w, h, W, x - 1, y);
+            if (x < W - 1) Seed(outside, open, solid, w, h, W, x + 1, y);
+            if (y > 0) Seed(outside, open, solid, w, h, W, x, y - 1);
+            if (y < H - 1) Seed(outside, open, solid, w, h, W, x, y + 1);
+        }
+
+        var px = new Color32[W * H];
+        for (int y = 0; y < H; y++)
+        {
+            for (int x = 0; x < W; x++)
+            {
+                bool ring = outside[y * W + x] && TouchesSolid(solid, w, h, x - 1, y - 1);
+                px[y * W + x] = ring ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
+            }
+        }
+
+        Sprite s = Make(px, W, H, src.pivot + Vector2.one, src.pixelsPerUnit, "outline");
+        outlines[src] = s;
+        return s;
+    }
+
+    // ⚠️ ONE MATERIAL PER IMAGE, never one shared across them: SpriteRenderers sharing a custom
+    // material can be batched into one draw carrying the FIRST one's texture (see BraceVFX, and the
+    // "each other's texture" pitfall in CLAUDE.md). Sprites/Default is unlit, so a white outline stays
+    // white in a dimly lit room, and it is a shader every build already includes.
+    public static Material MaterialFor(Sprite s)
+    {
+        if (s == null) return null;
+        if (materials.TryGetValue(s, out Material m) && m != null) return m;
+        m = new Material(Shader.Find("Sprites/Default"));
+        materials[s] = m;
+        return m;
+    }
+
+    private static bool Solid(bool[] solid, int w, int h, int x, int y)
+        => x >= 0 && y >= 0 && x < w && y < h && solid[y * w + x];
+
+    // Flood-fill step on the padded canvas: (x, y) there is (x - 1, y - 1) in the art.
+    private static void Seed(bool[] outside, Queue<int> open, bool[] solid, int w, int h, int W, int x, int y)
+    {
+        int i = y * W + x;
+        if (outside[i] || Solid(solid, w, h, x - 1, y - 1)) return;
+        outside[i] = true;
+        open.Enqueue(i);
+    }
+
+    private static bool TouchesSolid(bool[] solid, int w, int h, int x, int y)
+    {
+        for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+                if ((dx != 0 || dy != 0) && Solid(solid, w, h, x + dx, y + dy)) return true;
+        return false;
+    }
+
+    private static Sprite Make(Color32[] px, int w, int h, Vector2 pivotPixels, float ppu, string label)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+        { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, name = "Star " + label };
+        tex.SetPixels32(px);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, w, h),
+                             new Vector2(pivotPixels.x / w, pivotPixels.y / h), ppu, 0, SpriteMeshType.FullRect);
+    }
+
+    // Which pixels of the sprite's own rectangle are opaque, bottom row first.
+    private static bool[] ReadSolid(Sprite src, out int w, out int h)
+    {
+        Rect r = src.textureRect;
+        w = Mathf.RoundToInt(r.width);
+        h = Mathf.RoundToInt(r.height);
+        Texture2D tex = src.texture;
+        if (tex == null || w <= 0 || h <= 0) return null;
+
+        Color32[] px;
+        if (tex.isReadable)
+        {
+            px = tex.GetPixels32();
+            return Crop(px, tex.width, Mathf.RoundToInt(r.x), Mathf.RoundToInt(r.y), w, h);
+        }
+
+        RenderTexture rt = RenderTexture.GetTemporary(tex.width, tex.height, 0, RenderTextureFormat.ARGB32);
+        RenderTexture previous = RenderTexture.active;
+        Graphics.Blit(tex, rt);
+        RenderTexture.active = rt;
+        var copy = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        copy.ReadPixels(new Rect(r.x, r.y, w, h), 0, 0);
+        copy.Apply();
+        RenderTexture.active = previous;
+        RenderTexture.ReleaseTemporary(rt);
+
+        px = copy.GetPixels32();
+        Object.Destroy(copy);
+
+        var solid = new bool[w * h];
+        for (int i = 0; i < solid.Length; i++) solid[i] = px[i].a > 127;
+        return solid;
+    }
+
+    private static bool[] Crop(Color32[] px, int texWidth, int x0, int y0, int w, int h)
+    {
+        var solid = new bool[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                solid[y * w + x] = px[(y0 + y) * texWidth + (x0 + x)].a > 127;
+        return solid;
     }
 }
 

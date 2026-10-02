@@ -36,12 +36,16 @@ public class BossShuriken : MonoBehaviour
     // Both are already the game's own accents (Salvage §4: Torch and Shift are the only two accents,
     // and Wound is the warning), so this spends no new hue. Red also matches his dash lane, which is
     // the other thing on screen that means "he is about to hurt you there".
+    //
+    // ⚠️ ON THE FLOOR IT IS NOW A THIN WHITE OUTLINE, NOT GOLD (designer, 2026-10-02). The gold was a
+    // tinted copy of the star's dark-metal sprite, and a tint multiplies, so on screen it came out as
+    // a brown rim. See Shuriken.AttachOutline. The player's own stars in a wall wear the same one.
     private static readonly Color ThreatKey = new Color(1f, 0.34f, 0.32f, 0.60f);
-    private static readonly Color ThreatHot = new Color(1f, 0.50f, 0.44f, 1f);
-    private static readonly Color ThreatCool = new Color(0.42f, 0.12f, 0.13f, 1f);
-    private static readonly Color LootKey = new Color(Salvage.Torch.r, Salvage.Torch.g, Salvage.Torch.b, 0.85f);
+    private static readonly Color ThreatGhost = new Color(1f, 0.38f, 0.34f, 0.55f);   // the trail
 
     private SpriteRenderer keyline;
+    private SpriteRenderer outline;
+    private StarAfterimages trail;
 
     // ⚠️ EVERY LIVE STAR IS REGISTERED so the boss can recall them without holding references that
     // could go stale when one is collected or swept on a room change. Entries remove themselves in
@@ -130,7 +134,7 @@ public class BossShuriken : MonoBehaviour
         // Both shared with the player's Shuriken so the two can never drift apart visually — it is
         // literally the same object changing hands, and one implementation is what guarantees that.
         s.keyline = Shuriken.AttachKeyline(go.transform, sr, ThreatKey);
-        Shuriken.AttachStreak(go.transform, sr.sortingOrder, ThreatHot, ThreatCool, 0.75f);
+        s.trail = StarAfterimages.Attach(go.transform, sr, ThreatGhost);
 
         return s;
     }
@@ -165,8 +169,7 @@ public class BossShuriken : MonoBehaviour
             bobPhase += Time.deltaTime * 3.2f;
             float k = 0.78f + 0.22f * Mathf.Sin(bobPhase);
             sr.color = new Color(Steel.r * k + (1f - k), Steel.g * k + (1f - k), Steel.b * k + (1f - k), 1f);
-            if (keyline != null)
-                keyline.color = new Color(LootKey.r, LootKey.g, LootKey.b, LootKey.a * (0.55f + 0.45f * k));
+            if (outline != null) outline.color = new Color(1f, 1f, 1f, 0.6f + 0.4f * k);
             return;
         }
         transform.Rotate(0f, 0f, SPIN * Time.deltaTime);
@@ -219,18 +222,13 @@ public class BossShuriken : MonoBehaviour
         float scale = Mathf.Max(0.001f, transform.localScale.x);
         if (col != null) col.radius = PICKUP_R / scale;
 
-        // It has changed sides. Red meant "his"; gold means "yours".
-        //
-        // ⚠️ THE RIM GROWS AS WELL AS CHANGING COLOUR. Photographed side by side, red-in-flight and
-        // gold-on-the-floor are both "a dark star with a warm edge" and are only about as different
-        // as two warm hues ever are at 30 pixels across. Widening the lit edge makes a planted star
-        // read as something GLOWING rather than something outlined — two signals instead of one, and
-        // the size difference survives at a glance across an arena where the hue alone might not.
-        if (keyline != null)
-        {
-            keyline.color = LootKey;
-            keyline.transform.localScale = Vector3.one * 1.55f;
-        }
+        // It has changed sides. The red keyline and trail meant "his"; a white outline means "yours".
+        // White against red is a far bigger difference than the old gold against red, which were
+        // both "a dark star with a warm edge" at 30 pixels across.
+        if (trail != null) trail.enabled = false;
+        if (keyline != null) keyline.enabled = false;
+        if (outline == null) outline = Shuriken.AttachOutline(transform, sr, Color.white);
+        else outline.enabled = true;
 
         // ⚠️ POSITIONAL, unlike the boss's own ability sounds. Where a star landed is information —
         // it is where the ammo now is — so it should get quieter across the arena rather than being
@@ -305,12 +303,11 @@ public class BossShuriken : MonoBehaviour
         if (rb != null) rb.bodyType = RigidbodyType2D.Kinematic;
         stuck = false;
         // Back to being his. The colour flip is the clearest possible statement that this one is no
-        // longer collectable, and it happens on the frame it stops being collectable.
-        if (keyline != null)
-        {
-            keyline.color = ThreatKey;
-            keyline.transform.localScale = Vector3.one * 1.30f;
-        }
+        // longer collectable, and it happens on the frame it stops being collectable. The red trail
+        // comes back too, so the flight home reads as one of his throws.
+        if (outline != null) outline.enabled = false;
+        if (keyline != null) keyline.enabled = true;
+        if (trail != null) trail.enabled = true;
 
         Vector3 from = transform.position;
         float t = 0f;

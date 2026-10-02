@@ -267,7 +267,9 @@ public class DeckManager : MonoBehaviour
             // Blompo: several blessings can skip the charge (Sleight of Hand, Slow Burn, the first
             // Teacher's Pet play each room). `- 1` because this card's own play was just counted.
             bool spendCharge = CardEnhancements.ShouldSpendCharge(playedCard, cardsPlayedThisRoom - 1);
-            if (!playedCard.isInfinite && !keepCharges && spendCharge) playedCard.currentUses--;
+            bool chargeSpent = !playedCard.isInfinite && !keepCharges && spendCharge;
+            if (chargeSpent) playedCard.currentUses--;
+            playedCard.lastPlaySpentCharge = chargeSpent;
 
             // ⚠️ STAGGER ENTERS NO PILE. It is not a card the player owns — it is conjured into the
             // hand whenever Shift hits zero and evaporates when spent. Letting it fall through to
@@ -301,7 +303,7 @@ public class DeckManager : MonoBehaviour
             // out; only Recall discards. It used to go to the discard pile, which made every card's
             // real Shift price a share of a Recall that got dearer each time: a missed Fireball was
             // billed later, and bigger, as an extra refill, and big rooms were taxed quadratically.
-            // The Ninja's quiver below had already been given this rule for exactly that reason.
+            // The Ninja's quiver above had already been given this rule for exactly that reason.
             //
             // Charges are now the only per-play limit on most cards, so anything that removes them
             // (an infinite card, a blessing that never spends one) is an unlimited free action held
@@ -314,50 +316,136 @@ public class DeckManager : MonoBehaviour
             {
                 ReturnToHand(playedCard, index);
             }
-            // Blompo: "Last Call" — the first burnout of the run refills the card instead. Checked
-            // ahead of Reclaimer's Clamp on purpose: this is once per RUN and card-specific, the
-            // Clamp is once per ROOM and applies to anything, so spending the narrower one first
-            // leaves the broader one available for a different card.
-            else if (CardEnhancements.RescueFromExhaust(playedCard))
+            // The Ninja's Shuriken, out of charges: it waits in its slot while any of its stars are
+            // still out there to be fetched. See HoldEmpty.
+            else if (FetchesStars(playedCard))
             {
-                ReturnToHand(playedCard, index);
-            }
-            else if (!clampUsedThisRoom && RelicManager.instance != null
-                     && RelicManager.instance.HasRelic("ReclaimersClamp"))
-            {
-                // Reclaimer's Clamp: the first card that would exhaust each room is salvaged —
-                // it returns to hand with a single charge instead of going to the exhaust pile.
-                clampUsedThisRoom = true;
-                playedCard.currentUses = 1;
-                ReturnToHand(playedCard, index);
-            }
-            // Long Fuse: a burnt-out card goes back into the DRAW pile with a single charge instead
-            // of the exhaust pile. Checked last of the rescues on purpose — Last Call is once per
-            // run and Reclaimer's Clamp once per room, so the narrower ones spend first and this
-            // unlimited one catches whatever is left.
-            //
-            // It softens exhaust rather than deleting it: one charge at a time still burns down,
-            // and it costs a hand slot (see HandCapacity). No scrap rebate — the card did not die.
-            else if (RelicManager.instance != null && RelicManager.instance.HasRelic("LongFuse"))
-            {
-                playedCard.currentUses = 1;
-                drawPile.Add(playedCard);
+                HoldEmpty(playedCard, index);
             }
             else
             {
-                exhaustPile.Add(playedCard);
-
-                // Blompo: death benefits ("Inheritance" passes its remaining life to another card).
-                CardEnhancements.OnExhausted(playedCard);
-
-                // A card burning out leaves scrap behind — a small consolation so losing a card
-                // isn't a total loss, deliberately far below what it costs to salvage one back
-                // (see ScrapEconomy). No hub guard needed: charges don't decrement in the hub,
-                // so this branch is unreachable there.
-                if (player != null) player.AddScrap(ScrapEconomy.EXHAUST_REBATE);
+                BurnOut(playedCard, index);
             }
             OnHandChanged?.Invoke(false);
         }
+    }
+
+    // A card that has just run out of charges. Each rescue gets its chance before it is exhausted for
+    // real; `slot` is where a rescued card goes back into the hand.
+    private void BurnOut(RuntimeCard card, int slot)
+    {
+        // Blompo: "Last Call" — the first burnout of the run refills the card instead. Checked
+        // ahead of Reclaimer's Clamp on purpose: this is once per RUN and card-specific, the
+        // Clamp is once per ROOM and applies to anything, so spending the narrower one first
+        // leaves the broader one available for a different card.
+        if (CardEnhancements.RescueFromExhaust(card))
+        {
+            ReturnToHand(card, slot);
+        }
+        else if (!clampUsedThisRoom && RelicManager.instance != null
+                 && RelicManager.instance.HasRelic("ReclaimersClamp"))
+        {
+            // Reclaimer's Clamp: the first card that would exhaust each room is salvaged —
+            // it returns to hand with a single charge instead of going to the exhaust pile.
+            clampUsedThisRoom = true;
+            card.currentUses = 1;
+            ReturnToHand(card, slot);
+        }
+        // Long Fuse: a burnt-out card goes back into the DRAW pile with a single charge instead
+        // of the exhaust pile. Checked last of the rescues on purpose — Last Call is once per
+        // run and Reclaimer's Clamp once per room, so the narrower ones spend first and this
+        // unlimited one catches whatever is left.
+        //
+        // It softens exhaust rather than deleting it: one charge at a time still burns down,
+        // and it costs a hand slot (see HandCapacity). No scrap rebate — the card did not die.
+        else if (RelicManager.instance != null && RelicManager.instance.HasRelic("LongFuse"))
+        {
+            card.currentUses = 1;
+            drawPile.Add(card);
+        }
+        else
+        {
+            exhaustPile.Add(card);
+
+            // Blompo: death benefits ("Inheritance" passes its remaining life to another card).
+            CardEnhancements.OnExhausted(card);
+
+            // A card burning out leaves scrap behind — a small consolation so losing a card
+            // isn't a total loss, deliberately far below what it costs to salvage one back
+            // (see ScrapEconomy). No hub guard needed: charges don't decrement in the hub,
+            // so this branch is unreachable there.
+            if (player != null) player.AddScrap(ScrapEconomy.EXHAUST_REBATE);
+        }
+    }
+
+    // ---- The Ninja's "Finders Keepers" ---------------------------------------------------------
+
+    // Does this card's missed stars stick in the room to be fetched? Read live off the character,
+    // like every other trait, so a character swap cannot leave it stale.
+    public bool FetchesStars(RuntimeCard card)
+        => card != null && card.cardData != null
+           && card.cardData.actionType == CardActionType.Shuriken
+           && player != null && player.character != null && player.character.missedStarsStick;
+
+    // ⚠️ A SHURIKEN AT ZERO WAITS FOR ITS STARS. Burning it out on the throw that emptied it would
+    // mean the LAST star could never be fetched — the card would already be in the exhaust pile when
+    // it landed — and exactly that throw is the one a player most wants back. So it sits in its slot
+    // at 0, unplayable, while any of its stars are in flight or stuck in the room, and burns out only
+    // once none are left (SettleHeldEmptyCards). Picking a star up gives it a charge and it is simply
+    // a card again. Nothing is ever exhausted and then brought back, so no exhaust payout (scrap,
+    // Inheritance) can be farmed by throwing a last star at a wall and fetching it.
+    private readonly Dictionary<RuntimeCard, float> heldEmpty = new Dictionary<RuntimeCard, float>();
+
+    // The star leaves the hand THROW_RELEASE (0.13s) after the click, so for a moment after the play
+    // the card has no star out yet. This grace covers that gap.
+    private const float HELD_EMPTY_GRACE = 0.3f;
+
+    private void HoldEmpty(RuntimeCard card, int slot)
+    {
+        ReturnToHand(card, slot);
+        heldEmpty[card] = Time.time;
+    }
+
+    private void SettleHeldEmptyCards()
+    {
+        if (heldEmpty.Count == 0) return;
+
+        List<RuntimeCard> settled = null;
+        foreach (KeyValuePair<RuntimeCard, float> held in heldEmpty)
+        {
+            RuntimeCard card = held.Key;
+            bool refilled = card.currentUses > 0 || !hand.Contains(card);
+            bool abandoned = !refilled && Time.time >= held.Value + HELD_EMPTY_GRACE
+                             && Shuriken.LiveStarsOf(card) == 0;
+            if (!refilled && !abandoned) continue;
+
+            if (settled == null) settled = new List<RuntimeCard>();
+            settled.Add(card);
+        }
+        if (settled == null) return;
+
+        foreach (RuntimeCard card in settled)
+        {
+            heldEmpty.Remove(card);
+            if (card.currentUses > 0 || !hand.Contains(card)) continue;   // fetched in time
+
+            int slot = hand.IndexOf(card);
+            hand.RemoveAt(slot);
+            BurnOut(card, slot);
+        }
+        OnHandChanged?.Invoke(false);
+    }
+
+    /// <summary>
+    /// A fetched star's charge going back on the card that threw it. False when that card is gone
+    /// (exhausted), in which case the star is simply picked up for nothing.
+    /// </summary>
+    public bool ReturnStarCharge(RuntimeCard card)
+    {
+        if (card == null || exhaustPile.Contains(card)) return false;
+        card.currentUses++;
+        OnHandChanged?.Invoke(false);
+        return true;
     }
     private void Update()
     {
@@ -369,6 +457,7 @@ public class DeckManager : MonoBehaviour
         // (null guard: a recompile during Play mode resets the singleton's static instance.)
         if (GameManager.instance != null && GameManager.instance.currentState == GameState.Playing)
         {
+            SettleHeldEmptyCards();
             CheckForStaggerCondition();
         }
     }
@@ -718,9 +807,10 @@ public class DeckManager : MonoBehaviour
             {
                 shiftPaid = currentRecallCost;
                 player.SpendShift(currentRecallCost);
-                // The Ninja's "Fast Hands": the price never climbs, so cycling the hand is a real
-                // strategy instead of something the escalation quietly teaches you not to do. The
-                // recall still COSTS — it just stops getting worse.
+                // A locked price (a character's recallCostNeverRises, or Tunnel Vision) never climbs,
+                // so cycling the hand is a real strategy instead of something the escalation quietly
+                // teaches you not to do. The recall still COSTS — it just stops getting worse. (This
+                // was the Ninja's old Fast Hands; no character uses it since 2026-10-02.)
                 if (!RecallCostIsLocked) currentRecallCost++;
                 OnRecallCostChanged?.Invoke(currentRecallCost);
             }
@@ -786,19 +876,42 @@ public class DeckManager : MonoBehaviour
         // less obvious problem is that discarding it puts it in the deck. Once it is in your hand
         // the only way out is to play it. It costs a slot until you do, which is the pressure.
         List<RuntimeCard> retained = new List<RuntimeCard>();
+        List<RuntimeCard> burnt = new List<RuntimeCard>();
         for (int i = 0; i < hand.Count; i++)
         {
+            RuntimeCard c = hand[i];
+            if (c == null) continue;
+
+            // A Shuriken waiting at 0 on stars still in the room keeps its slot (see HoldEmpty) —
+            // a Recall is not a reason to give up on them. On a room change the stars have been
+            // swept by now, so it burns out instead, and so does any other card left at 0: sent
+            // to the discard pile it would come back around as a dead card.
+            bool empty = !c.isInfinite && c.currentUses <= 0 && !IsStagger(c) && !IsSalvagedShuriken(c);
+            if (empty)
+            {
+                if (Shuriken.LiveStarsOf(c) > 0) retained.Add(c);
+                else burnt.Add(c);
+                continue;
+            }
+
             // ⚠️ The Ninja's quiver is retained for BOTH of Stagger's reasons: discarding it would
             // put a conjured card into the real deck, and a player who Recalled would lose the stars
             // they crossed the arena to collect — while the boss keeps throwing more.
-            if (hand[i] != null && (CardEnhancements.RetainsThroughRecall(hand[i])
-                                    || IsStagger(hand[i]) || IsSalvagedShuriken(hand[i])))
-                retained.Add(hand[i]);
+            if (CardEnhancements.RetainsThroughRecall(c) || IsStagger(c) || IsSalvagedShuriken(c))
+                retained.Add(c);
             else
-                discardPile.Add(hand[i]);
+                discardPile.Add(c);
         }
         hand.Clear();
         hand.AddRange(retained);
+
+        // After the rebuild, so a rescue (Last Call, Reclaimer's Clamp) that hands a card back has a
+        // hand to put it in rather than one that is about to be cleared.
+        foreach (RuntimeCard c in burnt)
+        {
+            heldEmpty.Remove(c);
+            BurnOut(c, hand.Count);
+        }
 
         // Counted in SLOTS, not cards: a Clingy card drawn here takes none, so the draw carries on
         // past it. Every pass draws a card or stops, so this ends however the deck is made up.

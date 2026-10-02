@@ -84,7 +84,7 @@ not a hand-kept list — adding a character is dropping in an asset, with nothin
 | | deck | trait |
 |---|---|---|
 | **Wizard** | Fireball ×2, Create Platform, Dash | *Big Sleeves* — +1 hand |
-| **Ninja** | Shuriken ×2, Dash, Leap | *Fast Hands* — Recall never escalates, **−1 hand** (⚠️ under rework since 2026-10-02, see Deck Structure) |
+| **Ninja** | Shuriken ×2, Dash, Leap | *Finders Keepers* (2026-10-02) — his Shuriken that MISS stick in the room; pick one up for the charge back. No hand penalty any more |
 | **Samurai** (2026-09-17) | Through and Through ×2, Glass Parry, Leap | *Full Plate* — +5 **armour** on entering each COMBAT room; armour carries over |
 
 **Every playable character is also a boss** (designer, 2026-09-17; see memory "bosses are characters"):
@@ -465,9 +465,18 @@ rooms were taxed quadratically. Consequences that are now rules:
   hand full?" check goes through `DeckManager.SlotsUsed()`, never `hand.Count`, because **Clingy** cards
   take no slot.
 - **Understudy's partner joins even a full hand** (one over the limit until the next Recall) on purpose.
-- **The Ninja's trait is UNDER REWORK** (designer, 2026-10-02): Fast Hands (flat Recall, −1 hand) lost
-  its upside. "Recall swaps only the selected card" was proposed and rejected (it makes reaching one
-  specific strong card random). Do not ship a replacement without the designer.
+- **The Ninja's trait became Finders Keepers** (designer, 2026-10-02), replacing Fast Hands (flat
+  Recall, −1 hand), which the new rule had emptied. Rejected on the way, with the designer's reasons:
+  "Recall swaps only the selected card" (reaching one specific strong card becomes random), Clean Kill
+  / a killing blow refunds its charge (abusable with heavy hitters like Through and Through), Quick
+  Draw (too small), pick-your-loadout Recall (a decision too big for mid-level), Old Log Trick (liked,
+  but less fun). Free wall jumps are ruled out by the code itself (an unlimited climb).
+  - ⚠️ **Only a throw that COST a charge can stick** (`RuntimeCard.lastPlaySpentCharge`), or a free
+    throw (Sleight of Hand, the hub) would mint a charge. A star that hits something breaks.
+  - ⚠️ **An empty Shuriken WAITS in its slot at 0 while any of its stars are out** (`DeckManager.HoldEmpty`),
+    so the LAST star can be fetched too; it burns out only once none are left, and survives a Recall.
+    Nothing is ever exhausted and then revived, which is what keeps the scrap rebate and Inheritance
+    from being farmed by throwing a last star at a wall.
 - **Still to judge in play, deliberately untouched:** Flywheel, Tunnel Vision, Long Fuse, Second
   Nature and Offering (all Recall/hand relics, now weaker or different); the No Take-Backs oath (nearly
   free for the Wizard, who holds her whole deck); per-card charge counts (Shuriken's 10 are 80 damage
@@ -537,6 +546,17 @@ immediately it outran the animation. The aim is captured at the press; only the 
 The projectile uses the pack's own shuriken sprite, sized from `sprite.bounds` rather than a fixed
 scale, and the held star is hidden for 0.28s during the throw so the thing that flies is the thing
 that was in his hand.
+
+⚠️ **The player's star flies on `PlayPlane.Z` (fixed 2026-10-02).** It used to fly at z = 0, behind the
+plane, so props hid it and its trail; that was why Borrowed Steel "had no trail" (reported twice).
+**The trail is `StarAfterimages`** (fading copies of the star's silhouette, cyan for yours, red for
+the Ninja boss's), which replaced the TrailRenderer streak the designer disliked. **A star stuck in a
+wall wears a thin white outline** (`Shuriken.AttachOutline`), the boss's too. Both are generated from
+the sprite by `StarArt`: a TINT on the dark pack art can only darken it.
+
+⚠️ **Shuriken and Borrowed Steel share the same card art** (`shuriken_0`), so a Shuriken in a shop looks
+exactly like Borrowed Steel. Borrowed Steel itself is NOT offerable (verified 2026-10-02: `CardPool`
+excludes its action type, and every shop and chest goes through `CardPool`).
 
 **Card art:** real art (`Assets/Art/shuriken.png`, shared with Borrowed Steel) replaced the Freefall
 Blade placeholder on 2026-09-08 (not yet committed). `nameIsPaintedIntoArt` should stay `false` on any

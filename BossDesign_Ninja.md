@@ -450,6 +450,30 @@ floor are both "a dark star with a warm edge" and are only as different as two w
 thirty pixels across. Widening the lit edge makes a planted star read as something *glowing* rather
 than something *outlined* — two signals instead of one.
 
+### 2026-10-02: the streak is gone, and the planted star is WHITE now
+
+The designer reported the missing Borrowed Steel trail a SECOND time, plus "i dont really like the
+trails anyway ... i think they are misaligned sometimes". Two findings, two changes:
+
+- ⚠️ **The real reason the player's trail went missing was DEPTH, not colour.** `Shuriken.Spawn` took a
+  2D throw origin, so the player's star (and its trail) flew at **z = 0**, behind the play plane
+  (−2) every actor stands on. Any prop between the two drew over it, which reads as a trail that is
+  broken, offset, or simply not there. The boss's stars had been snapped onto the plane long ago; the
+  player's never were. Fixed: the player's star spawns on `PlayPlane.Z`. The 2026-08-22 diagnosis
+  above (grey on grey) was real but was only half of it.
+- **The TrailRenderer streak is replaced by afterimages** (`StarAfterimages`): flat-colour copies of
+  the star's own silhouette laid at fixed distances along the path it actually flew, each fading and
+  shrinking. One drawing language with the star, and nothing that can drift out of step with it. Same
+  colours as before: his are Wound red, yours Shift cyan.
+- **A planted star wears a thin WHITE outline**, his and yours alike ("a small white outline to the
+  black shurikens that are dropped on the ground"), traced one art pixel outside the silhouette by
+  `Shuriken.AttachOutline`. The gold rim in the table above is retired: it was a TINTED copy of the
+  dark-metal sprite, and a tint multiplies, so on screen "gold" was a brown rim. The red keyline in
+  flight is unchanged.
+
+The table now reads: his in flight = red keyline + red trail · planted = white outline · yours in
+flight = cyan keyline + cyan trail.
+
 ## 7d. Third playtest, 2026-08-22 — the HUD, the gate, and a telegraph that lied
 
 ### ⚠️ THE HAND WAS COVERING THE FIGHT, AND THE ARENA IS WHY IT SHOWED UP HERE FIRST

@@ -36,8 +36,16 @@ public class CharacterData : ScriptableObject
     public int handCapacityBonus = 0;
 
     // Recall costs Shift and normally gets one more expensive with every use inside a level.
-    // Consumed by DeckManager.RecallCostIsLocked.
+    // Consumed by DeckManager.RecallCostIsLocked. (It was the Ninja's old trait, Fast Hands; no
+    // character uses it since 2026-10-02, but it is a working switch, so it is kept.)
     public bool recallCostNeverRises = false;
+
+    // The Ninja's "Finders Keepers" (designer, 2026-10-02): his Shuriken that MISS stick where they
+    // land, and picking one up gives that charge back. Stars that hit something break as usual, so
+    // it can never become free ammo — it forgives a miss, at the price of going to fetch it, which
+    // costs jumps when the star is stuck somewhere awkward. Read live through
+    // DeckManager.FetchesStars, never copied.
+    public bool missedStarsStick = false;
 
     // Armour granted on entering each COMBAT room (the Samurai's "Full Plate"). Armour is a second
     // health pool that empties before HP and does NOT reset between rooms, so a player who is never

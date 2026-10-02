@@ -13,18 +13,20 @@ MonoBehaviour:
   m_Name: Ninja
   m_EditorClassIdentifier: 
   characterName: Ninja
-  description: Works fast and travels light. Holds less than anyone, and never stops
-    redrawing.
+  description: Works fast and wastes nothing. A star that misses is just a star to
+    go and get.
   portrait: {fileID: 0}
   startingDeck:
   - {fileID: 11400000, guid: 71f54ef8b64266548a4d23bd4c0dba67, type: 2}
   - {fileID: 11400000, guid: 71f54ef8b64266548a4d23bd4c0dba67, type: 2}
   - {fileID: 11400000, guid: 26ab3f4e031f6eb4198d3c3e6942ff07, type: 2}
   - {fileID: 11400000, guid: b3132bd486128a34183f125375419fd5, type: 2}
-  traitName: Fast Hands
-  traitDescription: Recall never gets more expensive. You hold one fewer card.
-  handCapacityBonus: -1
-  recallCostNeverRises: 1
+  traitName: Finders Keepers
+  traitDescription: Shuriken that miss stick where they land. Pick one up to get its
+    charge back.
+  handCapacityBonus: 0
+  recallCostNeverRises: 0
+  missedStarsStick: 1
   armourPerRoom: 0
   bossRoom: {fileID: 5690726939509648437, guid: f8fbe4a0fbbda224586e7456b5ef8e98, type: 3}
   appearancePreset: {fileID: 1546294774153461753, guid: c7f5d01ce1cb7104695e7dc4d256e64f, type: 3}
