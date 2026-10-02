@@ -693,6 +693,29 @@ the back. Measured: bottom ~14% of the screen instead of ~22%, entirely below th
 **New card art must keep its identifying silhouette in the upper half of the card**, or it is a
 black strip at rest.
 
+### The name plaque — `CardNamePlate` (2026-10-02)
+
+A playtester "could not understand which cards they have in their hand without having to hover them
+and read": the card's name plate is in the bottom half, which the sink hides. So in the HAND each card
+carries a plaque ABOVE it, `[key | NAME]`, in the row the `[n]` key hint used to occupy (`CardUI.Setup`
+hides `keyHintText` while a plaque shows, and keeps the hint if the plaque cannot be built: a card must
+never lose its key number). Off the hand (negative index: deck view, chests) there is no plaque.
+
+⚠️ **THE PLAQUE IS CUT FROM THE CARD'S OWN FRAME, NOT DRAWN AS UI.** The first version (a flat dark
+tab with gold text) got "the idea is good, but it doesn't look great": a UI box pasted onto pixel art.
+`CardNamePlate.PlaqueFrom` copies the rarity frame's (`CardBackArt`) top edge and its whole name plate
+into one small sprite, so it has the card's outline, granite, corner brackets and rim colour at the
+card's own pixel size, and follows rarity for free (grey / white / gold / magenta). The key sits in a
+cell closed by a 1px rule in the rim's colour; the name is the title gold.
+- The source rows are measured on the canonical 124×204 frame in the SPRITE's rows (cut at x2 y2
+  120×201). **Redraw the frame and they must be re-measured.**
+- ⚠️ **Keep all 16 interior rows of the plate.** Cut to 12 to save height, the names were too small
+  to read at a glance, which is the plaque's only job.
+- `GAP_PX` 4 clears the charge ball and Shift crystal, which stand ~3px proud of the frame's top edge.
+- Long names shrink to fit the width (deterministic `GetPreferredValues`, never auto-size); only
+  "THROUGH AND THROUGH" does today.
+- It is a child of the card art, so the hover flip turns it away with the front.
+
 ⚠️ **IT IS NO LONGER A HOVER DRAWER AND NO LONGER A LAYOUT GROUP.** Two rebuilds, and every doc written before them is wrong about this screen:
 
 - **2026-08-22 — it stopped hiding.** It used to slide out of sight and rise only when the pointer entered a 1000×200 zone. Aimed cards fly at the CURSOR, so reading your hand and aiming a shot were the same input, fighting each other mid-fight; and the raised panel covered the character. `SetLocked` is now the only thing that hides it (a full-screen panel is up and the hand is unplayable anyway), and the drawer's Image has `raycastTarget` **permanently off** — an input-eating rectangle across the bottom of the play area was the thing being removed.

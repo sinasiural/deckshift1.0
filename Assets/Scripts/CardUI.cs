@@ -177,6 +177,23 @@ public class CardUI : MonoBehaviour, IPointerClickHandler
         // card's BACK already guarded this; the front did not, so every chest offer read "[0]".)
         if (keyHintText != null) keyHintText.text = index >= 0 ? $"[{index + 1}]" : "";
 
+        // In the HAND the key number and the card's name ride on a plaque above the card
+        // (CardNamePlate), so the "[n]" hint stands down there. Off the hand (deck view, chests: a
+        // negative index) there is no key and no plaque. If the plaque cannot be built, the old hint
+        // stays — a card must never lose its key number.
+        bool plaqued = false;
+        if (index >= 0)
+        {
+            if (namePlate == null) namePlate = CardNamePlate.For(cardArtImage);
+            if (namePlate != null)
+            {
+                namePlate.Show(card, index);
+                plaqued = namePlate.gameObject.activeSelf;
+            }
+        }
+        else if (namePlate != null) namePlate.Hide();
+        if (keyHintText != null) keyHintText.gameObject.SetActive(!plaqued);
+
         // The description lives on the card's BACK now; the title is up there as a header, so the
         // body is just the effect text. RefreshBlessingBadge/TickCardFace may extend it below.
         bodyText = card.cardData.description;
@@ -307,6 +324,7 @@ public class CardUI : MonoBehaviour, IPointerClickHandler
 
     private TextMeshProUGUI staggerCostText;
     private TextMeshProUGUI nameText;
+    private CardNamePlate namePlate;
     private Vector2 faceHostSize = Vector2.zero;
     private bool isStaggerCard;
 
