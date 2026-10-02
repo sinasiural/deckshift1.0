@@ -23,11 +23,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b3132bd486128a34183f125375419fd5, type: 2}
   traitName: Old Log Trick
   traitDescription: The first hit you'd take in each room misses. You vanish in a puff
-    of smoke, leave a log behind, and enemies lose track of you.
+    of smoke, leave a log behind, and enemies lose track of you. 80 max HP.
   handCapacityBonus: 0
   recallCostNeverRises: 0
   vanishesOnFirstHit: 1
   vanishDecoy: {fileID: 21300000, guid: 0e1ccb64303778e4081913a6d9cca677, type: 3}
+  maxHealthBonus: -20
   armourPerRoom: 0
   bossRoom: {fileID: 5690726939509648437, guid: f8fbe4a0fbbda224586e7456b5ef8e98, type: 3}
   appearancePreset: {fileID: 1546294774153461753, guid: c7f5d01ce1cb7104695e7dc4d256e64f, type: 3}

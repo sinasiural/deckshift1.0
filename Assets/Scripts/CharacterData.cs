@@ -53,6 +53,12 @@ public class CharacterData : ScriptableObject
     // The decoy left where he stood. Empty = smoke only.
     public Sprite vanishDecoy;
 
+    // Added to the player's max HP. May be NEGATIVE: the Ninja's is −20, so 80 (designer, 2026-10-02:
+    // the Old Log Trick's price — no armour, but hard to hit). Read live through
+    // PlayerHealth.BaseMaxHealth, so relic bonuses and quest rewards stack on top of it and selling a
+    // relic still reverses exactly. Never copied into a field, like every other trait.
+    public float maxHealthBonus = 0f;
+
     // Armour granted on entering each COMBAT room (the Samurai's "Full Plate"). Armour is a second
     // health pool that empties before HP and does NOT reset between rooms, so a player who is never
     // touched walks into room five wearing five times this. The streak IS the trait.

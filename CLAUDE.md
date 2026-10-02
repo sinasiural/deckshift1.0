@@ -84,7 +84,7 @@ not a hand-kept list — adding a character is dropping in an asset, with nothin
 | | deck | trait |
 |---|---|---|
 | **Wizard** | Fireball ×2, Create Platform, Dash | *Big Sleeves* — +1 hand |
-| **Ninja** | Shuriken ×2, Dash, Leap | *Old Log Trick* (2026-10-02) — the first hit in each room misses: he vanishes in smoke, leaves a log, and is untouchable and unseen for 1.5s. No hand penalty any more |
+| **Ninja** | Shuriken ×2, Dash, Leap | *Old Log Trick* (2026-10-02) — the first hit in each room misses: he vanishes in smoke, leaves a log, and is untouchable and unseen for 1.5s. **80 max HP** (`maxHealthBonus` −20) |
 | **Samurai** (2026-09-17) | Through and Through ×2, Glass Parry, Leap | *Full Plate* — +5 **armour** on entering each COMBAT room; armour carries over |
 
 **Every playable character is also a boss** (designer, 2026-09-17; see memory "bosses are characters"):
@@ -153,6 +153,10 @@ The first hit he would take in each room misses: smoke, a log where he stood (`V
   and whichever ended first would switch the others off.
 - The log is the Cainos icon pack's Wood Log with its white UI rim repainted dark at runtime: white
   rims now mean "pick this up" (stuck shuriken), and a log must not read as loot.
+- **Its price is 80 max HP** (`CharacterData.maxHealthBonus` = −20). ⚠️ It lives INSIDE
+  `PlayerHealth.BaseMaxHealth`, read live, so relic and quest bonuses stack on top of it and a relic
+  rebuild (`RecomputePassives`) cannot drop it. Never subtract it from maxHealth directly.
+- No "trick is ready" indicator, by the designer's choice (2026-10-02).
 
 ### `CharacterAppearance` — it re-dresses the rig, it does not swap the model
 

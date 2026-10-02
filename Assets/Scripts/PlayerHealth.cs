@@ -82,7 +82,14 @@ public class PlayerHealth : MonoBehaviour
     // The unmodified max HP, captured before any relic touches it. Relic passives are always
     // recomputed from THIS (see RelicManager.RecomputePassives) so selling a relic reverses it
     // exactly, regardless of what order relics were gained or sold in.
-    public float BaseMaxHealth => baseMaxHealth;
+    //
+    // It includes the CHARACTER's max-HP bonus (the Ninja's −20), read live off the character rather
+    // than baked into baseMaxHealth, so it sits under every relic and quest bonus the same way.
+    public float BaseMaxHealth => Mathf.Max(1f, baseMaxHealth + CharacterHealthBonus);
+
+    private float CharacterHealthBonus =>
+        playerController != null && playerController.character != null
+            ? playerController.character.maxHealthBonus : 0f;
 
     // --- Glass Parry window (opened by PlayerController.GlassParryRoutine) ---
     // The first hit that lands inside the window is negated entirely and flips
@@ -196,6 +203,11 @@ public class PlayerHealth : MonoBehaviour
 
     void Start()
     {
+        // The bar starts at the character's max (the Ninja's 80), with any relics on top. In Start,
+        // not Awake: PlayerController.Awake is what picks the character, and the order of Awakes on
+        // one GameObject is not defined.
+        SetMaxHealth(BaseMaxHealth);
+        if (RelicManager.instance != null) RelicManager.instance.RecomputePassives();
         currentHealth = maxHealth;
     }
 
