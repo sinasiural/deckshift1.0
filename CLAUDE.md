@@ -84,7 +84,7 @@ not a hand-kept list — adding a character is dropping in an asset, with nothin
 | | deck | trait |
 |---|---|---|
 | **Wizard** | Fireball ×2, Create Platform, Dash | *Big Sleeves* — +1 hand |
-| **Ninja** | Shuriken ×2, Dash, Leap | *Finders Keepers* (2026-10-02) — his Shuriken that MISS stick in the room; pick one up for the charge back. No hand penalty any more |
+| **Ninja** | Shuriken ×2, Dash, Leap | *Old Log Trick* (2026-10-02) — the first hit in each room misses: he vanishes in smoke, leaves a log, and is untouchable and unseen for 1.5s. No hand penalty any more |
 | **Samurai** (2026-09-17) | Through and Through ×2, Glass Parry, Leap | *Full Plate* — +5 **armour** on entering each COMBAT room; armour carries over |
 
 **Every playable character is also a boss** (designer, 2026-09-17; see memory "bosses are characters"):
@@ -138,6 +138,21 @@ the whole lesson** — don't re-litigate this with a damage table.
 - **`DeckManager.RecallCostIsLocked`** — read at the escalation site.
 - **`PlayerController.Awake`** — `CharacterSelection.Chosen` (static + PlayerPrefs) overrides the
   prefab's `character`.
+
+### The Ninja's Old Log Trick (2026-10-02)
+
+The first hit he would take in each room misses: smoke, a log where he stood (`VanishVFX`), and for
+`PlayerHealth.VANISH_SECONDS` (1.5) every hit misses and no enemy can see him. Armed in every room by
+`PlayerController.OnNewRoomEnter`; the logic is `PlayerHealth.Vanish`.
+- ⚠️ **A dodged hit is a MISS, not a hit**, the same ruling as Glass Parry: no damage, no hurt, no
+  knockback, no `OnDamaged`, so it does NOT cost a flawless clear. Armour is the opposite on purpose
+  (armour changes what a hit costs; this decides there was no hit).
+- ⚠️ **Enemies FORGET him, not just lose sight.** `EnemySenses.IsAware` wipes their memory while he is
+  hidden; blocking sight alone leaves them chasing for the 2.5s memory, longer than the trick.
+- ⚠️ **Its own timer, never `isInvincible`**: that bool is shared by dash, Phoenix Cog and the tutorial,
+  and whichever ended first would switch the others off.
+- The log is the Cainos icon pack's Wood Log with its white UI rim repainted dark at runtime: white
+  rims now mean "pick this up" (stuck shuriken), and a log must not read as loot.
 
 ### `CharacterAppearance` — it re-dresses the rig, it does not swap the model
 
@@ -465,12 +480,16 @@ rooms were taxed quadratically. Consequences that are now rules:
   hand full?" check goes through `DeckManager.SlotsUsed()`, never `hand.Count`, because **Clingy** cards
   take no slot.
 - **Understudy's partner joins even a full hand** (one over the limit until the next Recall) on purpose.
-- **The Ninja's trait became Finders Keepers** (designer, 2026-10-02), replacing Fast Hands (flat
-  Recall, −1 hand), which the new rule had emptied. Rejected on the way, with the designer's reasons:
-  "Recall swaps only the selected card" (reaching one specific strong card becomes random), Clean Kill
-  / a killing blow refunds its charge (abusable with heavy hitters like Through and Through), Quick
-  Draw (too small), pick-your-loadout Recall (a decision too big for mid-level), Old Log Trick (liked,
-  but less fun). Free wall jumps are ruled out by the code itself (an unlimited climb).
+- **The Ninja's trait became the Old Log Trick** (designer, 2026-10-02), replacing Fast Hands (flat
+  Recall, −1 hand), which the new rule had emptied. Rules in Characters → Old Log Trick. Rejected on
+  the way, with the designer's reasons: "Recall swaps only the selected card" (reaching one specific
+  strong card becomes random), Clean Kill / a killing blow refunds its charge (abusable with heavy
+  hitters like Through and Through), Quick Draw (too small), pick-your-loadout Recall (too big a
+  decision mid-level), and Finders Keepers (fun, but too small for a whole trait, so it became the
+  Shuriken card's own rule, below). Free wall jumps are ruled out by the code itself (an unlimited climb).
+- **A Shuriken that misses sticks in the wall, for every character** (designer, 2026-10-02); walking
+  into it puts the charge back. Borrowed Steel is left out on purpose (the boss fight has its own
+  pickup loop, where he recalls whatever is on the floor).
   - ⚠️ **Only a throw that COST a charge can stick** (`RuntimeCard.lastPlaySpentCharge`), or a free
     throw (Sleight of Hand, the hub) would mint a charge. A star that hits something breaks.
   - ⚠️ **An empty Shuriken WAITS in its slot at 0 while any of its stars are out** (`DeckManager.HoldEmpty`),

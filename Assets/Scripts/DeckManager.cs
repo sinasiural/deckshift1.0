@@ -316,8 +316,8 @@ public class DeckManager : MonoBehaviour
             {
                 ReturnToHand(playedCard, index);
             }
-            // The Ninja's Shuriken, out of charges: it waits in its slot while any of its stars are
-            // still out there to be fetched. See HoldEmpty.
+            // A Shuriken out of charges: it waits in its slot while any of its stars are still out
+            // there to be fetched. See HoldEmpty.
             else if (FetchesStars(playedCard))
             {
                 HoldEmpty(playedCard, index);
@@ -378,14 +378,15 @@ public class DeckManager : MonoBehaviour
         }
     }
 
-    // ---- The Ninja's "Finders Keepers" ---------------------------------------------------------
+    // ---- Missed Shuriken stick and can be fetched ----------------------------------------------
 
-    // Does this card's missed stars stick in the room to be fetched? Read live off the character,
-    // like every other trait, so a character swap cannot leave it stale.
+    // Does this card's missed stars stick in the room to be fetched? It is how the SHURIKEN CARD
+    // works, for every character (designer, 2026-10-02 — it was the Ninja's trait for an afternoon).
+    // Borrowed Steel is deliberately left out: it is the Ninja boss's ammo, and that fight has its
+    // own pickup loop, where he recalls whatever is left on the floor.
     public bool FetchesStars(RuntimeCard card)
         => card != null && card.cardData != null
-           && card.cardData.actionType == CardActionType.Shuriken
-           && player != null && player.character != null && player.character.missedStarsStick;
+           && card.cardData.actionType == CardActionType.Shuriken;
 
     // ⚠️ A SHURIKEN AT ZERO WAITS FOR ITS STARS. Burning it out on the throw that emptied it would
     // mean the LAST star could never be fetched — the card would already be in the exhaust pile when

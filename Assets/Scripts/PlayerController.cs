@@ -1441,6 +1441,11 @@ public class PlayerController : MonoBehaviour
             playerHealth.AddArmour(character.armourPerRoom);
         }
 
+        // The Ninja's "Old Log Trick" re-arms in every room. Not gated to combat rooms like Full
+        // Plate: there is nothing to farm — it only ever turns one hit into a miss.
+        if (character != null && character.vanishesOnFirstHit && playerHealth != null)
+            playerHealth.ReadyLogTrick();
+
         // Ghost Step's free jumps refill. Topped up unconditionally rather than only when the relic
         // is held, so picking it up mid-room grants the full allowance immediately instead of
         // silently doing nothing until the next door.
@@ -3064,6 +3069,55 @@ public class PlayerController : MonoBehaviour
         // Guarantee restoration regardless of where the loop ended.
         SetBodyAlpha(bodyParts, block, 1f);
         SetSpriteColors(sprites, default, originals);
+    }
+
+    // The Old Log Trick's vanish (PlayerHealth.Vanish): the whole character goes ghostly for the
+    // length of the trick and comes back at the end. Ghostly, not gone: the player still has to see
+    // where they are to use the moment. Through _Alpha for the body, like WarningFlashRoutine, since
+    // a colour tint is a silent no-op on the Alpha Cut outfit parts; the held weapon is a
+    // SpriteRenderer and fades through its colour.
+    private Coroutine vanishRoutine;
+
+    public void PlayVanish(float seconds)
+    {
+        if (vanishRoutine != null) StopCoroutine(vanishRoutine);
+        vanishRoutine = StartCoroutine(VanishRoutine(seconds));
+    }
+
+    private IEnumerator VanishRoutine(float seconds)
+    {
+        SkinnedMeshRenderer[] body = visualModel != null
+            ? visualModel.GetComponentsInChildren<SkinnedMeshRenderer>(true)
+            : new SkinnedMeshRenderer[0];
+        SpriteRenderer[] sprites = visualModel != null
+            ? visualModel.GetComponentsInChildren<SpriteRenderer>(true)
+            : new SpriteRenderer[0];
+        Color[] originals = new Color[sprites.Length];
+        for (int i = 0; i < sprites.Length; i++) originals[i] = sprites[i].color;
+
+        var block = new MaterialPropertyBlock();
+        const float HIDDEN = 0.22f;
+        const float FADE_OUT = 0.08f;   // gone almost at once, so the swap for the log reads
+        const float FADE_IN = 0.3f;     // back more slowly, so the end of the trick is readable
+
+        float t = 0f;
+        while (t < seconds)
+        {
+            t += Time.deltaTime;
+            float a = HIDDEN;
+            if (t < FADE_OUT) a = Mathf.Lerp(1f, HIDDEN, t / FADE_OUT);
+            else if (t > seconds - FADE_IN) a = Mathf.Lerp(HIDDEN, 1f, (t - (seconds - FADE_IN)) / FADE_IN);
+
+            SetBodyAlpha(body, block, a);
+            for (int i = 0; i < sprites.Length; i++)
+                if (sprites[i] != null)
+                    sprites[i].color = new Color(originals[i].r, originals[i].g, originals[i].b, originals[i].a * a);
+            yield return null;
+        }
+
+        SetBodyAlpha(body, block, 1f);
+        SetSpriteColors(sprites, default, originals);
+        vanishRoutine = null;
     }
 
     // Strobe the "_Alpha" property every Cainos rig shader exposes. Mirrors

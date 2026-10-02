@@ -33,7 +33,7 @@ public class RuntimeCard
     public int lastCostPaid;
 
     // Whether the last play actually took a charge off this card. A free play (Sleight of Hand,
-    // Slow Burn, Teacher's Pet, any sandbox room) did not, and the Ninja's thrown star reads this so
+    // Slow Burn, Teacher's Pet, any sandbox room) did not, and a thrown Shuriken reads this so
     // that only a star that COST a charge can be picked back up for one — otherwise a free throw
     // into a wall would mint a charge out of nothing.
     public bool lastPlaySpentCharge;

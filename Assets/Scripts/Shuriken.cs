@@ -7,17 +7,17 @@ using UnityEngine;
 // ⚠️ IT FLIES WHERE THE CURSOR WAS, NOT WHERE THE PLAYER FACES. That is the entire point of the
 // card and the one thing that separates it from Fireball. Direction is handed in at spawn.
 //
-// ⚠️ THE NINJA'S STARS CAN STICK (his trait, "Finders Keepers", 2026-10-02). A star that misses —
-// meets terrain instead of an enemy — buries itself in the wall like the Ninja boss's do, glows gold,
-// and walking into it puts the charge back on the card that threw it. Every other thrower's star
-// breaks on the wall exactly as before. Only a throw that actually COST a charge can stick, so a
-// free throw (Sleight of Hand, the hub) can never mint one.
+// ⚠️ A STAR THAT MISSES STICKS (designer, 2026-10-02; the Shuriken card, for every character). A
+// star that meets terrain instead of an enemy buries itself in the wall like the Ninja boss's do,
+// wears a white outline, and walking into it puts the charge back on the card that threw it. Only a
+// throw that actually COST a charge can stick, so a free throw (Sleight of Hand, the hub) can never
+// mint one. Borrowed Steel's stars still break: that fight has its own pickup loop.
 public class Shuriken : MonoBehaviour
 {
     private float damage;
     private bool hasHit;
 
-    // ---- fetching (the Ninja's trait) ----------------------------------------------------------
+    // ---- fetching a missed star ----------------------------------------------------------------
     private bool fetchable;       // decided at spawn, never changes
     private bool stuck;
     private float flightTime;
@@ -686,18 +686,27 @@ public static class StarArt
     // Which pixels of the sprite's own rectangle are opaque, bottom row first.
     private static bool[] ReadSolid(Sprite src, out int w, out int h)
     {
+        Color32[] px = ReadPixels(src, out w, out h);
+        if (px == null) return null;
+        var solid = new bool[w * h];
+        for (int i = 0; i < solid.Length; i++) solid[i] = px[i].a > 127;
+        return solid;
+    }
+
+    /// <summary>
+    /// The sprite's own rectangle as pixels, bottom row first, whether or not its texture was
+    /// imported Read/Write. Also used by VanishVFX to repaint the decoy log's icon rim.
+    /// </summary>
+    public static Color32[] ReadPixels(Sprite src, out int w, out int h)
+    {
         Rect r = src.textureRect;
         w = Mathf.RoundToInt(r.width);
         h = Mathf.RoundToInt(r.height);
         Texture2D tex = src.texture;
         if (tex == null || w <= 0 || h <= 0) return null;
 
-        Color32[] px;
         if (tex.isReadable)
-        {
-            px = tex.GetPixels32();
-            return Crop(px, tex.width, Mathf.RoundToInt(r.x), Mathf.RoundToInt(r.y), w, h);
-        }
+            return Crop(tex.GetPixels32(), tex.width, Mathf.RoundToInt(r.x), Mathf.RoundToInt(r.y), w, h);
 
         RenderTexture rt = RenderTexture.GetTemporary(tex.width, tex.height, 0, RenderTextureFormat.ARGB32);
         RenderTexture previous = RenderTexture.active;
@@ -709,21 +718,18 @@ public static class StarArt
         RenderTexture.active = previous;
         RenderTexture.ReleaseTemporary(rt);
 
-        px = copy.GetPixels32();
+        Color32[] px = copy.GetPixels32();
         Object.Destroy(copy);
-
-        var solid = new bool[w * h];
-        for (int i = 0; i < solid.Length; i++) solid[i] = px[i].a > 127;
-        return solid;
+        return px;
     }
 
-    private static bool[] Crop(Color32[] px, int texWidth, int x0, int y0, int w, int h)
+    private static Color32[] Crop(Color32[] px, int texWidth, int x0, int y0, int w, int h)
     {
-        var solid = new bool[w * h];
+        var cropped = new Color32[w * h];
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
-                solid[y * w + x] = px[(y0 + y) * texWidth + (x0 + x)].a > 127;
-        return solid;
+                cropped[y * w + x] = px[(y0 + y) * texWidth + (x0 + x)];
+        return cropped;
     }
 }
 

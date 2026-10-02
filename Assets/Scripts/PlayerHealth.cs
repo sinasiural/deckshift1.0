@@ -90,6 +90,53 @@ public class PlayerHealth : MonoBehaviour
     private bool parryWindowActive = false;
     public bool ParryTriggered { get; private set; }
 
+    // ============================================================================================
+    // THE NINJA'S "OLD LOG TRICK" (designer, 2026-10-02)
+    //
+    // The first hit he would take in each room misses: he vanishes in a puff of smoke, leaves a log
+    // where he stood, and for VANISH_SECONDS nothing can hurt him and no enemy can see him.
+    //
+    //  - ⚠️ A DODGED HIT IS A MISS, NOT A HIT — the same ruling as Glass Parry: no damage, no hurt
+    //    animation, no knockback, no OnDamaged, so it does not cost a flawless clear or break an oath.
+    //    Armour is the opposite case on purpose: armour changes what a hit COSTS, this decides that
+    //    there was no hit.
+    //  - It is checked AFTER the parry window, so a parry still gets its payoff and the trick is kept.
+    //  - Stagger's bill can never spend it: that goes through PayHealthCost, not TakeDamage.
+    //  - ⚠️ ITS OWN TIMER, NOT isInvincible. That bool is shared by the dash, Phoenix Cog and the
+    //    tutorial, each of which sets it and clears it; whichever ended first would cut the others
+    //    short.
+    // ============================================================================================
+    public const float VANISH_SECONDS = 1.5f;
+    private bool logTrickReady;
+    private float vanishedUntil = -1f;
+
+    // Enemies hold the player's Transform, not this component, so they ask through these statics
+    // (see EnemySenses). Reset in Awake: a static outlives a scene load, and Time.time starts again
+    // at zero in a new play session, so a stale value could otherwise hide the player at startup.
+    private static Transform hiddenPlayer;
+    private static float hiddenUntil = -1f;
+
+    public static bool IsHidden(Transform t) => t != null && t == hiddenPlayer && Time.time < hiddenUntil;
+    public bool IsVanished => Time.time < vanishedUntil;
+
+    /// <summary>Arms the trick for this room. PlayerController.OnNewRoomEnter calls it for a
+    /// character that has it.</summary>
+    public void ReadyLogTrick() { logTrickReady = true; }
+
+    private void Vanish()
+    {
+        logTrickReady = false;
+        vanishedUntil = Time.time + VANISH_SECONDS;
+        hiddenPlayer = transform;
+        hiddenUntil = vanishedUntil;
+
+        CharacterData who = playerController != null ? playerController.character : null;
+        VanishVFX.Play(transform.position, who != null ? who.vanishDecoy : null);
+        if (playerController != null) playerController.PlayVanish(VANISH_SECONDS);
+        SfxManager.PlayOn(audioSource, ProcSfx.NinjaBlink);
+        RunStats.Note("Old Log Trick: a hit missed");
+    }
+
     public void BeginParryWindow() { parryWindowActive = true; ParryTriggered = false; }
 
     // Clears BOTH flags — ParryTriggered also gates ApplyKnockback, and leaving it set
@@ -114,6 +161,8 @@ public class PlayerHealth : MonoBehaviour
         audioSource = GetComponent<AudioSource>();
         playerController = GetComponent<PlayerController>();
         baseMaxHealth = maxHealth;
+        hiddenPlayer = null;
+        hiddenUntil = -1f;
     }
 
     // Applied by relic passives (RelicManager.RecomputePassives). Clamp-only, deliberately:
@@ -153,12 +202,20 @@ public class PlayerHealth : MonoBehaviour
     public void TakeDamage(float damage)
     {
         if (isInvincible || isDead) return;
+        if (IsVanished) return;   // still in the smoke: everything misses
 
         // Glass Parry: the hit shatters on the glass — no damage, no hurt anim,
         // no OnDamaged. One hit per window; the parry routine handles the payoff.
         if (parryWindowActive && !ParryTriggered)
         {
             ParryTriggered = true;
+            return;
+        }
+
+        // The Old Log Trick: the first real hit of the room finds only a log. See Vanish.
+        if (logTrickReady && damage > 0f)
+        {
+            Vanish();
             return;
         }
 
@@ -309,6 +366,8 @@ public class PlayerHealth : MonoBehaviour
         // doesn't get shoved — a parried hit that still knocked you into spikes
         // would make the negation feel like a lie.
         if (parryWindowActive || ParryTriggered) return;
+        // Same for the Old Log Trick: the shove belongs to the hit, and the hit hit a log.
+        if (IsVanished) return;
 
         OnKnockback?.Invoke(knockbackForce);
         StartCoroutine(KnockbackRoutine(knockbackForce));

@@ -40,12 +40,18 @@ public class CharacterData : ScriptableObject
     // character uses it since 2026-10-02, but it is a working switch, so it is kept.)
     public bool recallCostNeverRises = false;
 
-    // The Ninja's "Finders Keepers" (designer, 2026-10-02): his Shuriken that MISS stick where they
-    // land, and picking one up gives that charge back. Stars that hit something break as usual, so
-    // it can never become free ammo — it forgives a miss, at the price of going to fetch it, which
-    // costs jumps when the star is stuck somewhere awkward. Read live through
-    // DeckManager.FetchesStars, never copied.
-    public bool missedStarsStick = false;
+    // The Ninja's "Old Log Trick" (designer, 2026-10-02): the first hit he would take in each room
+    // misses. He vanishes in a puff of smoke, leaves a log where he stood, and is untouchable and
+    // unseen for a moment (PlayerHealth.Vanish). Read live by PlayerController.OnNewRoomEnter,
+    // never copied.
+    //
+    // (Briefly his trait was "missed Shuriken stick in the wall, fetch them for the charge back". The
+    // designer liked it but judged it too small for a whole trait, so it became how the SHURIKEN CARD
+    // works for everyone — see DeckManager.FetchesStars.)
+    public bool vanishesOnFirstHit = false;
+
+    // The decoy left where he stood. Empty = smoke only.
+    public Sprite vanishDecoy;
 
     // Armour granted on entering each COMBAT room (the Samurai's "Full Plate"). Armour is a second
     // health pool that empties before HP and does NOT reset between rooms, so a player who is never

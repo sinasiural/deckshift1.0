@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: Shuriken
   m_EditorClassIdentifier: 
   cardName: Shuriken
-  description: Throw a star at the cursor for 8 damage. Aim it anywhere.
+  description: Throw a star at the cursor for 8 damage. A star that misses sticks where
+    it lands; pick it up to get the charge back.
   cardArt: {fileID: -4345462867533152315, guid: 4bb58ab90bbd1c24e9352f20eadeee81, type: 3}
   nameIsPaintedIntoArt: 0
   rarity: 0

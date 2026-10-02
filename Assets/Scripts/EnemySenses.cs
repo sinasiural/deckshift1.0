@@ -61,6 +61,7 @@ public static class EnemySenses
                               float eyeHeight = DefaultEyeHeight)
     {
         if (self == null || target == null) return false;
+        if (PlayerHealth.IsHidden(target)) return false;   // the Ninja's Old Log Trick
 
         Vector2 eye = (Vector2)self.position + Vector2.up * eyeHeight;
         Vector2 aim = (Vector2)target.position + Vector2.up * PlayerChest;
@@ -82,6 +83,16 @@ public static class EnemySenses
     public static bool IsAware(Transform self, Transform target, LayerMask blockers,
                                ref float lastSeen, float eyeHeight = DefaultEyeHeight)
     {
+        // ⚠️ A VANISHED PLAYER IS FORGOTTEN, not merely unseen. Blocking sight alone would leave
+        // every enemy coming for another `Memory` seconds, longer than the trick lasts, so the
+        // vanish would change nothing. Wiping the memory means each enemy has to spot the player
+        // again once the trick ends.
+        if (PlayerHealth.IsHidden(target))
+        {
+            lastSeen = -1000f;
+            return false;
+        }
+
         if (CanSee(self, target, blockers, eyeHeight))
         {
             lastSeen = Time.time;
