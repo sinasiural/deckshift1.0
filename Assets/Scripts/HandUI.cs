@@ -75,14 +75,20 @@ public class HandUI : MonoBehaviour
              "2026-09-13: the hand 'uses up too much space in the game'). Everything a card tells you " +
              "at a glance — art, Shift cost, charges, key — is in its TOP HALF; the bottom half is name " +
              "plate and frame, which the hover already shows on the back. So the hand shows only the " +
-             "top half at rest, and hover does the reveal. At -120 the hand occupies the bottom ~14% " +
-             "of the screen instead of ~22%, and sits entirely below the floor line of most rooms.\n\n" +
+             "top half at rest, and hover does the reveal. At -120 the hand occupied the bottom ~14% " +
+             "of the screen instead of ~22%.\n\n" +
+             "2026-10-02: -160. The name plaque (CardNamePlate) rides above each card and made the hand " +
+             "taller again ('the cards cover too much of the screen'), so the cards sank by the plaque's " +
+             "height: the hand's top edge is back at ~134 of 1080 (12%), and the cards show their two " +
+             "numbers and the top of the art. The name is on the plaque now.\n\n" +
              "Do not land the cut in the card's bottom 3%-11% (the name plate): a title sliced in half " +
-             "reads as a rendering fault. Either clear it or, as now, go well past it.")]
-    public float baselineY = -120f;
+             "reads as a rendering fault. Either clear it or, as now, go well past it.\n\n" +
+             "⚠️ Move this and hoverLift together (a hovered card should land in the same place), and " +
+             "keep CameraFollow.handRailPx equal to the hand's height.")]
+    public float baselineY = -160f;
     [Tooltip("How far a card rises while you hover it. Must exceed the sink above by enough to bring " +
              "the back's footer (SHIFT / CHARGES, in its lowest 12%) onto the screen.")]
-    public float hoverLift = 145f;
+    public float hoverLift = 185f;
 
     [Header("Animasyon Ayarları")]
     public Transform drawPilePosition;

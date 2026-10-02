@@ -682,7 +682,8 @@ Designer: *"it covers up the charge of the cards"*. The reason is the artwork an
 it: the canonical frame puts charges top-left and the Shift crystal top-right, so overlap hides one
 corner on every card but the front one. Right-over-left hid the cost, left-over-right hid the
 charges; there is no third order. What shipped instead: **a flat row, card width + 6px pitch, no
-tilt, sunk so only the top half shows** (`baselineY` −120), hover lifts the card clear. Both
+tilt, sunk so only the top of each card shows** (`baselineY` −160 since 2026-10-02, see below),
+hover lifts the card clear. Both
 medallions visible on every card, always. The fan machinery (`tiltStep`, `arcDrop`, `Depth`) is
 still in the file at zero — it is the overlap that is forbidden, not the code.
 
@@ -715,6 +716,14 @@ cell closed by a 1px rule in the rim's colour; the name is the title gold.
 - Long names shrink to fit the width (deterministic `GetPreferredValues`, never auto-size); only
   "THROUGH AND THROUGH" does today.
 - It is a child of the card art, so the hover flip turns it away with the front.
+
+⚠️ **THE PLAQUE MADE THE HAND TALLER, AND THE HAND PAID FOR IT BY SINKING** (designer, same day: "the
+cards cover too much of the screen, lets move them a bit down again"). `baselineY` −120 → **−160**
+and `hoverLift` 145 → **185** (moved together, so a hovered card lands exactly where it did). The
+plaque tops now sit at **134 of 1080 canvas px** (12%), clear of the hub's floor line, against 174 at
+−120. Each card shows its two numbers and the top of its art; the name is on the plaque.
+**`CameraFollow.handRailPx` follows the hand's height (170 → 135)**: it is how boss arenas are framed
+above the cards. Change the sink, re-measure the plaque top, and set it to match.
 
 ⚠️ **IT IS NO LONGER A HOVER DRAWER AND NO LONGER A LAYOUT GROUP.** Two rebuilds, and every doc written before them is wrong about this screen:
 

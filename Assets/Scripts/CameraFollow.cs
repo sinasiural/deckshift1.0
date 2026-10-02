@@ -15,8 +15,9 @@ public class CameraFollow : MonoBehaviour
     [Header("HUD")]
     [Tooltip("Height of the hand rail in canvas pixels (of 1080). The camera composes the room ABOVE " +
              "this strip: a locked arena is centred in the space above it, and a scrolling room can " +
-             "sink this much lower, so a floor never ends up under the cards.")]
-    public float handRailPx = 170f;
+             "sink this much lower, so a floor never ends up under the cards. Keep it equal to the " +
+             "top of the name plaques (HandUI.baselineY sets it): 135 since 2026-10-02.")]
+    public float handRailPx = 135f;
 
     private BoxCollider2D[] zones;
     private BoxCollider2D activeZone;

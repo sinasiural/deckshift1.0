@@ -948,7 +948,8 @@ So a run is: **hub → each combat level once (random) → boss → (loop to hub
 
 ### ⚠️ The hand rail is part of the frame — a locked arena is centred ABOVE it (2026-09-17)
 
-The cards stand permanently across the bottom ~170 canvas px of the screen. Both boss arenas
+The cards stand permanently across the bottom of the screen: ~170 canvas px when this was written,
+**~135 since 2026-10-02** (the hand sank under its new name plaques; `handRailPx` followed). Both boss arenas
 (`NinjaArena`, `KagemushaHall`: zone 15 tall, **zone min = floor = 5**, five units of art below the
 floor unused) had their zone centred in the 20-tall view at `RoomCamera` size 10, which put the floor
 at 88% of the frame height — **directly under the cards, every foot in the fight hidden**. Designer,

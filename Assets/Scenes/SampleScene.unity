@@ -1923,7 +1923,7 @@ MonoBehaviour:
   target: {fileID: 5274940026035738714}
   offset: {x: 0, y: 0}
   focusSmoothTime: 0.28
-  handRailPx: 170
+  handRailPx: 135
 --- !u!114 &519420036
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4363,8 +4363,8 @@ MonoBehaviour:
   tiltStep: 0
   maxTilt: 14
   arcDrop: 0
-  baselineY: -120
-  hoverLift: 145
+  baselineY: -160
+  hoverLift: 185
   drawPilePosition: {fileID: 2105270694}
   dealFlyTime: 0.28
   dealStagger: 0.06
