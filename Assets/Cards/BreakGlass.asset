@@ -10,15 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27701a6f0f52d86438cb67605f92527c, type: 3}
-  m_Name: Glass Wail
+  m_Name: BreakGlass
   m_EditorClassIdentifier: 
-  cardName: Glass Wail
-  description: Scream. Enemies are frozen in place for 10 seconds.
-  cardArt: {fileID: -8024131544370953100, guid: d8b48ba556ef0c24ab4bfa1fbd51c3d0, type: 3}
-  nameIsPaintedIntoArt: 1
-  rarity: 0
-  actionType: 10
-  actionValue: 10
-  singleUse: 1
+  cardName: Break Glass
+  description: Only playable below 30 HP. Glass bursts out in front of you for 60
+    damage, and whatever survives is stunned for a moment.
+  cardArt: {fileID: -6484668450324971294, guid: 252cf0bace574dfe97c6e1255a4b0989, type: 3}
+  nameIsPaintedIntoArt: 0
+  rarity: 2
+  actionType: 24
+  actionValue: 60
+  singleUse: 0
   shiftCost: 0
-  maxUses: 1
+  maxUses: 2

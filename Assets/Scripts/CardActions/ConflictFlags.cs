@@ -14,4 +14,6 @@ public enum ConflictFlags
     AnimatorAttackState  = 128,
     // Held by a running Brace, so a second Brace cannot stack another block on top of the first.
     Brace                = 256,
+    // Held by a running Open Bar, so a second one is refused rather than stacking the heal.
+    OpenBar              = 512,
 }

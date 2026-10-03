@@ -20,6 +20,8 @@ using UnityEngine;
 //                    (bigger empowered arc) and turns green when an enemy is inside.
 //   GlassWail     -> expanding ripples from the player + a glint over every enemy that
 //                    would be stunned (the wail is screen-wide).
+//   BreakGlass    -> the half-disc it hits, from BreakGlass's own geometry; green when an enemy
+//                    is inside, RED while locked (30 HP or more), which is why it won't play.
 //
 // Every indicator dims when the player can't afford the card's EFFECTIVE Shift cost (mirrors
 // DeckManager.PlayCard: KineticDiscount and First One's Free included). Hidden while paused,
@@ -88,7 +90,14 @@ public class CardAimIndicator : MonoBehaviour
     [SerializeField] private Color shurikenEnemyColor = new Color(1f, 0.28f, 0.2f, 0.95f);
     [SerializeField] private int shurikenDots = 9;
 
-    private enum Kind { None, Fireball, Dash, Bite, Portal, Platform, Freefall, Wail, Phase, Anchor, Shuriken }
+    [Header("Break Glass")]
+    // Glass-ice like the Wail; green when it would land (the house convention); red while LOCKED,
+    // which is the one place the player can see why the card refuses to play.
+    [SerializeField] private Color breakGlassColor = new Color(0.75f, 0.95f, 1f, 0.7f);
+    [SerializeField] private Color breakGlassHitColor = new Color(0.35f, 1f, 0.45f, 0.85f);
+    [SerializeField] private Color breakGlassLockedColor = new Color(1f, 0.25f, 0.25f, 0.45f);
+
+    private enum Kind { None, Fireball, Dash, Bite, Portal, Platform, Freefall, Wail, Phase, Anchor, Shuriken, BreakGlass }
     private Kind activeKind = Kind.None;
 
     // All layers, triggers included — same as the game code's OverlapCircleAll(..., ~0).
@@ -145,6 +154,13 @@ public class CardAimIndicator : MonoBehaviour
     private SpriteRenderer freefallFill;
     private float freefallScanTimer;
     private bool freefallHit;
+
+    // --- Break Glass visuals ---
+    private GameObject breakGlassRoot;
+    private LineRenderer breakGlassEdge;
+    private const int BREAK_GLASS_SEGMENTS = 32;
+    private float breakGlassScanTimer;
+    private bool breakGlassHit;
 
     // --- Phase visuals ---
     private GameObject phaseRoot;
@@ -220,6 +236,7 @@ public class CardAimIndicator : MonoBehaviour
             case CardActionType.Shuriken:       SetKind(Kind.Shuriken); UpdateShuriken(dim); break;
             case CardActionType.ThroughAndThrough:
                                                 SetKind(Kind.Dash);     UpdateDash(dim, true); break;
+            case CardActionType.BreakGlass:     SetKind(Kind.BreakGlass); UpdateBreakGlass(dim); break;
             default:                            SetKind(Kind.None);                          break;
         }
     }
@@ -255,6 +272,7 @@ public class CardAimIndicator : MonoBehaviour
         if (phaseRoot != null) phaseRoot.SetActive(kind == Kind.Phase);
         if (anchorRoot != null) anchorRoot.SetActive(kind == Kind.Anchor);
         if (shurikenRoot != null) shurikenRoot.SetActive(kind == Kind.Shuriken);
+        if (breakGlassRoot != null) breakGlassRoot.SetActive(kind == Kind.BreakGlass);
 
         switch (kind)
         {
@@ -268,7 +286,49 @@ public class CardAimIndicator : MonoBehaviour
             case Kind.Phase:    EnsurePhaseVisuals();    phaseRoot.SetActive(true); break;
             case Kind.Anchor:   EnsureAnchorVisuals();   anchorRoot.SetActive(true); break;
             case Kind.Shuriken: EnsureShurikenVisuals(); shurikenRoot.SetActive(true); break;
+            case Kind.BreakGlass: EnsureBreakGlassVisuals(); breakGlassScanTimer = 0f; breakGlassRoot.SetActive(true); break;
         }
+    }
+
+    // ------------------------------------------------------------------ BREAK GLASS
+
+    private void EnsureBreakGlassVisuals()
+    {
+        if (breakGlassRoot != null) return;
+        breakGlassRoot = MakeContainer("Aim_BreakGlass");
+        breakGlassEdge = MakeLineChild(breakGlassRoot.transform, "Edge", freefallRingWidth, sortingOrder);
+        breakGlassEdge.loop = true;
+        breakGlassEdge.positionCount = BREAK_GLASS_SEGMENTS + 1;
+    }
+
+    // The exact region BreakGlass.Perform hits: the circle, cut by a straight back edge a little
+    // behind the body (BehindSlack). Shared geometry, so the preview cannot promise a hit the card
+    // won't land.
+    private void UpdateBreakGlass(float dim)
+    {
+        float facing = player.isFacingRight ? 1f : -1f;
+        Vector2 origin = BreakGlass.Origin(player);
+        bool unlocked = BreakGlass.IsUnlocked(playerHealth);
+
+        breakGlassScanTimer -= Time.unscaledDeltaTime;
+        if (breakGlassScanTimer <= 0f)
+        {
+            breakGlassScanTimer = 0.08f;
+            breakGlassHit = BreakGlass.Targets(player, origin, facing).Count > 0;
+        }
+
+        float r = BreakGlass.Radius;
+        // The back edge meets the circle where x = -BehindSlack, a little past straight up and down.
+        float reach = Mathf.Acos(Mathf.Clamp(-BreakGlass.BehindSlack / r, -1f, 1f));
+        for (int i = 0; i <= BREAK_GLASS_SEGMENTS; i++)
+        {
+            float a = Mathf.Lerp(-reach, reach, (float)i / BREAK_GLASS_SEGMENTS);
+            breakGlassEdge.SetPosition(i, new Vector3(origin.x + Mathf.Cos(a) * r * facing,
+                                                      origin.y + Mathf.Sin(a) * r, 0f));
+        }
+
+        Color c = !unlocked ? breakGlassLockedColor : (breakGlassHit ? breakGlassHitColor : breakGlassColor);
+        breakGlassEdge.startColor = breakGlassEdge.endColor = new Color(c.r, c.g, c.b, c.a * dim);
     }
 
     // ------------------------------------------------------------------ FIREBALL

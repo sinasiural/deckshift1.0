@@ -160,6 +160,12 @@ events played from `EnemyHealth` (every enemy has them, nothing to wire), all Ke
 | `Enemy.Death` | `impactSoft_heavy_000`–`004`, pitch 0.82–0.94 (deeper) | −10.8 dB (not on bosses: `BossDeathVFX` owns theirs) |
 | `Enemy.Block` | `impactMetal_light_000`–`004` | −13.7 dB |
 
+Two new cards went straight into the bank the same day (Kenney CC0, picked by measurement): **Break
+Glass** plays `Card.BreakGlass` (`impactGlass_heavy_000/002/003/004`; Glass Parry's slot owns `_001`)
+layered with `Card.BreakGlass.Body` (`impactPunch_heavy_*`), because one glass take alone measured
+about −18 dB, thin for the card's moment. **Open Bar** plays `Card.OpenBar` (`impactGlass_light_*`,
+pitched up slightly: a clink, "cheers"). A locked Break Glass plays `ProcSfx.UIRefuse`.
+
 For scale: the player's jump measures −13.8 dB and the hurt sound −9.2 dB. Picked by measurement
 (length, onset, loudness), **not by ear — listen in play.** Tune them in `Resources/SoundBank.asset`.
 A hit reads as a punch whatever landed it (Fireball included); a card-specific impact layered on

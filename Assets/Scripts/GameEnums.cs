@@ -58,6 +58,12 @@ public enum CardActionType
     // "Brace" (designer, 2026-09-27): plant your feet for a few seconds behind a layer of armour, and
     // every hit you take while braced pays Shift. A card that turns being hit into movement.
     Brace = 23,
+    // "Break Glass" (CardIdeas.md #6, built 2026-10-03): only playable below 30 HP; a wide shard
+    // burst in front of you. The Glass archetype's purest card — dead weight while you're winning.
+    BreakGlass = 24,
+    // "Open Bar" (CardIdeas.md #7, built 2026-10-03): for a few seconds, part of all damage you
+    // deal heals you. The Vampiric archetype's second card.
+    OpenBar = 25,
 }
 
 public enum SkillType

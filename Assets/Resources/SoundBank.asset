@@ -412,3 +412,41 @@ MonoBehaviour:
     positional: 1
     minInterval: 0.08
     stackDuck: 0.7
+  - id: Card.BreakGlass
+    family: 2
+    variants:
+    - {fileID: 8300000, guid: 7608738e1150c214c9d31c6b2c51338b, type: 3}
+    - {fileID: 8300000, guid: 7e8aeaa817cec7d4dae052ef5119869a, type: 3}
+    - {fileID: 8300000, guid: 69f5d0cddf3485f4a833464af6437115, type: 3}
+    - {fileID: 8300000, guid: b2ac3846bbc1df6438eab4da6656e52e, type: 3}
+    volume: {x: 0.95, y: 1}
+    pitch: {x: 0.9, y: 1.02}
+    positional: 0
+    minInterval: 0.05
+    stackDuck: 0.72
+  - id: Card.BreakGlass.Body
+    family: 3
+    variants:
+    - {fileID: 8300000, guid: b8a8d608a0f66f642a3b40e6d38c7861, type: 3}
+    - {fileID: 8300000, guid: 2c0244ae54542174aa299c6fe3a79a33, type: 3}
+    - {fileID: 8300000, guid: e8898a642a6774944af2be444369645d, type: 3}
+    - {fileID: 8300000, guid: 7e8be2744a38964488bdee68b9de32c7, type: 3}
+    - {fileID: 8300000, guid: 0f12157e001eda140aaef804123a54b9, type: 3}
+    volume: {x: 0.5, y: 0.56}
+    pitch: {x: 0.85, y: 0.95}
+    positional: 0
+    minInterval: 0.05
+    stackDuck: 0.72
+  - id: Card.OpenBar
+    family: 2
+    variants:
+    - {fileID: 8300000, guid: 32289b665529c51479628f8bdebb3334, type: 3}
+    - {fileID: 8300000, guid: 5fce629219c99764e97b7b2fac642bca, type: 3}
+    - {fileID: 8300000, guid: 1c5a3a1e0b8474f419c41f265335d91f, type: 3}
+    - {fileID: 8300000, guid: 164e5b6a29536f4488b5166b72defc54, type: 3}
+    - {fileID: 8300000, guid: 666018396454ad648b1bf84c13453acf, type: 3}
+    volume: {x: 0.85, y: 0.95}
+    pitch: {x: 1, y: 1.12}
+    positional: 0
+    minInterval: 0.05
+    stackDuck: 0.72
