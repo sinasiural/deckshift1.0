@@ -959,7 +959,9 @@ frame, so its `rarity` is Epic). `redpact.png` is art for a card not built yet; 
 
 ⚠️ **Card art must be a 1× export with real transparency, on the 124×204 canvas**, sprite cut at the
 card's opaque box + 1px (`x2 y2 120×201` for the 118-wide frame; the older 116-wide frame is
-`x3 y4 118×200`). The same 2026-09-27 delivery arrived as **4× screenshots of the drawing app**: the
+`x3 y4 118×200`). ⚠️ **The medallion numbers are placed per CUT** (`CardFace.Gem` for 120×201,
+`Gem116` for 118×200, chosen by sprite width): the two cuts put the ball at different fractions, and
+art cut any other way needs its own measured layout or its numbers drift off the ball. The same 2026-09-27 delivery arrived as **4× screenshots of the drawing app**: the
 app's background `(32,33,37)`, a black canvas line, and its transparency checkerboard `(192,192,192)` /
 `(128,128,128)` were all baked in as opaque pixels — the "checkered border" is NOT part of the frame.
 They were recovered exactly (the zoom was an integer with no smoothing: sample one pixel per 4×4 block,
