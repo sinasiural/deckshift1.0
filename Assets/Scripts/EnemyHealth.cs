@@ -157,7 +157,6 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         OnDamaged?.Invoke();
         OnDamagedAmount?.Invoke(damage);
         if (HitStop.instance != null) HitStop.instance.Stop(0.15f);
-        Debug.Log($"{gameObject.name} hasar aldı! Kalan Can: {currentHealth}");
 
         StartCoroutine(FlashRoutine());
 
@@ -218,8 +217,6 @@ public class EnemyHealth : MonoBehaviour, IDamageable
                 QuestSystem.instance.ReportEvent(QuestType.AirKill, 1);
         }
 
-        Debug.Log($"{gameObject.name} öldü!");
-
         if (SkillManager.instance != null && SkillManager.instance.HasSkill(SkillType.Overclock))
         {
             if (DeckManager.instance != null)
@@ -273,7 +270,6 @@ public class EnemyHealth : MonoBehaviour, IDamageable
             if (stunSkinnedRenderers[i] != null && stunSkinnedRenderers[i].material.HasProperty("_Color"))
                 stunSkinnedRenderers[i].material.SetColor("_Color", Color.blue);
         }
-        Debug.Log($"{gameObject.name} DONDU!");
 
         yield return new WaitForSeconds(duration);
 
@@ -288,6 +284,5 @@ public class EnemyHealth : MonoBehaviour, IDamageable
                 stunSkinnedRenderers[i].material.SetColor("_Color", stunSkinnedOriginalColors[i]);
         }
         stunRoutineRef = null;
-        Debug.Log($"{gameObject.name} ÇÖZÜLDÜ!");
     }
 }

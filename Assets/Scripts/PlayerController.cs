@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using UnityEngine;
 using System.Collections.Generic;
-using Unity.Cinemachine;
 
 public class PlayerController : MonoBehaviour
 {

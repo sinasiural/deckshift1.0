@@ -61,7 +61,7 @@ The user works with a **separate conversational Claude instance** (claude.ai) fo
 
 These are absolute. Do not suggest alternatives without explicit user approval.
 
-1. **No Cinemachine currently in use.** It was removed early due to confiner issues with multi-shape rooms. The custom system is in `CameraFollow.cs` plus per-level `LevelBounds` zones. The policy is "currently removed, can be revisited if a clean approach is found" — not absolute prohibition. `CameraPeek.cs` has since been rebuilt without Cinemachine and works (see Camera System); the Cinemachine package itself is still installed and two dead `using Unity.Cinemachine;` directives remain (`PlayerController.cs`, `LevelManager.cs`) — cleanup pending.
+1. **No Cinemachine currently in use.** It was removed early due to confiner issues with multi-shape rooms. The custom system is in `CameraFollow.cs` plus per-level `CameraBounds` zones. The policy is "currently removed, can be revisited if a clean approach is found" — not absolute prohibition. `CameraPeek.cs` has since been rebuilt without Cinemachine and works (see Camera System). The Cinemachine package itself is still installed; no game script references it any more (the dead `using` lines and the inactive SampleScene `CinemachineCamera` object were removed 2026-10-03).
 
 2. **Manager-singleton pattern.** All major systems are singleton MonoBehaviour managers (GameManager, DeckManager, LevelManager, etc.). This pattern has known issues (cyclic dependencies, flat global state) but is the architecture. Do not propose dependency injection, ECS, or other paradigms.
 
@@ -803,7 +803,7 @@ Because "the system exists in code but isn't in the scene" is this project's #1 
 
 - **Present, component-enabled, active:** GameManager, DeckManager, LevelManager, RelicManager, SkillManager, SkillRewardManager, QuestSystem, ShopManager, AchievementManager, RewardManager, **CameraShake (on Main Camera — the 9-month "no shake" bug is genuinely fixed)**, CameraFollow (Main Camera), **CameraPeek (Main Camera ONLY — the Player duplicate is confirmed gone)**, HitStop (on the GameObject named "EffectManager").
 - **NOT in SampleScene:** `MusicManager` and `SfxManager`. Both exist as MonoBehaviours but live elsewhere (MainMenu boot flow). Consequence: **entering Play mode directly in SampleScene gives you no MusicManager**, so no BGM — that's expected, not a bug. `SfxManager`'s entry points are `static` and work fine without a scene instance, which is why SFX still play.
-- ⚠️ **Leftover `CinemachineCamera` GameObject still sits in SampleScene, INACTIVE, carrying a second `CameraShake` component.** Harmless while inactive (Awake never runs, so it can't hijack the singleton), but it is Cinemachine-era cruft and a trap if anyone activates it — that would create a duplicate CameraShake singleton. Part of the same pending Cinemachine cleanup as the dead `using Unity.Cinemachine;` directives.
+- ✅ **The leftover inactive `CinemachineCamera` GameObject (which carried a second `CameraShake`) was DELETED 2026-10-03**, after checking nothing in the scene referenced it. Main Camera's is now the only `CameraShake` in SampleScene.
 
 **Build settings list (re-verified 2026-09-24):** `MainMenu`(0), `Hub`(1, disabled), **`SampleScene`(2)**, `GameOverScene`(3), `GameScene`(4). Those are list positions. At runtime disabled scenes are skipped, so `buildIndex` is MainMenu 0, **SampleScene 1**, GameOverScene 2, GameScene 3.
 
@@ -989,7 +989,9 @@ Rewritten to work without Cinemachine. Uses a `shakeOffset` Vector2 that `Camera
 
 Rebuilt without Cinemachine, along the planned CameraShake-style design: holding Left Ctrl computes a mouse-direction `peekOffset` (clamped to `maxOffset`, smoothed with unscaled time) that `CameraFollow.LateUpdate` adds after zone clamping. **The component lives on Main Camera ONLY** — a duplicate copy on the Player prefab was removed 2026-07-16 (unguarded `instance = this` singleton; two copies made the winner a coin flip). Do not re-add it to the Player. Input is blocked while paused, while the hand drawer is locked, or when the player is dead. If peek "doesn't seem to work," verify scene presence and enabled state of the component first (per Common Pitfalls) — the code is fine. Note: the rebuilt CameraPeek does NOT set `PlayerController.isPeeking`; that flag is dead code.
 
-Related: a missing-script warning for `CameraBoundsController` appears in the console at scene load — this is part of the same Cinemachine-era cleanup that's pending. Cosmetic; doesn't affect gameplay.
+Related: the old missing-script warning for `CameraBoundsController` at scene load **no longer appears** (checked 2026-10-03: SampleScene has no missing scripts).
+
+⚠️ **Editor-only noise you may see: `Assertion failed on expression: 'math::all(math::isfinite(origin))'` (and `size`)** with no project code in the stack. Editor.log shows it comes from Unity's **Tile Palette** window (`GridPaintPaletteClipboard.ClampZoomAndPan`) laying out an empty or zero-size view. Not game code and not in builds; closing that tab silences it.
 
 ---
 
@@ -1033,8 +1035,9 @@ fifth was found 2026-09-06, down to a single scratch room that was not even the 
 `foundryRoomPrefab` / `marketRoomPrefab` / `wellRoomPrefab`. When the
 list is short or holds a scratch room, there is **no hub** (so no sandbox first room, no quest board,
 no forge), every room in the run is the same room, and if the stand-in lacks `CameraBounds` the camera
-stops clamping. The only console clue is one Turkish line, `CameraBounds objesi bulunamadı!`, which
-reads like ordinary noise. **When anything about a run feels wrong — no hub, repeated rooms, a camera
+stops clamping. The only console clue is one error line, which until 2026-10-03 was the bare Turkish
+`CameraBounds objesi bulunamadı!` and read like ordinary noise; it now names the room and says to check
+`roomPrefabs` (the Turkish phrase is kept inside it for searches). **When anything about a run feels wrong — no hub, repeated rooms, a camera
 showing the void — read this list before debugging the map or the camera.** Restore it by resolving
 the GUIDs recorded in the last good commit, never by re-picking prefabs by filename.
 

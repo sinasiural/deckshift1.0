@@ -1,5 +1,4 @@
-﻿using Unity.Cinemachine;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class LevelManager : MonoBehaviour
@@ -567,14 +566,11 @@ public class LevelManager : MonoBehaviour
         Transform boundsObj = currentRoom.transform.Find("CameraBounds");
         if (boundsObj != null)
         {
-            Debug.Log("CameraBounds bulundu: " + boundsObj.name);
             BoxCollider2D[] zones = boundsObj.GetComponentsInChildren<BoxCollider2D>();
-            Debug.Log("Zone sayısı: " + zones.Length);
             CameraFollow cam = Camera.main.GetComponent<CameraFollow>();
             if (cam != null)
             {
                 cam.SetZones(zones);
-                Debug.Log("SetZones çağrıldı!");
             }
             else
             {
@@ -583,7 +579,12 @@ public class LevelManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("CameraBounds objesi bulunamadı!");
+            // ⚠️ Often the ONLY sign that `roomPrefabs` was wiped and a scratch room is standing in
+            // (it has happened five times), so it names the room and the likely cause. The Turkish
+            // phrase is kept because older notes search for it.
+            Debug.LogError($"Room '{selectedRoomPrefab.name}' has no CameraBounds child, so the camera will not clamp " +
+                           "(CameraBounds objesi bulunamadı). If the run looks wrong (no hub, repeated rooms), " +
+                           "check LevelManager.roomPrefabs first.");
         }
 
         // Per-room camera size (RoomCamera on the room root, same convention as HubMarker).
