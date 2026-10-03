@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Open Bar's look. Wine-red drops circle the player while the bar is open, passing behind the body
+/// Bloodlust's look. Blood-red drops circle the player while it is active, passing behind the body
 /// on the far side of the ring; they blink through the last second and a half (blinking is how this
 /// game says "about to expire", see the gravity reversal warning). Every heal sends a few drops
 /// arcing from the enemy that was hit into the player's chest, so you can SEE where the health came
@@ -11,10 +11,10 @@ using UnityEngine;
 /// Self-building, no prefab or art (house pattern, like CardAimIndicator). Parented to the player,
 /// so it carries through a room change exactly as long as the window does.
 /// </summary>
-public class OpenBarVFX : MonoBehaviour
+public class BloodlustVFX : MonoBehaviour
 {
-    private static readonly Color Wine = new Color(0.62f, 0.05f, 0.15f, 1f);
-    private static readonly Color WineLight = new Color(0.95f, 0.38f, 0.45f, 1f);
+    private static readonly Color Blood = new Color(0.62f, 0.05f, 0.15f, 1f);
+    private static readonly Color BloodLight = new Color(0.95f, 0.38f, 0.45f, 1f);
 
     private const int Orbiters = 5;
     private const float OrbitRadius = 0.78f;
@@ -43,11 +43,11 @@ public class OpenBarVFX : MonoBehaviour
 
     private static Sprite dropSprite;
 
-    public static OpenBarVFX Spawn(PlayerController player, float duration)
+    public static BloodlustVFX Spawn(PlayerController player, float duration)
     {
-        var go = new GameObject("OpenBarVFX");
+        var go = new GameObject("BloodlustVFX");
         go.transform.SetParent(player.transform, false);
-        var v = go.AddComponent<OpenBarVFX>();
+        var v = go.AddComponent<BloodlustVFX>();
         v.follow = player.transform;
         v.duration = duration;
         CapsuleCollider2D cap = player.GetComponent<CapsuleCollider2D>();
@@ -56,7 +56,7 @@ public class OpenBarVFX : MonoBehaviour
         return v;
     }
 
-    /// <summary>Close the bar now (fades out, then removes itself once its drops have landed).</summary>
+    /// <summary>End the window now (fades out, then removes itself once its drops have landed).</summary>
     public void End() { ending = true; }
 
     /// <summary>A heal landed: drops fly from <paramref name="from"/> into the player.</summary>
@@ -160,11 +160,11 @@ public class OpenBarVFX : MonoBehaviour
             for (int x = 0; x < 3; x++)
             {
                 char c = rows[y][x];
-                tex.SetPixel(x, y, c == '#' ? Wine : c == '+' ? WineLight : clear);
+                tex.SetPixel(x, y, c == '#' ? Blood : c == '+' ? BloodLight : clear);
             }
         tex.Apply();
         dropSprite = Sprite.Create(tex, new Rect(0, 0, 3, 4), new Vector2(0.5f, 0.5f), 16f);
-        dropSprite.name = "OpenBarDrop";
+        dropSprite.name = "BloodlustDrop";
         return dropSprite;
     }
 }

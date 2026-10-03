@@ -72,8 +72,8 @@ Wind* were both discarded during this pass — they are **relics already**. Chec
 | 3 | **Judgment** | attack | delayed payload | **wanted, and it keeps the name "Judgment"** (not Act of God) |
 | 4 | Right of Way | buff | movement × attack synergy | ❌ rejected |
 | 5 | Killing Time | buff | time-bounded value | ❌ rejected |
-| 6 | Break Glass | Glass | archetype depth (2 → 3) | ✅ liked · **BUILT 2026-10-03** |
-| 7 | Open Bar | Vampiric | archetype depth (1 → 2) | ✅ liked · **BUILT 2026-10-03** |
+| 6 | Break Glass → **Glass Moon** | Glass | archetype depth (2 → 3) | ✅ liked · **BUILT 2026-10-03** |
+| 7 | Open Bar → **Bloodlust** | Vampiric | archetype depth (1 → 2) | ✅ liked · **BUILT 2026-10-03** |
 | 8 | Hornet's Nest | deployable | works for you while you move | ✅ **some version of it** |
 
 ⚠️ **The two I recommended hardest (Right of Way, Killing Time) were both rejected.** Worth
@@ -179,7 +179,7 @@ pull the trigger" card, which is the best kind.
 **Build note:** cheap — `ShouldSpendCharge` already exists as a hook (Sleight of Hand, Slow Burn,
 Teacher's Pet all use it).
 
-### 6. Break Glass — Glass archetype (2 cards → 3)
+### 6. Glass Moon (designed as "Break Glass") — Glass archetype (2 cards → 3)
 
 *"In case of emergency."* **Can only be played below 30 HP.** Above that it sits in your hand,
 unplayable, as a promise.
@@ -194,14 +194,23 @@ best card at the worst moment of the run.
 **Precedent:** conditional-on-HP is established — Adrenaline already branches on above/below half
 health, and Dead Weight is already a card that cannot be played.
 
-**Built 2026-10-03** (`BreakGlass.cs`, `CardActionType.BreakGlass = 24`), numbers as above. The arc is a
-half-disc of radius 4.5 in front of the body. Differences from this design, for the designer to judge:
+**Built 2026-10-03, then RE-THEMED THE SAME DAY as "Glass Moon"** (designer: kept the rules, not the
+name or concept). `GlassMoon.cs` + `GlassMoonVFX.cs`, `CardActionType.GlassMoon = 24`. Rules unchanged
+(below 30 HP, 60 damage, 2 charges, 0 Shift); what changed with the fiction:
+- **A small glass moon rises over you (0.42s), cracks in three stages, and bursts 0.70s after the
+  cast.** Damage lands at the burst, in a **circle of radius 4.4 around the moon**, both sides of you.
+  The moon stays where it was summoned, and stops short of a low ceiling.
+- The moon carries a real Light2D and the room's global light dims while it is up, then flashes at
+  the burst; the dimming is reference-counted and always restored. Recorded in game:
+  https://claude.ai/artifact/GngRXDG7heDfxfcVU6ZFZw
 - **Stagger instead of knockback.** The game has no enemy knockback (bodies are mass 500 and several
   AIs zero their own velocity every frame), so it uses Glass Wail's stun for 0.6s instead.
-- Pressing it while locked plays a refusal sound, and its aim preview turns red at 30 HP or more.
-- Placeholder art: the Rare frame with the RPG pack's hammer.
+- Pressing it while locked plays a refusal sound, and its aim preview (moon outline + reach circle)
+  turns red at 30 HP or more.
+- Placeholder art: the Rare frame with a cracked glass moon on a night sky, painted by the same code
+  as the effect (`GlassMoonVFX.MoonPixels`).
 
-### 7. Open Bar — Vampiric archetype (1 card → 2)
+### 7. Bloodlust (designed as "Open Bar") — Vampiric archetype (1 card → 2)
 
 For **6 seconds, 40% of all damage you deal heals you.**
 
@@ -215,13 +224,14 @@ hurt — which is the opposite of how players instinctively use healing, and the
 attack half of a hand vampiric for a window, so the archetype becomes something you *build toward*
 rather than a single asset.
 
-**Built 2026-10-03** (`PlayerOpenBar.cs`, `CardActionType.OpenBar = 25`), numbers as above. The heal is
-taken at `RelicManager.ModifyPlayerDamage`, so every attack card counts, including ones added later.
-It heals on damage that LANDS: overkill does not count (15 into a 5 HP enemy heals 2, not 6), a
-shield-blocked hit heals nothing, and scenery never heals. A second Open Bar while one is running is
-refused at no cost. Wine-red drops circle the player for the window and blink in its last 1.5s;
-each heal throws drops from the enemy into the player. Placeholder art: the Rare frame with the RPG
-pack's red wine bottle.
+**Built 2026-10-03, then RENAMED "Bloodlust" the same day** (designer: same mechanic, new name and
+concept). `PlayerBloodlust.cs`, `CardActionType.Bloodlust = 25`, numbers as above. The heal is taken at
+`RelicManager.ModifyPlayerDamage`, so every attack card counts, including ones added later. It heals
+on damage that LANDS: overkill does not count (15 into a 5 HP enemy heals 2, not 6), a shield-blocked
+hit heals nothing, and scenery never heals. A second Bloodlust while one is running is refused at no
+cost. Blood-red drops circle the player for the window and blink in its last 1.5s; each heal throws
+drops from the enemy into the player. It starts on a heartbeat (two low thumps). Placeholder art: the
+Rare frame with a blood drop.
 
 ### 8. Hornet's Nest — it works while you move
 

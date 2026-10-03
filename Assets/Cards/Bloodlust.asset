@@ -10,16 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27701a6f0f52d86438cb67605f92527c, type: 3}
-  m_Name: BreakGlass
+  m_Name: Bloodlust
   m_EditorClassIdentifier: 
-  cardName: Break Glass
-  description: Only playable below 30 HP. Glass bursts out in front of you for 60
-    damage, and whatever survives is stunned for a moment.
-  cardArt: {fileID: -6484668450324971294, guid: 252cf0bace574dfe97c6e1255a4b0989, type: 3}
+  cardName: Bloodlust
+  description: For 6 seconds, 40% of the damage you deal heals you.
+  cardArt: {fileID: -6484668450324971294, guid: 2e3bfa2cfcd64d64bf32f5283bea723d, type: 3}
   nameIsPaintedIntoArt: 0
   rarity: 2
-  actionType: 24
-  actionValue: 60
+  actionType: 25
+  actionValue: 40
   singleUse: 0
-  shiftCost: 0
-  maxUses: 2
+  shiftCost: 1
+  maxUses: 3

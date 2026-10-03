@@ -49,8 +49,8 @@ public class CardActionExecutor : MonoBehaviour
             { CardActionType.SalvagedShuriken, new SalvagedShurikenAction() },
             { CardActionType.ThroughAndThrough, new ThroughAndThroughAction() },
             { CardActionType.Brace,          new BraceAction()          },
-            { CardActionType.BreakGlass,     new BreakGlassAction()     },
-            { CardActionType.OpenBar,        new OpenBarAction()        },
+            { CardActionType.GlassMoon,      new GlassMoonAction()      },
+            { CardActionType.Bloodlust,      new BloodlustAction()      },
         };
     }
 

@@ -118,7 +118,7 @@ Per-card previews (each mirrors the real mechanic's math — **if you change a c
 - **PlatformCreate** — ghost of the platform prefab's actual sprites at true size on the cursor. (The card itself has NO range limit or placement rules — the ghost shows that honestly.)
 - **FreefallBlade** — the true ")" slash circle (forward-and-low, same offset math as `PerformFreefallBlade`); **grows while falling** (the empowered arc) and colors pale-blue neutral / orange falling / green enemy-inside.
 - **GlassWail** — two expanding ripples from the body + a pulsing glint over every `EnemyHealth` in the scene (the wail is scene-wide; enemy list refreshed on a 0.25s timer).
-- **BreakGlass** (2026-10-03) — the half-disc it hits, drawn from `BreakGlass.Origin` / `Radius` / `BehindSlack` and scanned with `BreakGlass.Targets`, the same functions the cast uses, so it cannot drift. Ice neutral / green enemy-inside / **red while locked (30 HP or more)** — the only place the player can see why the card refuses to play.
+- **GlassMoon** (2026-10-03) — a small outline where the moon will burst and the circle the burst reaches, from `GlassMoon.BurstPoint` (ceiling clamp included) / `Radius` / `MoonRadius` and scanned with `GlassMoon.Targets`, the same functions the cast and the burst use, so it cannot drift. Ice neutral / green enemy-inside / **red while locked (30 HP or more)** — the only place the player can see why the card refuses to play.
 
 **Adding an indicator for a new card:** add a `Kind`, an `Ensure*Visuals()` builder + `Update*(dim)` method, and a case in both the `LateUpdate` switch and `SetKind`. Read the real mechanic's code first and mirror its numbers exactly.
 

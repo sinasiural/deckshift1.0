@@ -10,15 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27701a6f0f52d86438cb67605f92527c, type: 3}
-  m_Name: OpenBar
+  m_Name: GlassMoon
   m_EditorClassIdentifier: 
-  cardName: Open Bar
-  description: For 6 seconds, 40% of the damage you deal heals you.
-  cardArt: {fileID: -6484668450324971294, guid: f84fad3ebc7f494d887e45fc7f68e206, type: 3}
+  cardName: Glass Moon
+  description: 'Only playable below 30 HP. A glass moon rises over you and shatters:
+    60 damage to everything near it, and whatever survives is stunned for a moment.'
+  cardArt: {fileID: -6484668450324971294, guid: 9b2635e7d2a749f49b510fd63f24b43b, type: 3}
   nameIsPaintedIntoArt: 0
   rarity: 2
-  actionType: 25
-  actionValue: 40
+  actionType: 24
+  actionValue: 60
   singleUse: 0
-  shiftCost: 1
-  maxUses: 3
+  shiftCost: 0
+  maxUses: 2

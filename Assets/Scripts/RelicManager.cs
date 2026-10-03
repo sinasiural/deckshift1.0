@@ -204,9 +204,9 @@ public class RelicManager : MonoBehaviour
         if (DeckManager.instance != null)
             dmg = CardEnhancements.ModifyDamage(DeckManager.instance.AttributedCard, dmg, target);
 
-        // Open Bar: heals on the FINAL number, after every modifier above. Not a relic, but this is
+        // Bloodlust: heals on the FINAL number, after every modifier above. Not a relic, but this is
         // the one place every point of player damage passes, so it lives here for the same reason.
-        PlayerOpenBar.NoteDamage(dmg, target);
+        PlayerBloodlust.NoteDamage(dmg, target);
 
         return dmg;
     }

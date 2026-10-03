@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: f84fad3ebc7f494d887e45fc7f68e206
+guid: 9b2635e7d2a749f49b510fd63f24b43b
 TextureImporter:
   internalIDToNameTable:
   - first:
       213: -6484668450324971294
-    second: placeholder_openbar_0
+    second: placeholder_glassmoon_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,7 +100,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: placeholder_openbar_0
+      name: placeholder_glassmoon_0
       rect:
         serializedVersion: 2
         x: 2
@@ -115,7 +115,7 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ccd71bf3b90e47ecb132497a279158a8
+      spriteID: b39067b79b3f444cb6b5af8659266a11
       internalID: -6484668450324971294
       vertices: []
       indices: 
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      placeholder_openbar_0: -6484668450324971294
+      placeholder_glassmoon_0: -6484668450324971294
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

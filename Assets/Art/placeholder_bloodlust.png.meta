@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 252cf0bace574dfe97c6e1255a4b0989
+guid: 2e3bfa2cfcd64d64bf32f5283bea723d
 TextureImporter:
   internalIDToNameTable:
   - first:
       213: -6484668450324971294
-    second: placeholder_breakglass_0
+    second: placeholder_bloodlust_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,7 +100,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: placeholder_breakglass_0
+      name: placeholder_bloodlust_0
       rect:
         serializedVersion: 2
         x: 2
@@ -115,7 +115,7 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 43cb1184f75a4b99947b2cd67710411d
+      spriteID: 20d311637a0b40729210d1caf10ac252
       internalID: -6484668450324971294
       vertices: []
       indices: 
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      placeholder_breakglass_0: -6484668450324971294
+      placeholder_bloodlust_0: -6484668450324971294
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -222,7 +222,7 @@ public static class CardEnhancements
             case CardActionType.GlassWail:
             case CardActionType.CometDive:
             case CardActionType.FreefallBlade:
-            case CardActionType.BreakGlass:
+            case CardActionType.GlassMoon:
                 return true;
             default:
                 return false;
