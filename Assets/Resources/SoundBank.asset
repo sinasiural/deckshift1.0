@@ -373,3 +373,42 @@ MonoBehaviour:
     positional: 0
     minInterval: 0.035
     stackDuck: 0.72
+  - id: Enemy.Hit
+    family: 4
+    variants:
+    - {fileID: 8300000, guid: f0eb742579ea3c0438af6980f42abe44, type: 3}
+    - {fileID: 8300000, guid: 29ea2c41e2a6c274c9c3d6a289c89839, type: 3}
+    - {fileID: 8300000, guid: 99110ca51f4dc6e41820c5a54374e0ce, type: 3}
+    - {fileID: 8300000, guid: c31a956ead4c18e4582100179c5c7b89, type: 3}
+    - {fileID: 8300000, guid: a5589ff92e0f038489f0510aa40069bd, type: 3}
+    volume: {x: 0.5, y: 0.58}
+    pitch: {x: 0.92, y: 1.08}
+    positional: 1
+    minInterval: 0.045
+    stackDuck: 0.7
+  - id: Enemy.Death
+    family: 4
+    variants:
+    - {fileID: 8300000, guid: 30429bf412bf29b408b347d308d8038b, type: 3}
+    - {fileID: 8300000, guid: 5a5980a22ca3e084d832c41c741a88c9, type: 3}
+    - {fileID: 8300000, guid: 458659402b3b0a145ad9207dc1849188, type: 3}
+    - {fileID: 8300000, guid: f3bd74c8d4ea226438e3f6aedcfb599d, type: 3}
+    - {fileID: 8300000, guid: a9aa5691dd0c4ee49af338b2a477234f, type: 3}
+    volume: {x: 0.66, y: 0.74}
+    pitch: {x: 0.82, y: 0.94}
+    positional: 1
+    minInterval: 0.06
+    stackDuck: 0.75
+  - id: Enemy.Block
+    family: 2
+    variants:
+    - {fileID: 8300000, guid: a19c5980b578bac4b8af3d0e907de480, type: 3}
+    - {fileID: 8300000, guid: f3c03ac6c628f1c4698af9291525c84a, type: 3}
+    - {fileID: 8300000, guid: 34e0190cdc1856d499c2366e169bd837, type: 3}
+    - {fileID: 8300000, guid: 16a85ded9fbf24b438913df5c3ba9723, type: 3}
+    - {fileID: 8300000, guid: dbeb4aa745ca1674481ab78aa53fc6f1, type: 3}
+    volume: {x: 0.85, y: 0.95}
+    pitch: {x: 0.95, y: 1.06}
+    positional: 1
+    minInterval: 0.08
+    stackDuck: 0.7

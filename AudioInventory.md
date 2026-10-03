@@ -146,6 +146,42 @@ never wired. Now assigned on the `SlimeEnemy` source prefab, which fills all 14.
 
 ---
 
+## 3b. ⚠️ Combat was silent and the world was at 1/8 volume (fixed 2026-10-03)
+
+Two problems the silent-slot audit above could not see, because neither is an empty slot.
+
+**1. Landing a hit, an ordinary enemy dying and a shield block made no sound at all.** Those
+events never HAD a slot, so "count the empty slots" reported them as fine. They are now SoundBank
+events played from `EnemyHealth` (every enemy has them, nothing to wire), all Kenney CC0:
+
+| Event | Variants | Measured at the listener |
+|---|---|---|
+| `Enemy.Hit` | `impactPunch_medium_000`–`004`, pitch 0.92–1.08 | −14.1 dB |
+| `Enemy.Death` | `impactSoft_heavy_000`–`004`, pitch 0.82–0.94 (deeper) | −10.8 dB (not on bosses: `BossDeathVFX` owns theirs) |
+| `Enemy.Block` | `impactMetal_light_000`–`004` | −13.7 dB |
+
+For scale: the player's jump measures −13.8 dB and the hurt sound −9.2 dB. Picked by measurement
+(length, onset, loudness), **not by ear — listen in play.** Tune them in `Resources/SoundBank.asset`.
+A hit reads as a punch whatever landed it (Fireball included); a card-specific impact layered on
+top is the next step, and **a Fireball hitting a wall is still silent.**
+
+**2. `SfxManager.PlayAtPoint` played everything at 1/8 volume.** It used
+`AudioSource.PlayClipAtPoint`, whose default falloff is full volume only within 1 unit of the
+listener. The listener is on the camera at z = −10 and the play plane is z = −2, so nothing is ever
+closer than 8 units. **Measured −18.1 dB dead centre on screen.** Every enemy attack, archer shot,
+spit, gold/scrap/crystal pickup, altar and breakable wall went through it. It now plays on the `Sfx`
+voice pool (full volume to 6 units, silent by 34, so on-screen sounds land at 70–93%), with ±5%
+pitch variation and the same burst guard as bank events.
+
+Un-muting them restored the levels the prefabs already asked for, with two trims where that level
+would have beaten the player's own hurt sound: **`MeleeEnemy` `attackVolume` 0.706 → 0.40** (sword
+−24.0 → −11.1 dB) and **`SlimeEnemy` `attackVolume` 1.0 → 0.35** (−13.2 dB). The zombie swing went
+from about −42 to −23.7 dB and is already at its maximum (1.0), so it is the quietest enemy attack.
+Gold stays at its configured 0.15 (−31.9 dB), deliberately small.
+
+⚠️ **Measure loudness at the listener, not in the clip.** `AudioListener.GetOutputData` in Play mode
+is the ground truth; a clip's own level says nothing about falloff, and falloff was the whole bug.
+
 ## 4. `_Unused/` — kept, not deleted
 
 Nothing references these. Kept rather than deleted because several are plausible candidates

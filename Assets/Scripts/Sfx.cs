@@ -1,11 +1,17 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// The one call every sound in the game goes through:  Sfx.Play("Enemy.Zombie.Swing", position);
+// Bank sounds:  Sfx.Play("Enemy.Hit", position);
 //
 // It resolves the id against the SoundBank, picks a variant that is not the one it just played,
 // jitters pitch and volume, refuses to machine-gun, ducks stacked copies, and hands the result to a
 // pooled AudioSource.
+//
+// ⚠️ MOST SOUNDS ARE STILL INSPECTOR SLOTS, NOT BANK EVENTS (2026-10-03). The bank lists ~40
+// events, but only the footstep and the enemy hit / death / block are played from it; everything
+// else is a slot played through SfxManager. SfxManager.PlayAtPoint now uses this pool too
+// (PlayClip), so slot sounds get the voice pool, the distance curve and pitch variation without
+// being moved into the bank.
 //
 // ⚠️ WHY POOLED SOURCES AND NOT `AudioSource.PlayClipAtPoint` — this is the important one.
 // PlayClipAtPoint gives you NO WAY TO SET PITCH. Everything in the project used it, so every sound
@@ -20,7 +26,7 @@ public static class Sfx
 {
     private const string BankPath = "SoundBank";     // Assets/Resources/SoundBank.asset
     private const float StackWindow = 0.14f;         // "already sounding" window for the duck
-    private const int PoolSize = 24;
+    private const int PoolSize = 32;   // was 24 before every PlayAtPoint came through here too
 
     private static SoundBank bank;
     private static AudioSource[] pool;
@@ -51,6 +57,46 @@ public static class Sfx
         var e = Resolve(id);
         if (e == null) return;
         PlayEvent(e, Vector3.zero, false);
+    }
+
+    // Per-clip crowd control for PlayClip, the same rules a bank event gets. Keyed by the clip
+    // because a raw clip has no event to hang the state on.
+    private class ClipState { public float lastPlayed = -999f; public readonly List<float> recent = new List<float>(8); }
+    private static readonly Dictionary<AudioClip, ClipState> clipStates = new Dictionary<AudioClip, ClipState>();
+    private const float ClipMinInterval = 0.03f;
+    private const float ClipStackDuck = 0.72f;
+
+    /// <summary>
+    /// Play a bare clip (an Inspector slot, not a bank event) on a pooled voice with pitch jitter,
+    /// the same burst throttle and stack duck as bank events, and the pool's distance curve.
+    /// Returns false only when no voice exists yet (no SfxManager), so the caller can fall back.
+    /// </summary>
+    public static bool PlayClip(AudioClip clip, Vector3 position, float volume, bool positional, Vector2 pitchRange)
+    {
+        if (clip == null) return true;
+        float now = Time.unscaledTime;
+
+        ClipState st;
+        if (!clipStates.TryGetValue(clip, out st)) { st = new ClipState(); clipStates[clip] = st; }
+        if (now - st.lastPlayed < ClipMinInterval) return true;
+
+        for (int i = st.recent.Count - 1; i >= 0; i--)
+            if (now - st.recent[i] > StackWindow) st.recent.RemoveAt(i);
+        float duck = Mathf.Pow(ClipStackDuck, st.recent.Count);
+
+        var src = Take();
+        if (src == null) return false;
+
+        st.recent.Add(now);
+        st.lastPlayed = now;
+
+        src.clip = clip;
+        src.volume = Mathf.Clamp01(volume * duck);
+        src.pitch = Random.Range(pitchRange.x, pitchRange.y);
+        src.spatialBlend = positional ? 1f : 0f;
+        src.transform.position = positional ? position : Vector3.zero;
+        src.Play();
+        return true;
     }
 
     private static SoundEvent Resolve(string id)
@@ -142,9 +188,17 @@ public static class Sfx
             var s = go.AddComponent<AudioSource>();
             s.playOnAwake = false;
             s.spatialBlend = 0f;
+            // ⚠️ THE LISTENER IS ON THE CAMERA AT z = -10 AND THE PLAY PLANE IS z = -2, so nothing
+            // in the game is ever closer than 8 units. Unity's default curve (full volume inside 1
+            // unit, then 1/distance) therefore plays everything at 1/8 volume or less: measured
+            // -18.1 dB dead centre on screen. That is what PlayClipAtPoint did to every enemy and
+            // pickup sound until 2026-10-03. Full volume out to 6 units, gone by 34, keeps a sound
+            // on screen at 70-93% and lets off-screen ones fade.
             s.rolloffMode = AudioRolloffMode.Linear;
             s.minDistance = 6f;
             s.maxDistance = 34f;
+            // A side-on camera chasing a dashing player would bend every sound's pitch.
+            s.dopplerLevel = 0f;
             pool[i] = s;
         }
     }
@@ -153,6 +207,7 @@ public static class Sfx
     public static void Reset()
     {
         bank = null; pool = null; nextSource = 0;
+        clipStates.Clear();
         warnedMissingBank = false; warnedIds.Clear();
     }
 }

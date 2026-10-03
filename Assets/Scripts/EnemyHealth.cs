@@ -131,11 +131,17 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         ShieldEnemy shield = GetComponent<ShieldEnemy>();
         if (shield != null && shield.IsBlocking())
         {
-            Debug.Log("BLOKLANDI!");
+            // A blocked hit was silent: the only sign it happened at all was this log line.
+            Sfx.Play("Enemy.Block", transform.position);
             return;
         }
 
         currentHealth -= damage;
+
+        // ⚠️ LANDING A HIT MADE NO SOUND until 2026-10-03, nor did an ordinary enemy dying. The
+        // silent-slot audit could not see it: it counted EMPTY sound slots, and these never had
+        // one. Bank events rather than slots, so every enemy has them with nothing to wire.
+        Sfx.Play("Enemy.Hit", transform.position);
 
         // Executioner's Seal (relic): a hit that leaves a non-boss enemy at/under 20% HP finishes it.
         // ⚠️ Bosses are recognised by IBossFight, which every boss implements (the awaken trigger
@@ -187,6 +193,10 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     private void Die()
     {
         if (healthBar != null) Destroy(healthBar.gameObject);
+
+        // Bosses have their own death sound through BossDeathVFX; a body thud under it would only muddy it.
+        if (GetComponent<IBossFight>() == null)
+            Sfx.Play("Enemy.Death", transform.position);
 
         // Blompo: credit the kill to the card that landed the killing blow (Grudge grows, Toll
         // Booth refunds). Die() is called from inside TakeDamage, so the attribution set around

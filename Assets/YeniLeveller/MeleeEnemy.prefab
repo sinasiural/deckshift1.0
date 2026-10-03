@@ -233,7 +233,7 @@ MonoBehaviour:
   edgeCheckOffsetX: 0.5
   edgeCheckDepth: 1
   attackSound: {fileID: 8300000, guid: b07ac20441640a642b6a1ad3fe34052e, type: 3}
-  attackVolume: 0.706
+  attackVolume: 0.4
 --- !u!114 &7970200218222573164
 MonoBehaviour:
   m_ObjectHideFlags: 0
