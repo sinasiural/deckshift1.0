@@ -237,18 +237,52 @@ Tuning: `Assets/Resources/HardRooms.asset` (0.34 share, minimum 2, ×1.5 health,
 Verified in play: Pendulum infused 2 of 5 (a bat 30→45, a spitter 18→27); the kill dropped 3
 crystals that settled 1.02 above the floor and walking through them paid exactly +3 Shift.
 
-- ⚠️ **INFUSE IN THE SAME FRAME THE ROOM IS INSTANTIATED.** `EnemyHealth.Start` caches each body's
-  colour to restore after the hit flash and the stun; a tint applied before Start is the one it keeps.
-  Verified: after a hit the colour comes back as the infused (0.70, 0.95, 1.00), not the original.
+**THE LOOK, REBUILT THE SAME DAY** (designer: the first pass, a tint + soft aura + motes, was
+"pretty simple"; they wanted it tied to Shift and "cooler"). Recorded clip with every phase:
+https://claude.ai/artifact/TbNWLAJxXsgjmJdVcvwJtX. Everything is the enemy's OWN silhouette redrawn
+in Shift cyan, plus a little procedural pixel art (`ShiftInfusionArt`):
+- **Traced**: a 1-px outline (4 copies of the body offset ±1 px, order −2) and a 2-px halo (8
+  copies, order −3, alpha 0.34), both behind the body so only the edge shows. A 2-px **band** keeps
+  rising through body and outline (the `Charge` layer, order +1, invisible except the band/flash).
+- **Tears** every 2.4–4.2 s: two copies behind the body jitter ±7 px for 0.22 s (only a sliver shows
+  past the edge, the split-colour glitch look), one **echo** slides off and dissolves, a flash and
+  bolts, then a snap back. Walking also leaves echoes (one per 0.3 units travelled).
+- **Orbiting crystals**: one per crystal it will drop, on a tilted ring at the waist, in front of
+  the body on the near half and behind it on the far half. On death they become the real pickups.
+- **Crackle**: 8 pre-made pixel bolts flashed at random over the body; more on every hit.
+- **Death** (`InfusedDeathVFX`): white-hot silhouette through the hit-stop, two copies split
+  sideways, the ghost rises and **pixel-dissolves**, two pixel shock rings, crystals fly out.
+- A stun slows the orbit to 0.2× and holds the tears (verified).
+
+Traps, all paid for:
+- ⚠️ **BAKE WITH `BakeMesh(mesh, false)` AND DRAW AT THE RENDERER'S POSITION + ROTATION, SCALE 1.**
+  Measured against hand-skinned vertices on every rig: exact for all. `BakeMesh(mesh, true)` drawn
+  the same way LOSES EVERY PARENT SCALE (Rotbrute 1.15 → outline 15% small) and the bat's flip
+  (1.6 units off). ⚠️ That `true` version is what `GhostTrail` and `CardAimIndicator`'s dash preview
+  use, and measured on the player it is wrong there too: the 0.8 `visualModel` scale is dropped,
+  so their ghosts draw 25% large (parts up to 0.46 units off). NOT fixed as of 2026-10-04 (outside
+  that day's task; raised with the designer). Every pool enemy is ONE
+  `SkinnedMeshRenderer`; the code has a SpriteRenderer fallback for the old sprite enemies.
+- ⚠️ **The effect lives on its own world-space object** (`ShiftInfusion (<name>)`), not under the
+  enemy: the rigs carry Y rotations and a z-scale facing flip (`PixelMonster.Facing` writes
+  `animator.localScale.z`). Destroyed in `OnDestroy`, and stamped `TemporaryObject`.
+- ⚠️ **The silhouette shader (`Deckshift/Shift Silhouette`) is loaded through
+  `Resources/ShiftSilhouette.mat`**, never `Shader.Find` alone: a build only contains shaders
+  something references (the purple-water lesson). Texture alpha + flat colour, unlit, bands and a
+  pixel dissolve snapped to the body's own pixel grid; all per-renderer values via a property block.
+- ⚠️ **The small sprites share ONE atlas texture** (one material), because SpriteRenderers sharing a
+  material with different textures can be drawn with each other's texture (the BraceVFX bug).
+- ⚠️ **The flash is squared** (`0.6 × flash²`). Linear, a 0.5-alpha white-cyan overlay whited the
+  zombie out for a third of a second and read as a ghost: linear colour space again.
+- ⚠️ **The art cache checks its objects are alive**, not a flag: leaving Play mode destroys runtime
+  objects but keeps statics if "Enter Play Mode Options" is ever turned on.
+- ⚠️ **No tint on the body any more.** A cyan multiply read as a muddy teal zombie; the enemy keeps
+  its art and the stun's pure `Color.blue` stays unmistakable.
 - ⚠️ **Never infused:** bosses (`IBossFight`) and the **Mimic** (a glow would give its disguise away).
-- ⚠️ **The tint alone was too subtle and is NOT the stun's blue.** On a green zombie a cyan multiply
-  read as muddy teal, and a 1.0 light barely showed on dark brick (judged by screenshot). What sells it:
-  an **aura** sprite behind the body (posterised 3-step ellipse, sized TO the body), a **1.8 Light2D**
-  on the walls, and 2× motes every 0.09 s. Stun stays pure `Color.blue`, so the two never read alike.
-- ⚠️ **The aura sorts by ORDER, not depth**: enemy bodies use the Cainos monster *Transparent* shader,
-  so the aura takes the body renderer's sorting layer and `sortingOrder - 1` to stay behind it.
-- ⚠️ **Crystals settle 1 unit above the floor under the body** (raycast), never where the body was:
-  collecting dropped Shift must never cost a jump. Over a pit they hover where they stopped.
+- ⚠️ **Crystals rest in a ROW, 0.8 apart, 1 unit above the body's own floor**, never where the body
+  was: collecting dropped Shift must never cost a jump. If the row would hang over a drop or hit a
+  wall, the WHOLE row slides inward (verified at Pendulum's ledge end: 35.2 / 36.0 / 36.9 on a ledge
+  from 35). Pulling single crystals back instead stacked two at the edge. Over a pit they hover.
 - **Scrap follows the raised health** automatically; an enemy with `scrapDropOverride` has that
   scaled instead (MeleeEnemy's pinned 3 becomes 4: `Mathf.RoundToInt` rounds 4.5 to even), so
   "tougher" always pays more.

@@ -871,8 +871,8 @@ nodes now infuse enemies (below). A random 15-floor route passes ~4.9 Easy, 4.9 
 
 The Elite half of the run-map design, now live. When the player enters a **Hard node**,
 `LevelManager.SpawnNextRoom` calls `ShiftInfusion.InfuseRoom`: about a third of the room's enemies
-(at least 2) become **`ShiftInfused`**: +50% health (scrap follows), a Shift-cyan tint, aura, light
-and motes, and **3 Shift crystals on death** (`InfusedDeathVFX`). Tuning is ONE asset,
+(at least 2) become **`ShiftInfused`**: +50% health (scrap follows), traced in Shift (outline,
+halo, tears, echoes, orbiting crystals, crackle), and **3 Shift crystals on death** (`InfusedDeathVFX`). Tuning is ONE asset,
 **`Assets/Resources/HardRooms.asset`** (`HardRoomSettings`): share, minimum, health multiplier,
 Shift drop, crystal prefab. Detail and traps in `/deckshift-enemies` → Shift-infused enemies.
 - ⚠️ **Keyed off the NODE the player chose, not the room's tag.**

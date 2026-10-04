@@ -9,10 +9,9 @@ using UnityEngine;
 /// ⚠️ IT KEYS OFF THE NODE THE PLAYER CHOSE, NOT THE ROOM'S TAG. The map's promise is what decides
 /// it: a Hard node is Hard even if, one day, a room serves more than one tier.
 ///
-/// ⚠️ CALL IT IN THE SAME FRAME THE ROOM IS INSTANTIATED, before any EnemyHealth.Start has run.
-/// EnemyHealth caches each enemy's colours in Start (to restore them after the hit flash and the
-/// stun), so a tint applied before Start is the one the enemy keeps; applied after, the first hit
-/// would wash it out.
+/// Call it in the same frame the room is instantiated, before any EnemyHealth.Start has run: Start
+/// fills the enemy's health to its (by then scaled) maximum. (Until 2026-10-04 this also mattered
+/// for a body tint, which Start would have cached; the infusion no longer tints the body.)
 ///
 /// Never infused: bosses (IBossFight; their fights are tuned as a whole) and the Mimic (a glow
 /// would give its disguise away).
