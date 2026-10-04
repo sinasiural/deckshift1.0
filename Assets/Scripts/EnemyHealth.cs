@@ -100,6 +100,16 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         }
     }
 
+    // Scales this enemy's health (Hard rooms' Shift-infused enemies). Safe before or after Start:
+    // before, Start fills currentHealth from the scaled max; after, current scales with it.
+    public void ScaleMaxHealth(float multiplier)
+    {
+        if (multiplier <= 0f) return;
+        maxHealth = Mathf.Round(maxHealth * multiplier);
+        currentHealth = Mathf.Round(currentHealth * multiplier);
+        healthBar?.SetHealth(currentHealth, maxHealth);
+    }
+
     // A disguised enemy hides its bar until it shows itself (see EnemyHealthBar.SetConcealed).
     // Stored here as well as passed on, because the disguise is set in the enemy's Awake, before
     // this Start has built the bar.

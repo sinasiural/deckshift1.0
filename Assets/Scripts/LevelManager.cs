@@ -563,6 +563,12 @@ public class LevelManager : MonoBehaviour
         // which is why the player and enemies sometimes rendered behind props. See PlayPlane.
         PlayPlane.Apply(currentRoom);
 
+        // Hard nodes: some enemies are Shift-infused (tougher, glowing, drop Shift). Decided by the
+        // NODE the player chose, and ⚠️ done here, in the same frame as the Instantiate above, before
+        // any EnemyHealth.Start has cached the colours the infusion tints. Tuning: Resources/HardRooms.
+        if (at != null && at.type == MapNodeType.Elite)
+            ShiftInfusion.InfuseRoom(currentRoom);
+
         Transform boundsObj = currentRoom.transform.Find("CameraBounds");
         if (boundsObj != null)
         {

@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4788543757948580803}
+  - component: {fileID: 5917533427227021991}
   m_Layer: 0
   m_Name: EfeVrl5
   m_TagString: Untagged
@@ -167,6 +168,19 @@ Transform:
   - {fileID: 1226688137965702723}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5917533427227021991
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 635766636009674316}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 479bb133ad68d2a4baa2f8a837af8f90, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tier: 2
 --- !u!1 &1775364244636552307
 GameObject:
   m_ObjectHideFlags: 0

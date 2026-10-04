@@ -229,6 +229,33 @@ Entry needs: the relic · airborne · **falling** (you catch a wall on the way d
 
 **Still open:** the relic borrows Pogo Boots' boot icon, because a relic with no art draws as an empty socket. Swap it when there's an icon to swap in.
 
+### Shift-infused enemies — Hard map nodes (built 2026-10-04)
+
+`ShiftInfusion.InfuseRoom(room)` (called by `LevelManager.SpawnNextRoom` on a Hard node) picks
+`max(infusedMinimum, round(count × infusedShare))` enemies at random and adds `ShiftInfused` to each.
+Tuning: `Assets/Resources/HardRooms.asset` (0.34 share, minimum 2, ×1.5 health, 3 crystals).
+Verified in play: Pendulum infused 2 of 5 (a bat 30→45, a spitter 18→27); the kill dropped 3
+crystals that settled 1.02 above the floor and walking through them paid exactly +3 Shift.
+
+- ⚠️ **INFUSE IN THE SAME FRAME THE ROOM IS INSTANTIATED.** `EnemyHealth.Start` caches each body's
+  colour to restore after the hit flash and the stun; a tint applied before Start is the one it keeps.
+  Verified: after a hit the colour comes back as the infused (0.70, 0.95, 1.00), not the original.
+- ⚠️ **Never infused:** bosses (`IBossFight`) and the **Mimic** (a glow would give its disguise away).
+- ⚠️ **The tint alone was too subtle and is NOT the stun's blue.** On a green zombie a cyan multiply
+  read as muddy teal, and a 1.0 light barely showed on dark brick (judged by screenshot). What sells it:
+  an **aura** sprite behind the body (posterised 3-step ellipse, sized TO the body), a **1.8 Light2D**
+  on the walls, and 2× motes every 0.09 s. Stun stays pure `Color.blue`, so the two never read alike.
+- ⚠️ **The aura sorts by ORDER, not depth**: enemy bodies use the Cainos monster *Transparent* shader,
+  so the aura takes the body renderer's sorting layer and `sortingOrder - 1` to stay behind it.
+- ⚠️ **Crystals settle 1 unit above the floor under the body** (raycast), never where the body was:
+  collecting dropped Shift must never cost a jump. Over a pit they hover where they stopped.
+- **Scrap follows the raised health** automatically; an enemy with `scrapDropOverride` has that
+  scaled instead (MeleeEnemy's pinned 3 becomes 4: `Mathf.RoundToInt` rounds 4.5 to even), so
+  "tougher" always pays more.
+- `EnemyHealth.ScaleMaxHealth(multiplier)` is safe before or after `Start` (it scales current too).
+- **Not built (designer's notes, left for later):** infused enemies being faster or hitting harder.
+  Every AI moves and strikes differently, so it is per-AI work.
+
 ### Head Bounce (Pogo Boots Relic) — REBALANCED 2026-08-10
 
 ⚠️ **It used to grant `AddShift(1)` on every bounce, which this file never recorded.** With a 0.3s cooldown that made Pogo Boots a large free Shift regeneration (⚠️ this file used to call it **the only one**; that was wrong. **Hot Streak, a Common relic, grants +2 Shift per kill and is bigger**, and it is still live; see `RelicRedesign.md`) — in a game whose stated identity is that Shift does not regenerate on its own and carries over for the whole run. It quietly turned any room with enemies into a refuelling station: a 40 HP melee enemy is five bounces at 8 damage, so a room of six was worth roughly half a full Shift bar for nothing. The designer flagged the relic as overpowered; this was the mechanism.

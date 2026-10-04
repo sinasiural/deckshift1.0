@@ -854,6 +854,31 @@ repeated rooms, a camera that shows the void — read this list before debugging
 
 **Tier tags (2026-08-08):** the three importer-built rooms carry `RoomTier` — `GenLevel7` **Fight** (horizontal corridor), `GenLevel8` **Fight** (vertical shaft), `GenLevel9` **Elite** (loop; the pool's first Elite room). The seven originals stay untagged and therefore serve every tier, so eligibility is **7 Skirmish / 9 Fight / 8 Elite**. Verified by driving the real `PickNextRoomPrefab`.
 
+⚠️ **SUPERSEDED 2026-10-04: EVERY POOL ROOM IS TAGGED NOW** (designer-approved): `efeslevel1` and
+`EfeVrl4` **Easy**, `efeslevel2`, `efeslevel3`, `EfeVrl5`, `EfeVrl6`, `EfeVrl7` **Medium** (chosen by
+measured content: enemy count and total HP, chests). Pool by tier: **7 Easy / 12 Medium / 5 Hard**;
+Hard is the thinnest. Why: the untagged rooms answered about **4 in 10 Hard nodes** with an ordinary
+room, so the label was a coin flip. Tagged by `LoadPrefabContents` + `AddComponent` +
+`SaveAsPrefabAsset` (pure 14-line additions, roomPrefabs references verified intact), never by
+re-import.
+
+**What the tiers contained before any runtime change (measured 2026-10-04, per room):**
+Easy 84 enemy HP / 38 gold / 3.4 Shift / 0 relic chests; Medium 158 / 54 / **9.4** / 1.0; Hard 190 /
+46 / **5.2** / 1.2. Hard paid LESS Shift than Medium while costing more to cross, which is why Hard
+nodes now infuse enemies (below). A random 15-floor route passes ~4.9 Easy, 4.9 Medium, 2.6 Hard.
+
+### Hard nodes: Shift-infused enemies (built 2026-10-04)
+
+The Elite half of the run-map design, now live. When the player enters a **Hard node**,
+`LevelManager.SpawnNextRoom` calls `ShiftInfusion.InfuseRoom`: about a third of the room's enemies
+(at least 2) become **`ShiftInfused`**: +50% health (scrap follows), a Shift-cyan tint, aura, light
+and motes, and **3 Shift crystals on death** (`InfusedDeathVFX`). Tuning is ONE asset,
+**`Assets/Resources/HardRooms.asset`** (`HardRoomSettings`): share, minimum, health multiplier,
+Shift drop, crystal prefab. Detail and traps in `/deckshift-enemies` → Shift-infused enemies.
+- ⚠️ **Keyed off the NODE the player chose, not the room's tag.**
+- ⚠️ **The map does NOT explain it** (designer: "we don't have to spoon-feed every information").
+- `RunStats` notes each infusion, so an F8 report shows it.
+
 #### Room inventory — relevant to the planned map system (audited 2026-07-18)
 
 **24 prefabs in the project satisfy the FULL room contract, but only 9 are wired into LevelManager.** That means ~15 contract-valid rooms are sitting unused:
