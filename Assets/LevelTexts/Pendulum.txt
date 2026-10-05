@@ -1,0 +1,54 @@
+// The Pit and the Pendulum  (HARD, 84x26)  -  built 2026-09-28
+//
+// Five stone pillars over a spiked pit, six 5-wide gaps between them, and over every gap a spiked
+// WRECKING BALL on a chain, swinging at exactly the height of a jump. Each gap is one jump - and the
+// jump has to be TIMED: wait on the pillar until the ball swings away, then go.
+//
+// The balls swing in a TRAVELLING WAVE (the importer offsets each by its column), so the gaps open
+// one after another down the line; a player who reads the rhythm can cross almost without stopping.
+// A hit knocks you out of the jump and into the pit: spikes on the left of every pit, and on the
+// right a ledge that climbs out onto the NEXT pillar. So a mistake costs two jumps and some blood,
+// never the progress already made.
+//
+// THE GREED: two crystals hang in the middle of two gaps, at the top of the jump, right in the
+// ball's path. The card chest sits on pit 4's ledge: drop onto a 2-wide ledge over spikes for it.
+// The relic chest waits on the far landing, past a spitter.
+//
+// SHIFT: 6 jumps across. 5 crystals, 3 of them only for the brave: a clean greedy run nets +-0, a
+//   careful one -4, and every hit another -2. Elite: net-negative unless you are good.
+//
+// LAW 1: jumping only; the pendulums gate nothing (the validator does not model them - they are
+//   cell-centre props, not solid). LAW 2: every gap is 5 at one height; the pit climb is 3 + 4.
+//   LAW 3: every pit is escapable by its ledge, and every gap crossable unaided. LAW 7: spawn (4,14)
+//   to exit (78,14) is 74 apart. LAW 8: the spawn landing is empty; the nearest shooter is 33 away.
+!name: Pendulum
+!tier: hard
+!theme: crypt
+!camera: tight
+
+####################################################################################
+####################################################################################
+##...........###......###......###......###......###......###.....................##
+##...........###......###......###......###......###......###.....................##
+##...........###......###......###......###......###......###.....................##
+##...........###......###......###......###...b..###......###.....................##
+##............K........K........K........K........K........K......................##
+##................................................................................##
+##.....................+..........................+...............................##
+##................................................................................##
+##................+..........................+....................................##
+##..S...g............................s............................s....C..g...X...##
+############.....####.....####.....####.....####.....####.....######################
+############.....####.....####.....####.....####.....####.....######################
+############.....####.....####.....####....+####.....####.....######################
+############.....####.....####.....####...D.####.....####.....######################
+############...######...######...######...######...######...########################
+############.....####.....####.....####.....####.....####.....######################
+############^^^..####^^^l.####^^^..####^^^..####^^^l.####^^^..######################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################

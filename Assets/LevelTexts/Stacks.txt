@@ -1,0 +1,64 @@
+// The Stacks  (MEDIUM, 60x28)  -  built 2026-09-28
+//
+// A cross-section of a library: three floors of reading rooms, like a doll's house. The exit is on
+// the ground floor, three rooms to the right of the spawn, and every ground-floor doorway is
+// plugged with a BOOKSHELF (BreakableWall, 10 HP: one attack). So at every door the player picks
+// what to pay with:
+//
+//     THROUGH: one card charge (a Fireball, two Shuriken...), zero Shift.
+//     ROUND:   climb to the first floor (a ledge and a hole in the ceiling: 2 jumps), walk through
+//              its open doorway, and drop through the next room's hole (free). 2 Shift a door; each
+//              further room walked on the first floor costs one hop over its hole.
+//
+// It is the first room where the trade is CHARGES FOR SHIFT, the two resources the game keeps apart
+// everywhere else. The Crowbar relic breaks a shelf by walking into it: every door is free.
+//
+// THE ATTIC (optional, 2 more jumps from room B's first floor): three crystals, gold, a bat, and at
+//   the far end THE READING NOOK, a closet behind one more bookshelf: the card chest.
+//
+// ⚠️ The doll's-house shape is load-bearing. Versions 1 and 2 cut a doorway through a free-standing
+//   stack; in side view that shows as a block floating over a gap, and the 0.63-wide shelf read as a
+//   post in an open passage. Here every wall hangs from a slab and every shelf fills a 2-tall
+//   doorway from floor to lintel, as the barricaded closet in EfeVrl7 does.
+//
+// ENEMIES: each room is its own small arena (zombies never use doors): a shambler and a skeleton,
+//   a Rotbrute and a slime, a spitter at the exit; a skeleton, an archer and a shambler upstairs; a
+//   bat in the attic. ⚠️ Enemy arrows DAMAGE bookshelves (Projectile.cs hits any IDamageable), so
+//   the only archer is on the first floor, whose doorways hold no shelves.
+//
+// LAW 1: with no card at all, every door can be gone round (the validator treats 'W' as solid).
+//   LAW 2: every rise is 4 (floor to ledge, ledge through the hole). LAW 7: spawn (8,3) to exit
+//   (56,3) is 48 apart through three walls. LAW 8: the spawn room is sealed by its shelf and a slab.
+!name: Stacks
+!tier: medium
+!theme: library
+!camera: tight
+
+############################################################
+############################################################
+##.................................................##.....##
+##.................................................##.....##
+##.........................................b.......##.....##
+##.................................................##..+..##
+##................................+.....+.....+....##.....##
+##........................................................##
+##...................................g.............W..D.g.##
+###########################...##############################
+###########################...##############################
+##............##...............##............##...........##
+##............##...............##............##...........##
+##............##........###....##............##...........##
+##.......+....##...............##............##...........##
+##........................................................##
+##..........g...............m...........g.r............z..##
+#####...###########...##############...###########...#######
+#####...###########...##############...###########...#######
+##............##...............##............##...........##
+##............##...............##............##...........##
+#####.........#####............#####.........#####........##
+##............##...............##............##...........##
+##........................................................##
+##......S..g..W......z.....m...W.......Z..l..W.......s..X.##
+############################################################
+############################################################
+############################################################

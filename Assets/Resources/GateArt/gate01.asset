@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43531b35b997f6641873956a3f7eea46, type: 3}
+  m_Name: gate01
+  m_EditorClassIdentifier: 
+  arch: {fileID: 21300000, guid: 507e79147c36629448da1d975b843899, type: 3}
+  passage: {fileID: 21300000, guid: a1ef51d39b1f763488cdda1582ab9a05, type: 3}
+  leafL: {fileID: 21300000, guid: f1ffbfef7051fe445842f279fe19f304, type: 3}
+  leafR: {fileID: 21300000, guid: 314974d3011fa88408662221e12328e3, type: 3}
+  leafLOffset: {x: -1.25, y: 0.03125}
+  leafROffset: {x: 1.28125, y: 0.03125}
+  openingBottom: 0.03125
+  openingTop: 4.0625
+  openingLeft: -1.25
+  openingRight: 1.28125
+  archWidth: 3.65625
+  archHeight: 4.8125

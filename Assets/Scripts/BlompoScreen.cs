@@ -14,10 +14,10 @@ using TMPro;
 // .RollOffersForDeck), so an offer is never a dead end. Free at the point of use, ONE card per
 // visit; Blompo then leaves (BlompoNPC handles the vanish).
 //
-// Built procedurally in the FlatUI ARCANE theme, self-instantiating under the main Canvas. Where
-// the Scrap Forge is a workbench (warm iron, fire from below, rivets, embers rising), Blompo's
-// screen inverts every cue: cold indigo, light descending from above, four-point stars instead of
-// fasteners, motes settling downward, and no wear — his space is not a workshop that gets used.
+// Built procedurally in SALVAGE, self-instantiating under the main Canvas. Where the Scrap Forge is
+// a workbench — PLANKS, fire from below, embers rising — this is an altar: dressed STONE, light
+// descending from above, motes settling downward, and no wear, because his space is not a workshop
+// that gets used. Same material family, opposite object, and not one new colour between them.
 public class BlompoScreen : MonoBehaviour
 {
     public static BlompoScreen instance;
@@ -41,11 +41,34 @@ public class BlompoScreen : MonoBehaviour
     private GameObject cachedHud;
     private bool hudWasActive;
 
-    // Blompo runs the ARCANE theme, not the Forge's iron (see FlatUI.Theme). Every cue is the
-    // inverse of the workbench: cold instead of warm, lit from above instead of below, motes
-    // settling instead of embers rising, stars instead of rivets, and no wear at all — his space
-    // isn't a workshop that gets used.
-    private static readonly FlatUI.Theme T = FlatUI.Arcane;
+    // ⚠️ STONE, LIT BY SHIFT. Blompo was the game's biggest consistency break — cold indigo panels
+    // and arcane violet, a palette that exists nowhere in the world. It is also the screen with the
+    // best excuse to be different, because it is the only one that is about MAGIC, and the trap is
+    // to spend a new hue on that.
+    //
+    // Salvage's answer costs nothing: the surface is the dungeon's other structural material —
+    // dressed STONE rather than the planks that pause, settings and the forge are built from, which
+    // reads as a different object at a glance with no colour involved — and the light on it is
+    // `Salvage.Shift`, the cyan of the altar orb and the gate seal. That is already the game's word
+    // for "energised", and a blessing being put into a card is exactly that. Wood for things people
+    // built; stone for things that were cut. An altar is cut.
+    //
+    // ⚠️ DO NOT REINTRODUCE VIOLET. Salvage has two accents for the entire game and this screen does
+    // not get a third; if something here needs to stand out, use value or shape.
+    private static readonly FlatUI.Theme T = new FlatUI.Theme
+    {
+        Backdrop = new Color(0.020f, 0.017f, 0.015f, 1f),
+        Surface = new Color(0f, 0f, 0f, 0f),          // the slab supplies the surface
+        SurfaceRaised = Salvage.Lit(Salvage.Ramp("stone").Sample(0.70f)),
+        Border = Salvage.Lit(Salvage.Ramp("stone").Sample(0.05f)),
+        BorderSoft = Salvage.Lit(Salvage.Ramp("stone").Sample(0.22f)),
+        EdgeLight = Salvage.Lit(Salvage.Ramp("stone").Sample(1f), 1.8f),
+        Accent = Salvage.Shift,
+        TextBright = Salvage.TextBright,
+        TextBody = Salvage.TextBody,
+        TextMuted = Salvage.TextMuted,
+        TextDisabled = Salvage.TextFaint,
+    };
 
     // Sized against the project's 1920x1080 canvas. Height came down from 900 once the offer chips
     // shrank — at 900 there was ~200px of dead panel under them. Still tall enough for the forging
@@ -118,11 +141,14 @@ public class BlompoScreen : MonoBehaviour
         backBtn.transition = Selectable.Transition.None;
         backBtn.onClick.AddListener(Hide);
 
+        SalvageScreen.BuildWall(transform);
+
+        // A cut stone slab, standing. Not on chains — an altar is not furniture.
         window = AddPoint(transform, "Window", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(WIN_W, WIN_H));
         Image winBg = window.gameObject.AddComponent<Image>();
-        winBg.sprite = FlatUI.Panel(10);
-        winBg.type = Image.Type.Sliced;
-        winBg.color = T.Surface;
+        winBg.sprite = SalvageSurfaces.StoneSlab(Salvage.Tex(WIN_W), Salvage.Tex(WIN_H));
+        winBg.type = Image.Type.Simple;
+        winBg.color = Color.white;
         winBg.raycastTarget = true;
 
         // The Forge is lit by fire from BELOW; Blompo is lit from ABOVE — the blessing descending.
@@ -138,11 +164,8 @@ public class BlompoScreen : MonoBehaviour
         halo.rectTransform.localScale = new Vector3(1f, -1f, 1f);
 
         // Motes settling downward — magic coming to rest, the inverse of the Forge's rising heat.
-        UIEmberField.Attach(window, 22, new Color(0.80f, 0.72f, 1f, 1f), UIEmberField.Settings.Motes);
+        UIEmberField.Attach(window, 22, Salvage.Shift, UIEmberField.Settings.Motes);
 
-        Image winFrame = AddImage(window, "Frame", FlatUI.Outline(10, 2), T.Border, false);
-        winFrame.type = Image.Type.Sliced;
-        Stretch(winFrame.rectTransform);
 
         // Four-point stars where the Forge has rivets: his panel is pinned by light, not fasteners.
         AddCornerStars();
@@ -536,7 +559,7 @@ public class BlompoScreen : MonoBehaviour
     {
         if (chip == null || card == null) return;
 
-        int maxUses = card.cardData != null ? card.cardData.maxUses : 0;
+        int maxUses = card.cardData != null ? card.MaxUses : 0;
         SetChipText(chip, "Uses", card.isInfinite ? "∞" : $"{card.currentUses}/{maxUses}");
 
         int cost = card.cardData != null ? card.cardData.shiftCost : 0;

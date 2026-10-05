@@ -3,6 +3,10 @@ using UnityEngine;
 // 'GameEnums.cs' dosyam�zda oldu�u i�in bu sat�ra gerek yok
 // public enum CardActionType { ... } 
 
+// A card's rarity. Cards have Uncommon where relics do not, and no Legendary, so this is its own
+// enum rather than the relics' Rarity.
+public enum CardRarity { Common, Uncommon, Rare, Epic }
+
 [CreateAssetMenu(fileName = "New CardData", menuName = "Deckshift/Card Data")]
 public class CardData : ScriptableObject
 {
@@ -23,6 +27,13 @@ public class CardData : ScriptableObject
     // showing the old painted title, and clearing it too early prints the name on top of itself.
     [Tooltip("ON for legacy art with the title painted into the texture. OFF (the default) lets the UI type cardName into the plate.")]
     public bool nameIsPaintedIntoArt = false;
+
+    // Which of the four card frames this card uses. The FRONT's frame colour is painted into the
+    // art (dark grey Common, light grey Uncommon, yellow Rare, purple Epic); this field is the same
+    // fact as data, so code can act on it: the hover back picks its frame from it (CardBack).
+    // Keep it matching the art. There are no Legendary cards.
+    [Tooltip("Must match the frame colour painted into the card art. The hover back uses the frame of this rarity.")]
+    public CardRarity rarity = CardRarity.Common;
 
     [Header("Card Action")]
     public CardActionType actionType;

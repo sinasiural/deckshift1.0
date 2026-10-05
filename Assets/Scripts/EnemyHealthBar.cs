@@ -67,7 +67,18 @@ public class EnemyHealthBar : MonoBehaviour
     // calls at all, which matters with one of these per enemy in the room.
     void ApplyVisibility()
     {
-        if (canvas != null) canvas.enabled = GameSettings.EnemyHealthBars;
+        if (canvas != null) canvas.enabled = GameSettings.EnemyHealthBars && !concealed;
+    }
+
+    // ⚠️ THE ONE EXCEPTION to "always on": a DISGUISED enemy (the Mimic, while it is still a chest).
+    // A health bar hanging over one chest of three is the disguise given away (2026-09-28, the
+    // Ossuary's treasury). Cleared the moment it reveals itself, so a revealed Mimic's bar is
+    // always on like every other enemy's.
+    private bool concealed;
+    public void SetConcealed(bool value)
+    {
+        concealed = value;
+        ApplyVisibility();
     }
 
     void LateUpdate()

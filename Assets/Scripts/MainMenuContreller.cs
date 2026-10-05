@@ -17,7 +17,30 @@ public class MainMenuController : MonoBehaviour
     // than leaving the button dead.
     public void PlayGame()
     {
+        // The very first PLAY asks whether to take the tutorial. Either answer is remembered, so this
+        // only ever happens once (see TutorialMode.HasCompleted).
+        if (!TutorialMode.HasCompleted)
+        {
+            if (FirstTimePrompt.IsOpen) return;
+            FirstTimePrompt.Open(FindMenuButton(nameof(PlayGame)), TutorialMode.Begin, () =>
+            {
+                TutorialMode.MarkCompleted();
+                CharacterSelectScreen.Open(StartRun);
+            });
+            return;
+        }
+
         CharacterSelectScreen.Open(StartRun);
+    }
+
+    // The menu button whose click calls `method` — used as the template for the prompt's plaques so
+    // they are the menu's own art, not a lookalike.
+    private static UnityEngine.UI.Button FindMenuButton(string method)
+    {
+        foreach (var b in FindObjectsByType<UnityEngine.UI.Button>(FindObjectsSortMode.None))
+            for (int i = 0; i < b.onClick.GetPersistentEventCount(); i++)
+                if (b.onClick.GetPersistentMethodName(i) == method) return b;
+        return null;
     }
 
     private void StartRun()
@@ -45,10 +68,13 @@ public class MainMenuController : MonoBehaviour
         SettingsScreen.Open();
     }
 
-    // HOW TO PLAY butonu i�in
+    // TUTORIAL button. It used to open `tutorialPanel`, a slideshow whose text had gone stale ("we have
+    // 6 rooms"); it now starts the playable tutorial room (designer, 2026-09-24). The old panel is left
+    // in the scene because the pause screen's HOW TO PLAY still opens its in-game twin.
     public void OpenTutorial()
     {
-        tutorialPanel.SetActive(true);
+        if (FirstTimePrompt.IsOpen) return;
+        TutorialMode.Begin();
     }
 
     // QUIT butonu i�in

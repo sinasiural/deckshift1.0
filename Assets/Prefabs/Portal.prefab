@@ -242,6 +242,10 @@ MonoBehaviour:
   rangeIndicator: {fileID: 310624503909005432}
   visualSizeMultiplier: 1
   prompt: {fileID: 3579857437007607902}
+  openSound: {fileID: 8300000, guid: 5ca94436a1c14d143884a20ebc6d56e3, type: 3}
+  openVolume: 0.8
+  traverseSound: {fileID: 0}
+  traverseVolume: 0.9
 --- !u!114 &4326751407662999810
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,0 +1,62 @@
+// The Crusher Works  (HARD, 76x30)  -  built 2026-09-25
+//
+// A press hall. Three CRUSHERS hang from the ceiling beams over the floor route, each with a
+// LEVER a few tiles before it. A crusher kills anything under it (80 damage - every ordinary
+// enemy) and hurts the player for 20. The room is a weapon the player is handed: stand at the
+// lever, let the pack walk under the press toward you, pull. Every kill it makes is a card
+// charge you did not spend.
+//
+//   STATION 1   two shamblers past the press. The lesson: wait for them, then pull.
+//   STATION 2   up a rise-4 step: a Rotbrute and a slime. The Rotbrute is the one worth crushing.
+//   THE PIT     5 wide, 4 deep, spiked - with a card chest sat among the spikes for anyone who
+//               will take the hits. A bat hangs over it.
+//   STATION 3   a skeleton and a shambler under the last press, and a spitter guarding the exit.
+//
+// Enemies stop at ledges (MeleeEnemyAI refuses drops over ~1 tile), so every pack stays on its
+// own floor and walks straight through its own press. The levers are momentary: pull, the press
+// slams and winches back up, the lever's clock shows when it is ready again.
+//
+// THE UPPER ROUTE (optional, expensive - Hard): from terrace C up onto a ledge over the pit,
+//   then beside beam B2, then onto the beam tops and back west along them. Two crystals and gold
+//   on B2, BLOMPO on B1, and at the far end a SHIFT ALTAR sealing a vault with a RELIC CHEST.
+//   ~4 jumps plus the altar's price, for a blessing and a relic. Coming back is a free drop.
+//
+// LAW 1: the floor route is walking and three rise-4 / 5-wide jumps; levers, presses, the
+//   altar and the gate gate nothing mandatory. LAW 2: every rise is 4, the pit is 5 wide. LAW 3:
+//   the pit is 4 deep - jump out. LAW 7: spawn (4,24) to exit (72,22) is 70 apart. LAW 8: the
+//   spawn sits on a ledge 2 above station 1's floor - a free drop for the player, a wall for a
+//   zombie (they never jump) - so the pack can see you but cannot come to you until you go down.
+!name: CrusherWorks
+!tier: hard
+!theme: prison
+
+############################################################################
+############################################################################
+##..........##............................................................##
+##..........##............................................................##
+##..........##............................................................##
+##..........##............................................................##
+##..........##............................................................##
+##..........##............................................................##
+##..........G.............................................................##
+##..........G.............................................................##
+##..g.C..+..G...A.......B.............+.g.+.................+.............##
+##############################.....###########.........###########........##
+##############################.....###########.........###########........##
+##......................P...............P...................P.............##
+##........................................................................##
+##............................................###.b.......................##
+##........................................................................##
+##........................................................................##
+##........................................................................##
+##...............................................###......................##
+##........................................................................##
+##....................................................+...................##
+##...........................+......L....Zl.............L.....mz......s.X.##
+##.............................#################.....#######################
+##..S...g......................#################.....#######################
+###########....................#################.....#######################
+###########.........L....zz....#################^^D^^#######################
+############################################################################
+############################################################################
+############################################################################

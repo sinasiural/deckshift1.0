@@ -75,8 +75,10 @@ public class QuestBoardScreen : GameScreen
     private float fitScale = 1f;
     // isOpen, and the pause / game-state / HUD / drawer bookkeeping, now live in GameScreen.
 
-    // The board opens on a paper rustle and accepts on a wax stamp — its own material, and better
-    // than the generic pair. Taking both would just play two sounds on top of each other.
+    // ⚠️ THE BOARD OWNS ALL THREE OF ITS SOUNDS, and they are a set rather than three picks:
+    // BoardOpen is paper and wood, BoardNail adds IRON, BoardDud takes the iron away again. Playing
+    // the generic UI pair over the top would put a fourth material on the screen and bury the one
+    // relationship the set is built on. See ProcSfx → NOTICE BOARD.
     protected override bool PlaysDefaultOpenCloseSound { get { return false; } }
 
     // One pinned contract.
@@ -153,7 +155,14 @@ public class QuestBoardScreen : GameScreen
 
         // Backdrop. Clicking it leaves — a notice board is something you step away from, and there
         // is nothing here that a stray click could destroy.
-        Image backdrop = AddImage(transform, "Backdrop", null, T.Backdrop, true);
+        //
+        // ⚠️ OPAQUE, unlike the 0.94 it inherited. This screen is opened in the HUB, which is the
+        // best-lit room in the game — a shopkeeper, a forge, lit barrels, a torch — and at 0.94 all
+        // of it read straight through and competed with the slips. It also broke the one thing this
+        // screen is built on: the value inversion only works while there are TWO surfaces, pale
+        // paper on dark board, and a busy lit room behind it is a third.
+        Image backdrop = AddImage(transform, "Backdrop", null,
+                                  new Color(0.016f, 0.013f, 0.011f, 1f), true);
         Stretch(backdrop.rectTransform);
         AddClick(backdrop.gameObject, Hide);
 
@@ -169,13 +178,75 @@ public class QuestBoardScreen : GameScreen
     // The board itself: oiled wood, raked by a lamp somewhere off to the left.
     private void BuildBoardSurface()
     {
-        Image plate = AddImage(board, "Plate", FlatUI.Panel(10), T.Surface, true);
-        plate.type = Image.Type.Sliced;   // ⚠️ Image.Type defaults to Simple; a 26px sprite stretched
-        Stretch(plate.rectTransform);     //    across 1280 renders as an enormous soft octagon.
+        // ⚠️ REAL TIMBER, GENERATED AT WORLD PIXEL SCALE — not a flat plate. This was
+        // FlatUI.Panel(10) in T.Surface, a single chamfered colour, and it is the last thing on the
+        // screen that was a "panel" rather than an object.
+        //
+        // ⚠️ NO WALL BEHIND IT. Every other Salvage screen tiles the dungeon masonry; this one
+        // deliberately does not (designer, 2026-08-21: "the background, i didnt really like
+        // honestly. maybe this does not need a background image. the panel might just be fine for
+        // it."). It is also the right call on its own terms — this screen's whole idea is the
+        // VALUE INVERSION, pale paper on dark board, and a lit brick wall behind it puts a third
+        // mid-value surface into a composition that works precisely because it only has two.
+        Image plate = AddImage(board, "Plate",
+                               SalvageSurfaces.PlankBoard(Salvage.Tex(BoardW), Salvage.Tex(BOARD_H), 9),
+                               Color.white, true);
+        plate.type = Image.Type.Simple;
 
-        Image edge = AddImage(board, "Edge", FlatUI.Outline(10, 2), T.Border, false);
-        edge.type = Image.Type.Sliced;
-        Stretch(edge.rectTransform);
+        // The frame: real Beam 01 timbers laid end to end across the top and bottom edges, which is
+        // what makes it a MOUNTED notice board rather than a floating rectangle. Beam 01 is 128x10,
+        // so at world scale each length is ~309px and the run tiles without stretching anything.
+        Sprite beam = Salvage.Prop("Beam 01");
+        if (beam != null)
+        {
+            // ⚠️ THE FRAME IS MASKED TO THE BOARD. Beams are tiled at their NATIVE width so the
+            // timber is never stretched (Law 1), which means the last one in each run inevitably
+            // straddles the edge — and an unmasked run overhung by up to a full beam length, 309px
+            // of rail hanging in the black past the corner. Trimming the loop early instead would
+            // leave a gap at the corner, which is worse; clipping keeps the joinery flush.
+            RectTransform frameLayer = AddPoint(board, "Frame", Vector2.zero,
+                                                new Vector2(BoardW, BOARD_H));
+            frameLayer.gameObject.AddComponent<RectMask2D>();
+
+            float bw = Salvage.Px(beam.rect.width);
+            float bh = Salvage.Px(beam.rect.height) * 1.6f;
+            int count = Mathf.CeilToInt(BoardW / bw) + 1;
+            for (int i = 0; i < count; i++)
+            {
+                float x = -BoardW * 0.5f + bw * (i + 0.5f);
+                if (x - bw * 0.5f > BoardW * 0.5f) break;
+                for (int edgeIdx = 0; edgeIdx < 2; edgeIdx++)
+                {
+                    Image b = AddImage(frameLayer, "Frame" + edgeIdx + "_" + i, beam,
+                                       SalvageScreen.PropTint, false);
+                    b.rectTransform.sizeDelta = new Vector2(bw, bh);
+                    b.rectTransform.anchoredPosition =
+                        new Vector2(x, edgeIdx == 0 ? BOARD_H * 0.5f - bh * 0.4f
+                                                    : -BOARD_H * 0.5f + bh * 0.4f);
+                }
+            }
+
+            // ⚠️ THE UPRIGHTS ARE WHAT MAKE IT A FRAME. With only the top and bottom rails the board
+            // has no left or right edge, so a dark timber field against a dark backdrop has no
+            // silhouette at all — it read as the slips floating in front of nothing. Same beam
+            // rotated 90°, drawn LAST so the corners lap over the rails like real joinery.
+            int vCount = Mathf.CeilToInt(BOARD_H / bw) + 1;
+            for (int i = 0; i < vCount; i++)
+            {
+                float y = -BOARD_H * 0.5f + bw * (i + 0.5f);
+                if (y - bw * 0.5f > BOARD_H * 0.5f) break;
+                for (int side = 0; side < 2; side++)
+                {
+                    Image b = AddImage(frameLayer, "Upright" + side + "_" + i, beam,
+                                       SalvageScreen.PropTint, false);
+                    b.rectTransform.sizeDelta = new Vector2(bw, bh);
+                    b.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                    b.rectTransform.anchoredPosition =
+                        new Vector2(side == 0 ? -BoardW * 0.5f + bh * 0.4f
+                                              : BoardW * 0.5f - bh * 0.4f, y);
+                }
+            }
+        }
 
         // Wood grain: a few long, very faint scores. They live in the margins the slips leave
         // exposed, since a streak crossing the content is the mistake the forge screen already made.
@@ -603,22 +674,27 @@ public class QuestBoardScreen : GameScreen
         }
     }
 
+    private void PlayBoardDud() { SfxManager.PlayOn(audioSource, ProcSfx.BoardDud, 0.85f); }
+
     private void TryAccept(Slip s)
     {
         QuestSystem qs = QuestSystem.instance;
 
         // ⚠️ A refused click used to return in SILENCE, so clicking a contract while the board was
         // full — or one already taken — did nothing at all and looked broken rather than refused.
-        // Refuse is the game saying no; the wax stamp below is the yes.
-        if (qs == null || !s.interactable) { PlayRefuse(); return; }
-        if (!qs.AcceptQuest(s.data)) { PlayRefuse(); return; }
+        //
+        // ⚠️ AND IT IS THE BOARD'S OWN REFUSAL, NOT THE GENERIC UI ONE. BoardDud is BoardNail with
+        // the iron layer removed — the hammer meets the timber and nothing fastens. That
+        // relationship is what makes it read instantly, and a shared beep throws it away.
+        if (qs == null || !s.interactable) { PlayBoardDud(); return; }
+        if (!qs.AcceptQuest(s.data)) { PlayBoardDud(); return; }
 
         s.hovered = false;
         s.interactable = false;
 
         // Keeps its own confirm: a seal pressed into wax is this screen's signature and beats the
         // generic one, exactly like the paper rustle beats the generic open.
-        SfxManager.PlayOn(audioSource, ProcSfx.WaxStamp, 0.9f);
+        SfxManager.PlayOn(audioSource, ProcSfx.BoardNail, 0.95f);
 
         StartCoroutine(SealRoutine(s));
     }
@@ -688,7 +764,7 @@ public class QuestBoardScreen : GameScreen
         Refresh();
         FitScale();
 
-        SfxManager.PlayOn(audioSource, ProcSfx.PaperRustle, 0.7f);
+        SfxManager.PlayOn(audioSource, ProcSfx.BoardOpen, 0.75f);
 
         StopAllCoroutines();
         StartCoroutine(OpenAnim());

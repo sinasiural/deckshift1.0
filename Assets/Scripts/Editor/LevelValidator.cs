@@ -56,6 +56,16 @@ public static class LevelValidator
     private const float FallMultiplier = 2.5f;
     private const float LowJumpMultiplier = 2f;
     private const float AirControlPerStep = 0.07f;   // 0.7f * 0.02f * 5f
+
+    // Swimming (PlayerController, reworked 2026-09-26): gravity is off in water and the player moves
+    // freely in 8 directions. At the surface the player TREADS WATER with their feet
+    // swimSurfaceOffset (1.2) below it, and Jump there is a real, FREE jump out: gravity returns the
+    // instant it fires, at swimExitJumpForce = 9 (a ground jump is 11). So the exit is modelled as an
+    // arc launched at 9 from 1.2 below the surface — the top water cell's floor, minus 0.2.
+    // Measured in play: the feet peak ~2.0 tiles above the surface (1.98 with Space released at
+    // 0.6s). ⚠️ Do not round this up: a ledge 2 above the water is the edge of what a swimmer reaches.
+    private const float SwimJumpForce = 9f;
+    private const float SwimLaunchDrop = 0.2f;
     private const float Dt = 0.02f;
     private const int MaxSimSteps = 220;             // ~4.4s, far beyond any real arc
 
@@ -123,10 +133,34 @@ public static class LevelValidator
         }
 
         // Outside the grid counts as solid so the player can never leave the room.
+        //
+        // ⚠️ A GATE ('G') IS SOLID. It starts closed, and Law 1 asks what the player can reach
+        // with jumping and moving ALONE — pulling a lever or paying an altar is not that. Until
+        // 2026-09-25 gates read as open air here, so a room could hide its only route behind one
+        // and still pass. A crusher head ('P') hangs flush under its ceiling and is solid too.
+        //
+        // A BOOKSHELF ('W', BreakableWall) is solid for the same reason as a gate: it only opens to
+        // an attack card, and Law 1 asks what jumping and moving alone can reach (2026-09-28, the
+        // Stacks). It stands 2.16 tall, so the cell above its marker is solid as well.
         public bool Solid(int col, int y)
         {
             if (col < 0 || col >= w || y < 0 || y >= h) return true;
-            return At(col, y) == '#';
+            char c = At(col, y);
+            return c == '#' || c == 'G' || c == 'P' || c == 'W' || (y > 0 && At(col, y - 1) == 'W');
+        }
+
+        // Swimmable water ('~'). Not solid and not support: you move through it freely.
+        //
+        // A MARKER standing in a pool (a chest or gold on the pool floor, a crystal in the water)
+        // is in the water too: the importer's pool fills its bounding box around it. Such a cell is
+        // water when water touches it from the side or from above.
+        public bool Water(int col, int y)
+        {
+            if (col < 0 || col >= w || y < 0 || y >= h) return false;
+            char c = At(col, y);
+            if (c == '~') return true;
+            if (c == '.' || c == ' ' || c == '#' || c == 'G' || c == 'P') return false;
+            return At(col - 1, y) == '~' || At(col + 1, y) == '~' || At(col, y + 1) == '~';
         }
 
         // The capsule is ~0.5 wide by 1.68 tall, so the player occupies ONE column and TWO rows.
@@ -145,7 +179,10 @@ public static class LevelValidator
             return c == '#' || c == '=';
         }
 
-        public bool Grounded(int col, int y) => Fits(col, y) && Support(col, y - 1);
+        // Standing on the bottom of a pool is not standing: in water the player SWIMS (free,
+        // 8-directional) and "jump" is the swim kick, not a ground jump. Water cells are handled
+        // as their own node type in Reachable.
+        public bool Grounded(int col, int y) => Fits(col, y) && Support(col, y - 1) && !Water(col, y);
 
         public bool Find(char marker, out int col, out int y)
         {
@@ -160,11 +197,18 @@ public static class LevelValidator
     private static Grid Parse(string path, List<string> notes)
     {
         List<string> lines = new List<string>();
+        var directives = new Dictionary<string, string>();
         foreach (string raw in File.ReadAllLines(path))
         {
             string line = raw.TrimEnd('\r', '\n');
             string t = line.TrimStart();
-            if (t.StartsWith("//") || t.StartsWith("!")) continue;   // comments and directives
+            if (t.StartsWith("//")) continue;
+            if (t.StartsWith("!"))
+            {
+                int colon = t.IndexOf(':');
+                if (colon > 1) directives[t.Substring(1, colon - 1).Trim().ToLowerInvariant()] = t.Substring(colon + 1).Trim();
+                continue;
+            }
             if (t.Length == 0) continue;
             lines.Add(line);
         }
@@ -173,6 +217,18 @@ public static class LevelValidator
 
         int w = 0;
         foreach (string l in lines) w = Mathf.Max(w, l.Length);
+
+        // The importer's stepped ceiling corners change the room's shape, so validate THAT shape.
+        // Same seed as the importer: the !name directive, else the file name.
+        string levelName = directives.TryGetValue("name", out string n) && n.Length > 0 ? n : Path.GetFileNameWithoutExtension(path);
+        if (LevelGridOps.DirectiveOn(directives, "chamfer", true))
+        {
+            var g = new char[lines.Count][];
+            for (int r = 0; r < lines.Count; r++) g[r] = lines[r].PadRight(w, '.').ToCharArray();
+            int filled = LevelGridOps.ChamferCeilingCorners(g, LevelGridOps.StableHash(levelName));
+            for (int r = 0; r < lines.Count; r++) lines[r] = new string(g[r]);
+            if (filled > 0) notes.Add($"{filled} stepped-corner cell(s) applied, as the importer will");
+        }
 
         return new Grid { rows = lines.ToArray(), h = lines.Count, w = w };
     }
@@ -206,12 +262,21 @@ public static class LevelValidator
     // `dir` is the held direction (-1/0/+1), `holdSteps` how long jump is held before release, and
     // vy0 = 0 models simply WALKING OFF a ledge rather than jumping.
     private static void SimulateArc(Grid g, int startCol, int startY, int dir, int holdSteps, bool jump,
-                                    List<Vector2Int> landings)
+                                    List<Vector2Int> landings, List<Vector2Int> splashes = null,
+                                    float launchSpeed = JumpForce, float launchDrop = 0f)
     {
-        float x = startCol + 0.5f;
-        float y = startY;
+        // A walk-off starts at the EDGE of its cell, not the centre: from the centre, the first
+        // step down still has the starting column underfoot and "lands" straight back on it, so a
+        // plain step off a ledge into a narrow hole was never found (2026-09-28, the Stacks'
+        // 3-wide stair holes). Walking to the edge and stepping off at walking speed is real.
+        float x = startCol + 0.5f + (!jump ? dir * 0.49f : 0f);
+        float y = startY - launchDrop;
 
-        float vy = jump ? JumpForce : 0f;
+        // An arc that starts IN the water (the swim kick) only counts as re-entering the water
+        // once it has been out of it; otherwise every kick would "land" on its own first frame.
+        bool beenDry = !g.Water(startCol, startY);
+
+        float vy = jump ? launchSpeed : 0f;
         // NOT dir * (MoveSpeed + JumpForce): the jump's horizontal impulse is wiped by the next
         // FixedUpdate's grounded branch before it can travel. See the note on the constants.
         float vx = dir * MoveSpeed;
@@ -234,6 +299,15 @@ public static class LevelValidator
             int ncy = Mathf.FloorToInt(ny);
             int col = Mathf.FloorToInt(x);
 
+            // Into the water: gravity stops and the player is swimming from here.
+            bool wet = g.Water(col, Mathf.FloorToInt(y));
+            if (!wet) beenDry = true;
+            else if (beenDry)
+            {
+                splashes?.Add(new Vector2Int(col, Mathf.FloorToInt(y)));
+                return;
+            }
+
             if (vy > 0f)
             {
                 if (g.Solid(col, ncy + 1)) vy = 0f;          // bonked a ceiling
@@ -255,45 +329,85 @@ public static class LevelValidator
         }
     }
 
-    // Every grounded cell the player can get to from the spawn, using ONLY jumping and moving.
-    private static HashSet<Vector2Int> Reachable(Grid g, int startCol, int startY)
+    // Every grounded cell the player can get to from the spawn, using ONLY jumping, moving and
+    // swimming. (Swimming is movement, and free — it is not a card.)
+    private static HashSet<Vector2Int> Reachable(Grid g, int startCol, int startY) =>
+        Reachable(g, startCol, startY, out _);
+
+    private static HashSet<Vector2Int> Reachable(Grid g, int startCol, int startY, out HashSet<Vector2Int> swum)
     {
         HashSet<Vector2Int> seen = new HashSet<Vector2Int>();
+        swum = new HashSet<Vector2Int>();
         Queue<Vector2Int> queue = new Queue<Vector2Int>();
+        Queue<Vector2Int> waterQueue = new Queue<Vector2Int>();
 
         // Drop the spawn to the floor first — 'S' is authored in mid-air in several rooms.
         int sy = startY;
-        while (sy > 0 && !g.Grounded(startCol, sy) && g.Fits(startCol, sy)) sy--;
+        while (sy > 0 && !g.Grounded(startCol, sy) && g.Fits(startCol, sy) && !g.Water(startCol, sy)) sy--;
 
         Vector2Int start = new Vector2Int(startCol, sy);
-        seen.Add(start);
-        queue.Enqueue(start);
+        if (g.Water(startCol, sy)) { swum.Add(start); waterQueue.Enqueue(start); }
+        else { seen.Add(start); queue.Enqueue(start); }
 
         List<Vector2Int> landings = new List<Vector2Int>();
+        List<Vector2Int> splashes = new List<Vector2Int>();
         int[] holdVariants = { 3, 8, 15, 25, 60 };   // tapped through to fully held
 
-        while (queue.Count > 0)
+        while (queue.Count > 0 || waterQueue.Count > 0)
         {
-            Vector2Int cur = queue.Dequeue();
-
-            // Walking, including a one-tile step up or down.
-            for (int d = -1; d <= 1; d += 2)
-                for (int dy = -1; dy <= 1; dy++)
-                {
-                    Vector2Int n = new Vector2Int(cur.x + d, cur.y + dy);
-                    if (g.Grounded(n.x, n.y) && g.Fits(cur.x + d, cur.y) && seen.Add(n)) queue.Enqueue(n);
-                }
-
             landings.Clear();
-            for (int dir = -1; dir <= 1; dir++)
+            splashes.Clear();
+
+            if (queue.Count > 0)
             {
-                SimulateArc(g, cur.x, cur.y, dir, 0, false, landings);          // walk off the edge
-                foreach (int hold in holdVariants)
-                    SimulateArc(g, cur.x, cur.y, dir, hold, true, landings);    // jumps of every length
+                Vector2Int cur = queue.Dequeue();
+
+                // Walking, including a one-tile step up or down.
+                for (int d = -1; d <= 1; d += 2)
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        Vector2Int n = new Vector2Int(cur.x + d, cur.y + dy);
+                        if (g.Grounded(n.x, n.y) && g.Fits(cur.x + d, cur.y) && seen.Add(n)) queue.Enqueue(n);
+                    }
+
+                for (int dir = -1; dir <= 1; dir++)
+                {
+                    SimulateArc(g, cur.x, cur.y, dir, 0, false, landings, splashes);          // walk off the edge
+                    foreach (int hold in holdVariants)
+                        SimulateArc(g, cur.x, cur.y, dir, hold, true, landings, splashes);    // jumps of every length
+                }
+            }
+            else
+            {
+                Vector2Int cur = waterQueue.Dequeue();
+
+                // Free 8-directional swimming. The player is two cells tall, so the cell above
+                // must not be rock (it may be water or air).
+                for (int dx = -1; dx <= 1; dx++)
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+                        Vector2Int n = new Vector2Int(cur.x + dx, cur.y + dy);
+                        if (g.Water(n.x, n.y) && !g.Solid(n.x, n.y + 1) && swum.Add(n)) waterQueue.Enqueue(n);
+                    }
+
+                // At the surface: climb out onto an edge beside the pool, or kick out of it.
+                if (!g.Water(cur.x, cur.y + 1))
+                {
+                    for (int d = -1; d <= 1; d += 2)
+                        for (int dy = 0; dy <= 1; dy++)
+                            if (g.Grounded(cur.x + d, cur.y + dy)) landings.Add(new Vector2Int(cur.x + d, cur.y + dy));
+
+                    for (int dir = -1; dir <= 1; dir++)
+                        foreach (int hold in holdVariants)
+                            SimulateArc(g, cur.x, cur.y, dir, hold, true, landings, splashes, SwimJumpForce, SwimLaunchDrop);
+                }
             }
 
             foreach (Vector2Int l in landings)
                 if (seen.Add(l)) queue.Enqueue(l);
+            foreach (Vector2Int s in splashes)
+                if (!g.Solid(s.x, s.y + 1) && swum.Add(s)) waterQueue.Enqueue(s);
         }
 
         return seen;
@@ -416,6 +530,7 @@ public static class LevelValidator
                       $"{standable} standable, {reachCount} reachable ({usedPct:0}%), rock {density:0}%");
         foreach (string f in fail) sb.AppendLine("   FAIL  " + f);
         foreach (string w in warn) sb.AppendLine("   warn  " + w);
+        foreach (string n in notes) sb.AppendLine("   note  " + n);
 
         rep.Text = sb.ToString();
         return rep;
@@ -435,10 +550,10 @@ public static class LevelValidator
 
         int sCol, sY;
         if (!g.Find('S', out sCol, out sY)) return "(no spawn)";
-        HashSet<Vector2Int> reach = Reachable(g, sCol, sY);
+        HashSet<Vector2Int> reach = Reachable(g, sCol, sY, out HashSet<Vector2Int> swum);
 
         StringBuilder sb = new StringBuilder();
-        sb.AppendLine(Path.GetFileNameWithoutExtension(path) + "  o=reachable  x=orphaned");
+        sb.AppendLine(Path.GetFileNameWithoutExtension(path) + "  o=reachable  x=orphaned  ~=water reached  ,=water never reached");
         for (int y = g.h - 1; y >= 0; y--)
         {
             for (int c = 0; c < g.w; c++)
@@ -446,6 +561,7 @@ public static class LevelValidator
                 char raw = g.At(c, y);
                 if (raw == 'S' || raw == 'X') { sb.Append(raw); continue; }
                 if (raw == '#') { sb.Append('#'); continue; }
+                if (raw == '~') { sb.Append(swum.Contains(new Vector2Int(c, y)) ? '~' : ','); continue; }
                 if (g.Grounded(c, y)) sb.Append(reach.Contains(new Vector2Int(c, y)) ? 'o' : 'x');
                 else sb.Append(raw == '.' ? ' ' : raw);
             }

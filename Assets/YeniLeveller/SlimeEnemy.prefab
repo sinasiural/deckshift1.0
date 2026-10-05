@@ -719,7 +719,7 @@ Rigidbody2D:
   m_Simulated: 1
   m_UseFullKinematicContacts: 0
   m_UseAutoMass: 0
-  m_Mass: 3
+  m_Mass: 500
   m_LinearDamping: 0
   m_AngularDamping: 0.05
   m_GravityScale: 1
@@ -747,6 +747,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 10
+  playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
   headBarOffset: {x: 0, y: 1}
@@ -754,6 +755,7 @@ MonoBehaviour:
   stunSkinnedRenderers:
   - {fileID: 4066911486739278628}
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
+  scrapDropOverride: -1
 --- !u!114 &3652169595602681585
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -772,12 +774,15 @@ MonoBehaviour:
   damage: 10
   damageDelay: 0.2
   knockbackPower: 4
+  attackHeight: 1.2
   patrolFlipInterval: 2.5
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
   edgeCheckOffsetX: 0.5
   edgeCheckDepth: 1
+  attackSound: {fileID: 8300000, guid: a986b236eab560b45b1239f0513a01b1, type: 3}
+  attackVolume: 0.35
 --- !u!114 &7351262480722227938
 MonoBehaviour:
   m_ObjectHideFlags: 0

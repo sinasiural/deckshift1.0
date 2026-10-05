@@ -77,6 +77,7 @@ public static class CardEnhancements
     // the ceiling by hitting it, not to guess where it is.
 
     public const int OVERSTUFFED_CHARGES = 3;
+    public const int NEVER_SAY_DIE_CHARGES = 3;   // per room, never above the card's maximum
     public const int RITUAL_EXTRA_COST = 3;
     public const float RITUAL_MULT = 2f;
     public const int INHERITANCE_CHARGES = 2;
@@ -148,7 +149,7 @@ public static class CardEnhancements
         switch (e)
         {
             case CardEnhancement.Overstuffed:      return $"+{OVERSTUFFED_CHARGES} charges.";
-            case CardEnhancement.NeverSayDie:      return "Never runs out of charges.";
+            case CardEnhancement.NeverSayDie:      return $"Gains {NEVER_SAY_DIE_CHARGES} charges at the start of every room, up to its maximum.";
             case CardEnhancement.LastCall:         return "The first time this would burn out, it comes back fully charged instead.";
             case CardEnhancement.SleightOfHand:    return "Half the time, playing this spends no charge.";
             case CardEnhancement.Inheritance:      return $"When this burns out, another card in your deck gains {INHERITANCE_CHARGES} charges.";
@@ -166,9 +167,9 @@ public static class CardEnhancements
             case CardEnhancement.HeavyHitter:      return "Half the charges. Triple the damage.";
             case CardEnhancement.Glass:            return "Double damage, but only one charge.";
             case CardEnhancement.LoadedDice:       return "Usually deals double damage. Sometimes does nothing at all.";
-            case CardEnhancement.Clingy:           return "Never leaves your hand.";
+            case CardEnhancement.Clingy:           return "Never leaves your hand, and doesn't take up a slot in it.";
             case CardEnhancement.TeachersPet:      return "Always in your opening hand, and its first play each room spends no charge.";
-            case CardEnhancement.Understudy:       return "Playing this draws the card it is bound to.";
+            case CardEnhancement.Understudy:       return "Playing this draws the card it is bound to, even into a full hand.";
             case CardEnhancement.Echo:             return "Casts itself again two seconds later.";
             case CardEnhancement.Twin:             return "Adds a second copy of this card to your deck. Both can be blessed again.";
             default: return "";
@@ -221,6 +222,7 @@ public static class CardEnhancements
             case CardActionType.GlassWail:
             case CardActionType.CometDive:
             case CardActionType.FreefallBlade:
+            case CardActionType.GlassMoon:
                 return true;
             default:
                 return false;
@@ -387,10 +389,11 @@ public static class CardEnhancements
                 card.currentUses += OVERSTUFFED_CHARGES;
                 break;
 
-            // Reuses the existing isInfinite plumbing (charge checks, decrement and exhaust routing
-            // all already honour it) rather than adding a parallel code path.
+            // ⚠️ NEVER SAY DIE NO LONGER MAKES A CARD INFINITE (designer, 2026-10-02). Since played
+            // cards stay in the hand, an infinite card is an unlimited free action held all room —
+            // on a Fireball, exactly the innate attack that was built and cut. It now pays out in
+            // BeginRoom instead, so there is nothing to do at the moment it is applied.
             case CardEnhancement.NeverSayDie:
-                card.isInfinite = true;
                 break;
 
             case CardEnhancement.HeavyHitter:
@@ -517,10 +520,15 @@ public static class CardEnhancements
         }
     }
 
-    // Does the card stay in hand after a successful play instead of going to a pile?
-    public static bool StaysInHand(RuntimeCard card)
-        => card != null && card.enhancement == CardEnhancement.Clingy
-                        && (card.isInfinite || card.currentUses > 0);
+    // Clingy rides along in the hand without using one of its slots. DeckManager.SlotsUsed is the
+    // only reader; every "is the hand full?" check goes through that.
+    //
+    // ⚠️ Clingy used to mean "never leaves your hand", which since 2026-10-02 is what EVERY card with
+    // charges left does — and its other half, surviving Recall, was already Teacher's Pet's (a
+    // Common, so the Rare was strictly worse). Not taking a slot is what makes it worth a Rare now:
+    // hand size is the strongest stat in the game once the hand is a loadout.
+    public static bool TakesNoSlot(RuntimeCard card)
+        => card != null && card.enhancement == CardEnhancement.Clingy;
 
     public static bool RetainsThroughRecall(RuntimeCard card)
         => card != null && (card.enhancement == CardEnhancement.Clingy
@@ -536,7 +544,7 @@ public static class CardEnhancements
         if (card == null) return;
 
         card.lastCostPaid = costPaid;
-        bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+        bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
 
         if (card.enhancement == CardEnhancement.CompoundInterest && card.roomsSincePlayed > 0)
         {
@@ -570,7 +578,7 @@ public static class CardEnhancements
         if (card.enhancement == CardEnhancement.TollBooth && card.lastCostPaid > 0)
         {
             PlayerController p = GameManager.instance != null ? GameManager.instance.player : null;
-            bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomHub();
+            bool inHub = LevelManager.instance != null && LevelManager.instance.IsCurrentRoomSandbox();
             if (p != null && !inHub) p.AddShift(card.lastCostPaid);
             card.lastCostPaid = 0;      // one refund per play, however many things it kills
         }
@@ -583,7 +591,7 @@ public static class CardEnhancements
             return false;
 
         card.lastCallUsed = true;
-        card.currentUses = Mathf.Max(1, card.cardData.maxUses);
+        card.currentUses = Mathf.Max(1, card.MaxUses);
         return true;
     }
 
@@ -623,6 +631,16 @@ public static class CardEnhancements
 
             if (c.enhancement == CardEnhancement.OnlyChild && deck.Count < ONLY_CHILD_DECK_SIZE)
                 c.currentUses++;
+
+            // ⚠️ CAPPED AT THE CARD'S MAXIMUM, unlike Time Will Come above. Time Will Come pays for
+            // NOT playing a card, so banking is its whole point; this one pays every room whatever
+            // you do, and uncapped it would reward leaving the card unplayed and arriving at a boss
+            // with forty charges. The cap makes the refill a use-it-or-lose-it budget per room.
+            // Never lowers a count that is already above the maximum. A card that burnt out is in
+            // the exhaust pile, which BeginRoom is never given — so it stays dead.
+            if (c.enhancement == CardEnhancement.NeverSayDie)
+                c.currentUses = Mathf.Max(c.currentUses,
+                                          Mathf.Min(c.currentUses + NEVER_SAY_DIE_CHARGES, c.MaxUses));
         }
     }
 }

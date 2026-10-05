@@ -230,12 +230,15 @@ MonoBehaviour:
   swimSurfaceOffset: 1.2
   swimSettleStrength: 8
   swimExitDuration: 0.35
+  splashInSound: {fileID: 0}
+  splashOutSound: {fileID: 0}
+  swimStrokeSound: {fileID: 0}
   pogoChainFalloff:
   - 0.7
   - 0.55
   - 0.42
   - 0.32
-  currentGold: 500
+  currentGold: 50
   currentScrap: 0
   audioSource: {fileID: 7872518250570301061}
   dashSound: {fileID: 8300000, guid: 1f3da61f1655f6e4488574b4e351c8ce, type: 3}
@@ -246,8 +249,11 @@ MonoBehaviour:
   createPlatformSound: {fileID: 8300000, guid: 1cac8dcf0c7c72e429604b798d25fa5d, type: 3}
   vampireBiteSound: {fileID: 8300000, guid: b99cde183dfddad499d2a40bc701e1e9, type: 3}
   glassVailSound: {fileID: 8300000, guid: 0335a30fbf68921448cf9922e6b028cb, type: 3}
-  glassParrySound: {fileID: 0}
-  freefallBladeSound: {fileID: 0}
+  glassParrySound: {fileID: 8300000, guid: 21b051063aafbf942bc5d3c44e02ffcb, type: 3}
+  freefallBladeSound: {fileID: 8300000, guid: 05eb4e89963aa1847a347481f814a337, type: 3}
+  braceStartSound: {fileID: 8300000, guid: f4e33aeb48aa72249868b3d5527df9b4, type: 3}
+  braceHitSound: {fileID: 8300000, guid: 95c7f369e4728b4499baac5510ce16f8, type: 3}
+  braceEndSound: {fileID: 8300000, guid: 9f796fc7e7f25444c81cfab33eadec10, type: 3}
   jumpSound: {fileID: 8300000, guid: e41a7d00afe07be4ebe4d42dc03c77b3, type: 3}
   leapSound: {fileID: 8300000, guid: e41a7d00afe07be4ebe4d42dc03c77b3, type: 3}
   spendSound: {fileID: 8300000, guid: 70cad06b332b69049ad572f5628c41c5, type: 3}
@@ -301,7 +307,7 @@ MonoBehaviour:
   character: {fileID: 11400000, guid: 21b96c1d04ec32147ae371aee3de4593, type: 2}
   fireballPrefab: {fileID: 6847861146471343392, guid: c410de68076b28846bb5e156129b8267, type: 3}
   firePoint: {fileID: 7525573285496672760}
-  shurikenThrowSound: {fileID: 8300000, guid: 4f25667166ce44040bd09867cd3a4042, type: 3}
+  shurikenThrowSound: {fileID: 0}
   shurikenSprite: {fileID: 1030694015, guid: b217a154a8231e54bbb50405bdfafbaf, type: 3}
   wailRange: 10
   fireballCastDelay: 0.12
@@ -348,6 +354,20 @@ MonoBehaviour:
   - {fileID: 9072995722623145976}
   - {fileID: 9072995722623145982}
   - {fileID: 1045048363762776297}
+  lungeSpeed: 30
+  lungeDuration: 0.17
+  lungeIFrameDuration: 0.45
+  lungeSheatheBeat: 0.16
+  lungeStreakColor: {r: 1, g: 0.82, b: 0.45, a: 1}
+  lungeMarkColor: {r: 1, g: 0.9, b: 0.7, a: 1}
+  lungeAfterimageTint: {r: 1, g: 0.93, b: 0.72, a: 0.5}
+  lungeDrawSound: {fileID: 0}
+  lungeSheatheSound: {fileID: 0}
+  deadDropSpeed: 34
+  grapnelRange: 12
+  grapnelShiftCost: 2
+  grapnelPullSpeed: 26
+  stopgapDuration: 1.5
 --- !u!114 &232683879776169985
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -636,6 +656,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 100
   isInvincible: 0
+  armourShatters: 0
   hurtSound: {fileID: 8300000, guid: 4bcb86928d613044aacc4a9458bd99f8, type: 3}
   deathSound: {fileID: 8300000, guid: 3e3343bf51da7cd4d835c7154b887582, type: 3}
   deathVolume: 1

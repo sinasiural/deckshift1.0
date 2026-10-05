@@ -1,0 +1,85 @@
+// The Descent  (EASY, 44x56)  -  built 2026-09-25
+//
+// Spawn at the TOP, exit at the BOTTOM. Falling is free, so this is the cheapest room in the
+// game to cross: a player who wants to can reach the exit without spending a single point of
+// Shift. It is the one room that goes DOWN instead of up, and that is its whole identity.
+//
+// THE ROUTE: five cascading shelves hung off alternating walls (L0..L5), each drop 7-8 tiles, so
+//   the landing is on screen before you step off. Fall badly and a lower shelf catches you; you
+//   miss what was above, you never lose the run.
+//
+// THE PRICE LIST - every piece of loot costs Shift to go back UP for, and is priced so it pays:
+//   (a crystal is +1 Shift and a jump costs 1, so a pocket must hold more than it charges)
+//     free         a crystal in the first drop, a crystal on L5, gold under L5
+//     1 jump       P1 alcove in the upper-right wall: 2 crystals + gold (net +1 and gold)
+//     1 jump       P2 stone over L2: the room's ONE chest (Easy allows at most one)
+//     1 jump       P3 stone over L3: a crystal + 2 gold
+//     1 jump       P4 alcove in the left-wall bulge: a crystal + gold
+//
+// ENEMIES (Easy: fodder only): a shambler or slime on each landing so a drop is never quite
+//   free, one spitter on L3's raised end, one bat low in the shaft. LAW 8: the spawn shelf is
+//   empty and the nearest ranged/flying thing is 26+ tiles away behind rock.
+//
+// LAW 1: the whole route is walking and dropping. LAW 2: every pocket is a rise of exactly 4;
+//   same-column shelf spacing is 7-8. LAW 7: spawn (4,8) to exit (5,53) is 45 tiles apart through
+//   five shelves - and there is nothing to skip, because the route costs nothing.
+!name: Descent
+!tier: easy
+!theme: crypt
+
+############################################
+############################################
+##....................................######
+##....................................######
+##....................................######
+##....................................######
+##....................................######
+##........................................##
+##..S...g...####..........................##
+################..........................##
+################.......................++g##
+##................+...................######
+##....................................######
+##....................................######
+##....................................######
+##.........................z...#############
+##....................######################
+##....................######################
+##........................................##
+##.............D..........................##
+##............###.........................##
+##........................................##
+##........................................##
+#######....l.......g......................##
+#######################...................##
+#######################...................##
+#####.....................................##
+#####.....................g+g.............##
+#####.....................###.............##
+#####.....................................##
+#####..................................s..##
+#####...................z.........##########
+##................##########################
+##................##########################
+##........................................##
+##.+g.......b.............................##
+#####.....................................##
+#####.....................................##
+#####.....................................##
+#####.........l...........................##
+#########################.................##
+#########################.................##
+##........................................##
+##........................................##
+##........................................##
+##........................................##
+##...........................z.......+....##
+##..................########################
+##..................########################
+##........................................##
+##........................................##
+##........................................##
+##........................................##
+##...X........l....................g......##
+############################################
+############################################

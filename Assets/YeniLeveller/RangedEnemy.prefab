@@ -136,6 +136,10 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4597384367027372374, guid: 3e6bb0f0ee2942a41bf22c35f24c0c21, type: 3}
+      propertyPath: m_Mass
+      value: 500
+      objectReference: {fileID: 0}
     - target: {fileID: 6087411562428875005, guid: 3e6bb0f0ee2942a41bf22c35f24c0c21, type: 3}
       propertyPath: m_LocalPosition.x
       value: -62.17
@@ -215,6 +219,9 @@ MonoBehaviour:
   attackRange: 7
   fireRate: 2.5
   yTolerance: 1.5
+  sightBlockers:
+    serializedVersion: 2
+    m_Bits: 0
   shootSound: {fileID: 8300000, guid: b855762454f2d67468da655b38fe2019, type: 3}
   shootVolume: 1
 --- !u!114 &1626646847183605829
@@ -230,6 +237,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 25
+  playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
   headBarOffset: {x: 0, y: 2}
@@ -237,6 +245,7 @@ MonoBehaviour:
   stunSkinnedRenderers:
   - {fileID: 6805959683191456920}
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
+  scrapDropOverride: -1
 --- !u!70 &8852787592231567395
 CapsuleCollider2D:
   m_ObjectHideFlags: 0

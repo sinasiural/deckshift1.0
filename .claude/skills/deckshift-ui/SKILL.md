@@ -1,6 +1,6 @@
 ---
 name: deckshift-ui
-description: Deckshift's UI design system — how to pick a screen's material and what to invert, linear-colour-space calibration, uGUI layout traps, pause/HUD wiring, and a pre-delivery checklist. Use when building, restyling, reviewing or debugging ANY screen, panel, HUD element, card face, world-space marker or UI VFX in this project.
+description: Deckshift's UI design system — the Salvage material system every screen now follows (it replaced the old one-material-per-screen rule), linear-colour-space calibration, uGUI layout traps, pause/HUD wiring, and a pre-delivery checklist. Use when building, restyling, reviewing or debugging ANY screen, panel, HUD element, card face, world-space marker or UI VFX in this project.
 ---
 
 # Deckshift UI
@@ -28,8 +28,11 @@ professional flat design is the failure state, not the goal.
 
 What fixed it was pointing every choice at the world:
 
-- **Warm charcoal, not slate-blue** — Act 1 is the *Oxidation District*. Rust,
-  not brushed steel. This single palette shift did most of the work.
+- **Warm charcoal, not slate-blue** — the district is the *Oxidation District*. Rust,
+  not brushed steel. This single palette shift did most of the work. ⚠️ **Superseded
+  for colour by Salvage law 3:** measured dungeon stone is `#444548` cool-neutral, and
+  "warm charcoal" was reasoned from the district's name. The lesson that survives is
+  "point the palette at the world", not the specific hue.
 - **Chamfered corners, not rounded** — cut plate reads as a made object; a
   uniform corner radius reads as a web card. Biggest silhouette cue.
 - **Directional light** — a lit top lip plus ember glow rising off the *bottom*
@@ -39,7 +42,68 @@ What fixed it was pointing every choice at the world:
 - **Rules score across and fade at the ends**, never edge-to-edge like a CSS
   border.
 
-### Every screen gets its own material
+### ⛔ SUPERSEDED 2026-08-20 — SALVAGE REPLACES EVERYTHING IN THIS SUBSECTION
+
+**Do not build a new screen from the table below.** It is kept only so you can
+read a screen that has not been migrated yet, and so nobody re-derives the rule
+it encodes. That rule was:
+
+> Every screen gets its own material. Screens share the ideology and **never the
+> same skin**. Pick a material and invert something.
+
+It did exactly what it says, and what it says is *make the screens look unlike
+each other* — nine invented materials (smoked glass, brass, frost…) and a hue
+budget that ran out. **Every settings screen built under it was rejected, and
+the rule, not the execution, is why.** Designer, 2026-08-20:
+
+> "i want a settings menu, a pause menu, a blompo UI/VFX, the shop, the forge,
+> the map, and every other UI asset … to feel like they would have been in the
+> cainos packs. i want consistency in the visuals overall, not seperated to
+> menus and the actual gameplay, but everything."
+
+**The replacement is `Salvage.cs` — read it before any UI work.** Its thesis, and
+the thing both the old rule and the obvious fix get wrong:
+
+⚠️ **CONSISTENCY LIVES IN THE TREATMENT, NOT THE SUBSTRATE.** One substrate
+everywhere is *not* the answer — that reads as monotony, and this project has the
+receipt: **Vigil** was stone alcoves with real dungeon art and a torch per alcove,
+and it was rejected **twice**. But look at the Cainos dungeon pack itself: crates,
+pots, bottles, banners, chains, skeletons, candles, fireplaces — wildly different
+materials, reading as one world. Not because it is all stone. Because everything
+in it obeys the same handful of laws.
+
+So: screens may be made of anything the dungeon contains; they may not disagree
+about these five.
+
+| | law |
+|---|---|
+| **1 · Scale** | `Salvage.Scale` = **2.4107** — 14 world units over a 1080 canvas at 32 PPU. UI art is the exact size the same art is in the game. `Salvage.SpritePPU` enforces it, so no screen has to remember. Deliberately non-integer: the *world* already displays at this scale, so 2× or 3× would make UI pixels visibly a different size from world pixels. |
+| **2 · Light** | Warm, from the **upper left**, always. The old system had Iron lit from below, Arcane from above, Halt edges-inward and Bulletin from the left — four screens, four suns. |
+| **3 · Colour** | **Sampled from the pack PNGs, never chosen.** `SalvageArtBaker` → `SalvageArt` ramps. Measured dungeon stone is **`#444548` cool-neutral**; the old palette reasoned "warm charcoal, rust not brushed steel" from the *district's name* and was simply wrong against the art. The warmth in this game comes from wood (`#401D13`) and torchlight, never from the walls. |
+| **4 · Accent** | **Exactly two in the whole game.** `Salvage.Torch` (lit / present) and `Salvage.Shift` (energised / live — the altar orb's exact cyan, the same colour that seals the gate). **The hue budget stops existing; no screen ever spends a colour again.** `Salvage.Wound` red is a *warning*, not an accent, and is the only permitted third. |
+| **5 · Wear** | Used **and repaired** — not pristine, not derelict. The world's repair currency is literally called scrap. |
+
+**Variety then comes from WHAT THE OBJECT IS**, which is a property of the
+screen's purpose rather than a colour someone picked: a hung sheet, a notice
+board, a workbench, a banner, paper pinned across a grate.
+
+⚠️ **THE ONE FREE RESOURCE NOBODY WAS USING:** `Assets/Cainos/Pixel Art Icon
+Pack - RPG` holds **107 icons, 89 of them referenced nowhere in the project** —
+Heart, Gear, Scroll, Map, Chest, three Keys, Coins, Rune Stone, Book, Lantern,
+gems, ingots. Same artist, same 32 PPU, same palette. Reach for these before
+drawing another procedural sigil.
+
+**Migration status (measured 2026-09-24 by which screens build from `Salvage` /
+`SalvageSurfaces`):** on Salvage are `PauseScreen` + `SettingsScreen` (one hanging board),
+`ScrapForgeScreen`, `QuestBoardScreen` and `BossRewardScreen`; `BlompoScreen` borrows the
+Forge's Salvage surfaces and colours. Still on the old table below: `ShopScreenUI`,
+`RunMapScreen`, `CharacterSelectScreen`, `CardChestScreen`, `RelicSwapScreen` and
+`RelicManagePanel`.
+
+---
+
+<details>
+<summary>The superseded per-screen material table (reference only)</summary>
 
 Screens share the *ideology* — flat procedural plates, restraint, directional
 light, a subtle particle drift, one meaningful accent — and **never the same
@@ -66,7 +130,22 @@ over the print in red pen by a visibly different hand. When a screen depicts a
 THING that exists in the world, ask what that thing has been *through*, not just
 what it is made of.
 
+</details>
+
 ### The inversions are the point
+
+⚠️ **Under Salvage the inversions still matter, but they may no longer spend a
+HUE.** Light direction is fixed and the palette is sampled, so what separates two
+screens is the OBJECT, its silhouette and its motion. Worked example: the pause
+screen is the only one that **drops in from above and is hauled back up** — every
+other screen opens in place — and it is the only one that can show you the world
+behind it. Two separations, no colour spent.
+
+⚠️ **AND MOTION CAN SURVIVE A MATERIAL IT WAS DESIGNED FOR.** Pause was cloth
+first, and the designer's verdict was *"i like the animation … the way it comes
+from the top, but i just dont like the panel itself"*. The drop, the swing and
+the lift-away were kept verbatim and only the SURFACE was swapped for planks.
+When a screen is half-right, find out which half before rebuilding either.
 
 Warm/cold. Below/above. Rising/falling. Worn/pristine. Still/moving.
 Inside/outside the fiction.
@@ -123,6 +202,30 @@ panel — he grants a charm, he isn't a blacksmith. The rebuild inverted it:
 vocabulary before reaching for more particles.** The settle beat was called bland
 because it *expanded* while everything else converged; pressing a seal inward
 fixed it.
+
+⚠️ **AN EFFECT MUST COME FROM WHAT THE THING MEANS, NOT FROM A SHAPE.** Standing
+instruction from the designer (2026-08-20), after a chalk ring that circled the
+exit door on first sight was cut as "too basic … i don't think it's even a good
+idea to have them at all", with: **be more creative with animations and effects.**
+
+The reflex to avoid is the *generic reveal* — a ring that expands, an outline that
+pulses, a glow that pops in, a shape drawn around the thing you want noticed. They
+are interchangeable, they carry no information, and they would fit any game.
+
+The test that replaced it: **what does this object already MEAN in this game, and
+what does the thing that acts on it mean?** Worked example from the same day — the
+gate. It was animated as a realistic medieval door (groan, strain, brown dust,
+1.6s) while the `ShiftAltar` was firing a glowing **cyan orb of Shift** across the
+room that burst on it. Cause and effect were in two different genres. The rebuild
+made the gate **sealed with Shift**: a cyan hairline breathing in the join, which
+flares and shatters when the orb lands, in the altar's exact colour. Same event,
+but now it says something — *this is locked, Shift is what locks it, and Shift is
+what just broke it* — and it doubles as gameplay information that sends the player
+looking for the switch.
+
+**Ask what is causing the effect and answer in that thing's own language.** If the
+effect would work equally well on a chest, a door and a menu button, it is the
+generic reveal wearing a costume.
 
 ### A permanent overlay must not compete with the game behind it
 
@@ -211,6 +314,43 @@ same instincts are wrong in the opposite direction. Measured while building it:
 
 The rule underneath all three: **contrast against the ground is what matters, not
 the alpha.** Never carry a value across from a dark theme to a light one.
+
+### Generating a Salvage surface — five traps, all paid for on the pause screen
+
+⚠️ **EVERY CAINOS SPRITE HAS A 1PX DARK OUTLINE, AND IT IS A DIFFERENT MATERIAL
+FROM THE THING IT OUTLINES.** Sampling a sprite rect swallows it. `Cloth 08` is
+grey linen (`#97918A`) inside a solid brown (`#563B25`) border on all four sides,
+so the first linen ramp had a brown bottom third and every shadowed part of the
+sheet came out blotched. `SalvageArtBaker` insets **2px** (the corners are
+stepped, so the outline is two pixels thick diagonally). If a baked ramp ever
+looks contaminated, this is why.
+
+⚠️ **A RAMP CARRIES THE MATERIAL; A MULTIPLIER CARRIES THE FORM.** Do not shade
+by walking the ramp. Measured, linen spans `#8A8179`..`#A29B91` — about **22
+luminance levels out of 255** — so driving folds, key light and drape through
+`Sample()` produced a sheet as flat as poured concrete. `Sample()` picks *which*
+linen; a `shade` float decides how lit it is.
+
+⚠️ **SMOOTH GRADIENTS READ AS SHEET METAL.** Carrying the form in wide soft
+gradients made cloth look like brushed steel. Matte surfaces need a fine crumple
+broken into the shade itself so the surface never resolves into a clean gradient,
+plus a few **hard** creases — the sharp lines are what the eye reads as fabric.
+
+⚠️ **A RADIAL FALLOFF STRETCHED TO A MENU ROW BECOMES A STREAK, NOT A BAND.**
+A 64×64 radial blob at 600×62 rendered as a horizontal smear with a hot core and
+read as a lens flare lying across the menu. Any soft shape that will be stretched
+to a very different aspect must fall off on each axis **independently**, with a
+flat plateau (`SalvageSurfaces.Edge`).
+
+⚠️ **A DASHED RECTANGLE ENCLOSING NOTHING IS MARCHING ANTS.** The stitched patch
+was a perfect rect whose interior was 8% brighter than the sheet, so all that was
+visible was its dashed border — it read as a UI selection box left on screen.
+Wear has to be a visibly **different** piece of material, with a boundary that
+wobbles and stitches spaced irregularly.
+
+⚠️ **AND WEAR GOES WHERE THE LAYOUT IS EMPTY AT EVERY CONTENT LENGTH.** The mend
+sits bottom-left because the menu bottoms out around v 0.67 and the stat column
+around v 0.70. A stain behind a column of numbers reads as a rendering fault.
 
 ### Rarity must separate on three channels at once
 
@@ -511,13 +651,17 @@ warning flash was "fixed" twice this way and stayed invisible for months.
   buttons, whose listeners point at unreachable nodes — a convincing false
   "callback never fired". Filter on `activeInHierarchy`, or check in the NEXT
   tool call.
-- **Screenshot recipe:** enter Play mode → `ScreenCapture.CaptureScreenshot(abs
-  path)` → `Read` the PNG in a **later** tool call (it's async) → stop Play mode.
-  `CaptureScreenshotAsTexture()` returns null from `execute_code`.
-- ⚠️ **`Texture2D.ReadPixels` does NOT read the game framebuffer from
-  `execute_code` either** — it returned a uniform flat grey for a screen that was
-  demonstrably on display. The async file capture is the ONLY trustworthy route.
-  To sample exact pixel values, capture to a PNG and load that back as a texture.
+- **Screenshot recipe (Unity MCP, 2026-09-24):** `editor_play` → `capture_game_view`
+  with **`source: "screen"`** and a `save_path` → `Read` the PNG straight away (the
+  file exists when the call returns) → `editor_stop`. ⚠️ **`save_path` is relative to
+  `Assets/`**, so it creates imported files there; save into a scratch folder and
+  `delete_asset` it afterwards. ⚠️ The default `source: "camera"` **omits every Screen
+  Space Overlay canvas**, which is every screen in this project; it is useless for UI.
+  Full recipe and traps: CLAUDE.md → Workflow Notes → Unity MCP.
+- ⚠️ **`Texture2D.ReadPixels` and `CaptureScreenshotAsTexture()` do NOT read the game
+  framebuffer from a one-shot code call (`eval`, formerly `execute_code`)**. It returned
+  a uniform flat grey for a screen that was demonstrably on display. To sample exact
+  pixel values, capture to a PNG and load that back as a texture.
 - ⚠️ **NEVER WRITE A MEASURED CLAIM INTO A COMMENT YOU HAVE NOT MEASURED.** A
   header in `RunMapScreen` asserted that a layout change cut edge crossings from
   ~9 per act to under 1. Measured afterwards over 300 generated acts: crossings
@@ -587,3 +731,19 @@ Run this before saying a screen is done.
 - [ ] Pointer behaviour tested geometrically, one frame after building
 - [ ] Checked at 4:3, 16:9 and 21:9; no-op at 1920×1080
 - [ ] Any material property confirmed to exist on that shader
+
+---
+
+
+---
+
+## 8. The screens that already exist
+
+**Moved to its own skill: `/deckshift-screens`.** It was 63% of this file (75KB of
+120KB) and it is a CATALOGUE, not method — so every session that invoked this skill
+to learn *how to build a screen* was paying for the full per-screen history of every
+screen already built.
+
+Invoke it only when you are touching a NAMED existing screen and need to know what it
+is made of and which traps it already paid for. Everything above is what you need to
+build a new one.

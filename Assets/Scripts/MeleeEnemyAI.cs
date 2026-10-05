@@ -29,13 +29,16 @@ public class MeleeEnemyAI : MonoBehaviour
 
     private MonsterController controller;
     private EnemyHealth health;
+    private PixelMonster pm;
     private Transform player;
     private float lastAttackTime;
+    private float lastSeen = -999f;
 
     void Start()
     {
         controller = GetComponent<MonsterController>();
         health = GetComponent<EnemyHealth>();
+        pm = GetComponent<PixelMonster>();
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) player = p.transform;
     }
@@ -55,7 +58,23 @@ public class MeleeEnemyAI : MonoBehaviour
 
         float distance = Vector2.Distance(transform.position, player.position);
 
-        if (distance < aggroRange)
+        // ⚠️ Line of sight, with a short memory. Without it this walked into the wall between it and
+        // the player and stayed there. See EnemySenses for why a raw "can see right now" test makes
+        // a worse enemy than one that remembers.
+        if (distance >= aggroRange || !EnemySenses.IsAware(transform, player, groundLayer, ref lastSeen))
+            return;
+
+        // ⚠️ FACE THE PLAYER EVERY FRAME. MonsterController only updates facing while inputMove.x is
+        // non-zero (MonsterController.cs:226), and the branch below sets it to ZERO to stand and
+        // swing — so without this the enemy keeps whatever facing it arrived with and visibly
+        // attacks BACKWARDS once the player gets behind it, while EnemyMelee still resolves the hit
+        // on the player's real side. RangedEnemyAI and ZombieSpitterAI already carried this line;
+        // the three melee AIs never got it, which was 49 of the pool's 77 enemies.
+        if (pm != null)
+            pm.Facing = player.position.x > transform.position.x
+                ? PixelMonster.FacingType.Right
+                : PixelMonster.FacingType.Left;
+
         {
             if (distance <= attackRange)
             {
@@ -107,5 +126,8 @@ public class MeleeEnemyAI : MonoBehaviour
 
         // The box that actually decides the hit, not a circle that only approximates it.
         EnemyMelee.DrawGizmo(transform, attackRange, attackHeight);
+
+        if (Application.isPlaying && player != null)
+            EnemySenses.DrawGizmo(transform, player, groundLayer);
     }
 }

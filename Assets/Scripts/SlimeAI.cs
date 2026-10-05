@@ -29,17 +29,24 @@ public class SlimeAI : MonoBehaviour
     [SerializeField] private AudioClip attackSound;
     [SerializeField, Range(0f, 1f)] private float attackVolume = 1f;
 
+    // A slime is low to the ground, so it looks out from lower down than a humanoid does. Too high
+    // and the ray leaves from above its own head; too low and it starts inside the floor tile.
+    private const float EyeHeight = 0.5f;
+
     private MonsterController controller;
     private EnemyHealth health;
+    private PixelMonster pm;
     private Transform player;
     private float lastAttackTime;
     private float patrolTimer;
     private float patrolDir = 1f;
+    private float lastSeen = -999f;
 
     void Start()
     {
         controller = GetComponent<MonsterController>();
         health = GetComponent<EnemyHealth>();
+        pm = GetComponent<PixelMonster>();
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) player = p.transform;
         patrolTimer = patrolFlipInterval;
@@ -67,8 +74,22 @@ public class SlimeAI : MonoBehaviour
 
         float distance = Vector2.Distance(transform.position, player.position);
 
-        if (distance < aggroRange)
+        // ⚠️ Line of sight with a short memory — a slime on the far side of a wall goes back to
+        // patrolling instead of grinding into the rock. See EnemySenses.
+        bool aware = distance < aggroRange
+                     && EnemySenses.IsAware(transform, player, groundLayer, ref lastSeen, EyeHeight);
+
+        if (aware)
         {
+            // ⚠️ FACE THE PLAYER EVERY FRAME. MonsterController only updates facing while
+            // inputMove.x is non-zero (MonsterController.cs:226), and the attack branch below sets
+            // it to ZERO — so without this a slime visibly lunges BACKWARDS at a player who got
+            // behind it, while EnemyMelee still resolves the hit on the player's real side.
+            if (pm != null)
+                pm.Facing = player.position.x > transform.position.x
+                    ? PixelMonster.FacingType.Right
+                    : PixelMonster.FacingType.Left;
+
             if (distance > attackRange)
             {
                 float dir = player.position.x > transform.position.x ? 1f : -1f;

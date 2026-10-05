@@ -95,8 +95,29 @@ public class EnemyHealth : MonoBehaviour, IDamageable
             {
                 healthBar.Initialize(transform, headBarOffset, ComputeBarWidth());
                 healthBar.SetHealth(currentHealth, maxHealth);
+                healthBar.SetConcealed(barConcealed);
             }
         }
+    }
+
+    // Scales this enemy's health (Hard rooms' Shift-infused enemies). Safe before or after Start:
+    // before, Start fills currentHealth from the scaled max; after, current scales with it.
+    public void ScaleMaxHealth(float multiplier)
+    {
+        if (multiplier <= 0f) return;
+        maxHealth = Mathf.Round(maxHealth * multiplier);
+        currentHealth = Mathf.Round(currentHealth * multiplier);
+        healthBar?.SetHealth(currentHealth, maxHealth);
+    }
+
+    // A disguised enemy hides its bar until it shows itself (see EnemyHealthBar.SetConcealed).
+    // Stored here as well as passed on, because the disguise is set in the enemy's Awake, before
+    // this Start has built the bar.
+    private bool barConcealed;
+    public void SetBarConcealed(bool concealed)
+    {
+        barConcealed = concealed;
+        if (healthBar != null) healthBar.SetConcealed(concealed);
     }
 
     // Width for the health bar. Prefer an ENABLED collider — a disabled one (e.g. the box on
@@ -120,17 +141,25 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         ShieldEnemy shield = GetComponent<ShieldEnemy>();
         if (shield != null && shield.IsBlocking())
         {
-            Debug.Log("BLOKLANDI!");
+            // A blocked hit was silent: the only sign it happened at all was this log line.
+            Sfx.Play("Enemy.Block", transform.position);
             return;
         }
 
         currentHealth -= damage;
 
+        // ⚠️ LANDING A HIT MADE NO SOUND until 2026-10-03, nor did an ordinary enemy dying. The
+        // silent-slot audit could not see it: it counted EMPTY sound slots, and these never had
+        // one. Bank events rather than slots, so every enemy has them with nothing to wire.
+        Sfx.Play("Enemy.Hit", transform.position);
+
         // Executioner's Seal (relic): a hit that leaves a non-boss enemy at/under 20% HP finishes it.
-        // NOTE: only the Moss Knight is excluded today — future bosses must be added to this guard.
+        // ⚠️ Bosses are recognised by IBossFight, which every boss implements (the awaken trigger
+        // needs it). This used to name the Moss Knight alone, so the Seal executed the Ninja and
+        // Kagemusha outright at 20%.
         if (currentHealth > 0 && currentHealth <= maxHealth * 0.2f
             && RelicManager.instance != null && RelicManager.instance.HasRelic("ExecutionersSeal")
-            && GetComponent<MossKnightBoss>() == null)
+            && GetComponent<IBossFight>() == null)
         {
             currentHealth = 0;
         }
@@ -138,7 +167,6 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         OnDamaged?.Invoke();
         OnDamagedAmount?.Invoke(damage);
         if (HitStop.instance != null) HitStop.instance.Stop(0.15f);
-        Debug.Log($"{gameObject.name} hasar aldı! Kalan Can: {currentHealth}");
 
         StartCoroutine(FlashRoutine());
 
@@ -175,6 +203,10 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     {
         if (healthBar != null) Destroy(healthBar.gameObject);
 
+        // Bosses have their own death sound through BossDeathVFX; a body thud under it would only muddy it.
+        if (GetComponent<IBossFight>() == null)
+            Sfx.Play("Enemy.Death", transform.position);
+
         // Blompo: credit the kill to the card that landed the killing blow (Grudge grows, Toll
         // Booth refunds). Die() is called from inside TakeDamage, so the attribution set around
         // that damage is still live — which is what makes this exact rather than a time window.
@@ -184,6 +216,8 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         if (RelicManager.instance != null)
             RelicManager.instance.OnEnemyKilled();
 
+        RunStats.NoteKill();
+
         if (QuestSystem.instance != null)
         {
             QuestSystem.instance.ReportEvent(QuestType.KillEnemy, 1);
@@ -192,8 +226,6 @@ public class EnemyHealth : MonoBehaviour, IDamageable
             if (player != null && !player.IsGroundedCheck())
                 QuestSystem.instance.ReportEvent(QuestType.AirKill, 1);
         }
-
-        Debug.Log($"{gameObject.name} öldü!");
 
         if (SkillManager.instance != null && SkillManager.instance.HasSkill(SkillType.Overclock))
         {
@@ -209,7 +241,18 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         // Spawned before OnDied/Destroy because the shards must outlive this GameObject
         // (SpawnBurst builds free-standing objects, so they do).
         int scrap = scrapDropOverride >= 0 ? scrapDropOverride : ScrapEconomy.ScrapForEnemy(maxHealth);
+
+        // Magpie: +1 scrap per kill. Added AFTER the override so an elite that hand-sets its drop
+        // still benefits — the override says what the enemy is worth, not what the player earns.
+        // Applied only when something actually drops, so it can't make a zero-value enemy pay.
+        if (scrap > 0 && RelicManager.instance != null && RelicManager.instance.HasRelic("Magpie")) scrap += 1;
+
         if (scrap > 0) ScrapPickup.SpawnBurst(transform.position, scrap);
+
+        // Bounce House: the corpse leaves a pad. Spawned here alongside the scrap and for the same
+        // reason — it must outlive this GameObject, and BouncePad.Spawn builds a free-standing one.
+        // The relic check lives inside Spawn so this stays one line.
+        BouncePad.Spawn(transform.position);
 
         // Notify listeners (e.g. the boss) before the object is destroyed.
         OnDied?.Invoke();
@@ -237,7 +280,6 @@ public class EnemyHealth : MonoBehaviour, IDamageable
             if (stunSkinnedRenderers[i] != null && stunSkinnedRenderers[i].material.HasProperty("_Color"))
                 stunSkinnedRenderers[i].material.SetColor("_Color", Color.blue);
         }
-        Debug.Log($"{gameObject.name} DONDU!");
 
         yield return new WaitForSeconds(duration);
 
@@ -252,6 +294,5 @@ public class EnemyHealth : MonoBehaviour, IDamageable
                 stunSkinnedRenderers[i].material.SetColor("_Color", stunSkinnedOriginalColors[i]);
         }
         stunRoutineRef = null;
-        Debug.Log($"{gameObject.name} ÇÖZÜLDÜ!");
     }
 }

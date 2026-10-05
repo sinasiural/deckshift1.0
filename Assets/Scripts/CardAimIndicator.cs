@@ -20,6 +20,9 @@ using UnityEngine;
 //                    (bigger empowered arc) and turns green when an enemy is inside.
 //   GlassWail     -> expanding ripples from the player + a glint over every enemy that
 //                    would be stunned (the wail is screen-wide).
+//   GlassMoon     -> the moon's outline where it will burst and the circle the burst reaches,
+//                    from GlassMoon's own geometry; green when an enemy is inside, RED while
+//                    locked (30 HP or more), which is why it won't play.
 //
 // Every indicator dims when the player can't afford the card's EFFECTIVE Shift cost (mirrors
 // DeckManager.PlayCard: KineticDiscount and First One's Free included). Hidden while paused,
@@ -88,7 +91,14 @@ public class CardAimIndicator : MonoBehaviour
     [SerializeField] private Color shurikenEnemyColor = new Color(1f, 0.28f, 0.2f, 0.95f);
     [SerializeField] private int shurikenDots = 9;
 
-    private enum Kind { None, Fireball, Dash, Bite, Portal, Platform, Freefall, Wail, Phase, Anchor, Shuriken }
+    [Header("Glass Moon")]
+    // Glass-ice like the Wail; green when it would land (the house convention); red while LOCKED,
+    // which is the one place the player can see why the card refuses to play.
+    [SerializeField] private Color glassMoonColor = new Color(0.75f, 0.95f, 1f, 0.7f);
+    [SerializeField] private Color glassMoonHitColor = new Color(0.35f, 1f, 0.45f, 0.85f);
+    [SerializeField] private Color glassMoonLockedColor = new Color(1f, 0.25f, 0.25f, 0.45f);
+
+    private enum Kind { None, Fireball, Dash, Bite, Portal, Platform, Freefall, Wail, Phase, Anchor, Shuriken, GlassMoon }
     private Kind activeKind = Kind.None;
 
     // All layers, triggers included — same as the game code's OverlapCircleAll(..., ~0).
@@ -145,6 +155,14 @@ public class CardAimIndicator : MonoBehaviour
     private SpriteRenderer freefallFill;
     private float freefallScanTimer;
     private bool freefallHit;
+
+    // --- Glass Moon visuals ---
+    private GameObject glassMoonRoot;
+    private LineRenderer glassMoonReach;       // how far the burst reaches
+    private LineRenderer glassMoonOrb;         // where the moon will be
+    private const int GLASS_MOON_SEGMENTS = 64;
+    private float glassMoonScanTimer;
+    private bool glassMoonHit;
 
     // --- Phase visuals ---
     private GameObject phaseRoot;
@@ -218,6 +236,9 @@ public class CardAimIndicator : MonoBehaviour
             case CardActionType.Phase:          SetKind(Kind.Phase);    UpdatePhase(dim);    break;
             case CardActionType.ReturnAnchor:   SetKind(Kind.Anchor);   UpdateAnchor(dim);   break;
             case CardActionType.Shuriken:       SetKind(Kind.Shuriken); UpdateShuriken(dim); break;
+            case CardActionType.ThroughAndThrough:
+                                                SetKind(Kind.Dash);     UpdateDash(dim, true); break;
+            case CardActionType.GlassMoon:      SetKind(Kind.GlassMoon); UpdateGlassMoon(dim); break;
             default:                            SetKind(Kind.None);                          break;
         }
     }
@@ -253,6 +274,7 @@ public class CardAimIndicator : MonoBehaviour
         if (phaseRoot != null) phaseRoot.SetActive(kind == Kind.Phase);
         if (anchorRoot != null) anchorRoot.SetActive(kind == Kind.Anchor);
         if (shurikenRoot != null) shurikenRoot.SetActive(kind == Kind.Shuriken);
+        if (glassMoonRoot != null) glassMoonRoot.SetActive(kind == Kind.GlassMoon);
 
         switch (kind)
         {
@@ -266,6 +288,54 @@ public class CardAimIndicator : MonoBehaviour
             case Kind.Phase:    EnsurePhaseVisuals();    phaseRoot.SetActive(true); break;
             case Kind.Anchor:   EnsureAnchorVisuals();   anchorRoot.SetActive(true); break;
             case Kind.Shuriken: EnsureShurikenVisuals(); shurikenRoot.SetActive(true); break;
+            case Kind.GlassMoon: EnsureGlassMoonVisuals(); glassMoonScanTimer = 0f; glassMoonRoot.SetActive(true); break;
+        }
+    }
+
+    // ------------------------------------------------------------------ GLASS MOON
+
+    private void EnsureGlassMoonVisuals()
+    {
+        if (glassMoonRoot != null) return;
+        glassMoonRoot = MakeContainer("Aim_GlassMoon");
+        glassMoonReach = MakeLineChild(glassMoonRoot.transform, "Reach", freefallRingWidth, sortingOrder);
+        glassMoonReach.loop = true;
+        glassMoonReach.positionCount = GLASS_MOON_SEGMENTS;
+        glassMoonOrb = MakeLineChild(glassMoonRoot.transform, "Moon", freefallRingWidth, sortingOrder);
+        glassMoonOrb.loop = true;
+        glassMoonOrb.positionCount = GLASS_MOON_SEGMENTS / 2;
+    }
+
+    // Where the moon will burst (GlassMoon.BurstPoint, ceiling clamp included) and the circle the
+    // burst reaches. Shared geometry, so the preview cannot promise a hit the card won't land.
+    private void UpdateGlassMoon(float dim)
+    {
+        Vector2 at = GlassMoon.BurstPoint(player);
+        bool unlocked = GlassMoon.IsUnlocked(playerHealth);
+
+        glassMoonScanTimer -= Time.unscaledDeltaTime;
+        if (glassMoonScanTimer <= 0f)
+        {
+            glassMoonScanTimer = 0.08f;
+            glassMoonHit = GlassMoon.Targets(at).Count > 0;
+        }
+
+        DrawCircle(glassMoonReach, at, GlassMoon.Radius);
+        // The moon breathes a little so it reads as a thing waiting to happen, not a hoop.
+        DrawCircle(glassMoonOrb, at, GlassMoon.MoonRadius * (1f + 0.06f * Mathf.Sin(Time.unscaledTime * 5f)));
+
+        Color c = !unlocked ? glassMoonLockedColor : (glassMoonHit ? glassMoonHitColor : glassMoonColor);
+        glassMoonReach.startColor = glassMoonReach.endColor = new Color(c.r, c.g, c.b, c.a * dim);
+        glassMoonOrb.startColor = glassMoonOrb.endColor = new Color(c.r, c.g, c.b, Mathf.Min(1f, c.a * 1.3f) * dim);
+    }
+
+    private static void DrawCircle(LineRenderer lr, Vector2 centre, float r)
+    {
+        int n = lr.positionCount;
+        for (int i = 0; i < n; i++)
+        {
+            float a = (float)i / n * Mathf.PI * 2f;
+            lr.SetPosition(i, new Vector3(centre.x + Mathf.Cos(a) * r, centre.y + Mathf.Sin(a) * r, 0f));
         }
     }
 
@@ -391,7 +461,7 @@ public class CardAimIndicator : MonoBehaviour
         if (!shurikenRoot.activeSelf) shurikenRoot.SetActive(true);
 
         Vector2 origin = player.ShurikenOrigin;
-        Vector2 aim = (Vector2)c.ScreenToWorldPoint(Input.mousePosition) - origin;
+        Vector2 aim = (Vector2)c.ScreenToWorldPoint(GameInput.MousePosition) - origin;
         if (aim.sqrMagnitude < 0.0001f) aim = new Vector2(player.isFacingRight ? 1f : -1f, 0f);
         aim.Normalize();
 
@@ -543,10 +613,14 @@ public class CardAimIndicator : MonoBehaviour
         ReleaseDashTrail();
     }
 
-    private void UpdateDash(float dim)
+    // `lunge` switches to Through and Through's travel, which is the same preview in every respect
+    // except how far it reaches — that card IS a dash, so it gets the dash's ghost trail rather
+    // than a second visual language for the same motion.
+    private void UpdateDash(float dim, bool lunge = false)
     {
         float dir = player.isFacingRight ? 1f : -1f;
-        float dist = player.dashSpeed * player.dashDuration;
+        float dist = lunge ? player.lungeSpeed * player.lungeDuration
+                           : player.dashSpeed  * player.dashDuration;
 
         // Wall-clamp with the player's own capsule so the trail never previews standing in rock.
         if (playerCapsule != null)
@@ -706,7 +780,7 @@ public class CardAimIndicator : MonoBehaviour
         if (cam == null) cam = Camera.main;
         if (cam == null) return;
 
-        Vector2 mouse = cam.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 mouse = cam.ScreenToWorldPoint(GameInput.MousePosition);
         portalGhost.transform.position = new Vector3(mouse.x, mouse.y, 0f);
 
         // Before the first placement the bubble is around the PLAYER (portalPlaceRange); once the
@@ -779,7 +853,7 @@ public class CardAimIndicator : MonoBehaviour
         Camera c = player.mainCamera != null ? player.mainCamera : cam;
         if (c == null) return;
 
-        Vector2 mouse = c.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 mouse = c.ScreenToWorldPoint(GameInput.MousePosition);
         platformRoot.transform.position = new Vector3(mouse.x, mouse.y, 0f);
 
         Color pc = platformGhostColor;

@@ -36,7 +36,20 @@ public enum MapNodeType
     Skirmish,   // simple layouts, low-HP enemies, thin loot, no NPCs at all
     Fight,      // harder layout, mid-tier enemies, at least one chest
     Elite,      // hardest layouts, buffed and shift-infused enemies
-    Boss,       // the act finale — always the top floor, always exactly one
+
+    // ⚠️ BOSS IS NO LONGER THE FINALE, AND ACTS NO LONGER EXIST (designer, 2026-08-21).
+    //
+    // A Boss is an OPTIONAL mid-map node standing in a column like any other. Route into it for a
+    // boss relic and a heavy payout; route around it and keep your resources. A run can take as few
+    // as none of them or as many as the map offers, and that choice is the strategy the map exists
+    // for. Every Boss node is REQUIRED to be avoidable — see RunMap.IsAvoidable, enforced in
+    // Validate — or "choose whether to fight it" would be a lie.
+    Boss,
+
+    // ⚠️ AND A BOSS REPLACES A FLOOR, IT DOES NOT ADD ONE (designer's call). The map is always the
+    // same depth, so a five-boss route and a one-boss route take the same TIME and differ in
+    // intensity and reward. That is what keeps a 45–50 minute run from swinging to 75.
+    FinalBoss,  // the run's terminus — always the top floor, always exactly one, never optional
 }
 
 // What a recharge room attached to a node actually solves for the player. Never combine these:
@@ -63,8 +76,15 @@ public class MapNode
 
     public bool IsCombat => type == MapNodeType.Skirmish || type == MapNodeType.Fight || type == MapNodeType.Elite;
 
+    /// <summary>Either kind of boss — for anything that just needs "is this a boss fight".</summary>
+    public bool IsBoss => type == MapNodeType.Boss || type == MapNodeType.FinalBoss;
+
     // Only Fight and Elite may carry a recharge room. See the header — this is the economy, not a
     // balance tweak.
+    //
+    // ⚠️ A BOSS DELIBERATELY CANNOT. A boss node already pays out heavily (its relic, its loot), and
+    // hanging a Well off it would mean the hardest route also refills you — which would delete the
+    // attrition that makes routing into bosses a decision at all.
     public bool CanCarryRecharge => type == MapNodeType.Fight || type == MapNodeType.Elite;
 
     public override string ToString()
@@ -110,9 +130,75 @@ public class RunMap
         get { List<MapNode> f = NodesOnFloor(0); return f.Count > 0 ? f[0] : null; }
     }
 
-    public MapNode BossNode
+    public MapNode FinalBossNode
     {
         get { List<MapNode> f = NodesOnFloor(floors - 1); return f.Count > 0 ? f[0] : null; }
+    }
+
+    /// <summary>Every OPTIONAL boss on the map, in floor order. The final boss is not one of them.</summary>
+    public List<MapNode> BossNodes
+    {
+        get
+        {
+            List<MapNode> result = new List<MapNode>();
+            foreach (MapNode n in nodes) if (n.type == MapNodeType.Boss) result.Add(n);
+            result.Sort((a, b) => a.floor != b.floor ? a.floor.CompareTo(b.floor) : a.column.CompareTo(b.column));
+            return result;
+        }
+    }
+
+    /// <summary>How many optional bosses this run has actually fought so far.</summary>
+    public int BossesDefeated
+    {
+        get
+        {
+            int n = 0;
+            foreach (int id in visited)
+            {
+                MapNode m = Get(id);
+                if (m != null && m.type == MapNodeType.Boss) n++;
+            }
+            return n;
+        }
+    }
+
+    /// <summary>
+    /// Can the run still be finished WITHOUT passing through this node? Exact rather than
+    /// heuristic: a breadth-first search from Start to the top floor with the node removed.
+    ///
+    /// ⚠️ THIS IS WHAT MAKES AN OPTIONAL BOSS OPTIONAL. "Route around it" has to be true of every
+    /// single boss placement, and a cheap proxy — "its floor has more than one node" — is not the
+    /// same thing: the alternatives on that floor may all feed through it later, or be unreachable
+    /// from where the player actually is. Validate() runs this on every Boss node.
+    /// </summary>
+    public bool IsAvoidable(int nodeId)
+    {
+        MapNode target = Get(nodeId);
+        if (target == null) return true;
+
+        MapNode start = StartNode;
+        MapNode finish = FinalBossNode;
+        if (start == null || finish == null) return false;
+        if (target == start || target == finish) return false;   // neither is ever optional
+
+        var seen = new HashSet<int> { start.id };
+        var queue = new Queue<int>();
+        queue.Enqueue(start.id);
+
+        while (queue.Count > 0)
+        {
+            MapNode cur = Get(queue.Dequeue());
+            if (cur == null) continue;
+            if (cur.id == finish.id) return true;
+
+            foreach (int id in cur.next)
+            {
+                if (id == nodeId) continue;          // the removal
+                if (!seen.Add(id)) continue;
+                queue.Enqueue(id);
+            }
+        }
+        return false;
     }
 
     // The nodes the player may pick RIGHT NOW. Before the run starts that is the Start node alone,
@@ -156,7 +242,9 @@ public class RunMap
         return true;
     }
 
-    public bool IsFinished => Current != null && Current.type == MapNodeType.Boss;
+    // ⚠️ ONLY the FinalBoss ends a run. Reaching an optional Boss mid-map used to end it, because
+    // Boss meant "the act finale" — that assumption is exactly what the act system baked in.
+    public bool IsFinished => Current != null && Current.type == MapNodeType.FinalBoss;
 
     // Structural self-check. Cheap, and it turns a silently broken generator into a named failure —
     // an unreachable node means a run that cannot be completed, which is the worst possible bug to
@@ -169,12 +257,25 @@ public class RunMap
         if (floors < 3) { error = $"map needs at least 3 floors (start, one combat, boss); has {floors}"; return false; }
 
         if (NodesOnFloor(0).Count != 1) { error = $"floor 0 must hold exactly one Start node, has {NodesOnFloor(0).Count}"; return false; }
-        if (NodesOnFloor(floors - 1).Count != 1) { error = $"top floor must hold exactly one Boss node, has {NodesOnFloor(floors - 1).Count}"; return false; }
+        if (NodesOnFloor(floors - 1).Count != 1) { error = $"top floor must hold exactly one FinalBoss node, has {NodesOnFloor(floors - 1).Count}"; return false; }
+
+        MapNode top = FinalBossNode;
+        if (top == null || top.type != MapNodeType.FinalBoss)
+            { error = "the top floor's node is not a FinalBoss"; return false; }
 
         foreach (MapNode n in nodes)
         {
             if (n.recharge != RechargeType.None && !n.CanCarryRecharge)
                 { error = $"{n} carries a recharge room but is not a Fight or Elite"; return false; }
+
+            // ⚠️ EVERY OPTIONAL BOSS MUST BE ROUTABLE AROUND. This is the one rule that makes the
+            // whole system a choice instead of a difficulty spike, so it is checked structurally
+            // rather than trusted to the generator's placement rules.
+            if (n.type == MapNodeType.Boss && !IsAvoidable(n.id))
+                { error = $"{n} is an OPTIONAL boss but every route to the end passes through it"; return false; }
+
+            if (n.type == MapNodeType.FinalBoss && n.floor != floors - 1)
+                { error = $"{n} is a FinalBoss but is not on the top floor"; return false; }
 
             // Every node must be both reachable and able to reach onward, or a route dead-ends.
             if (n.floor > 0 && n.prev.Count == 0) { error = $"{n} is unreachable (no incoming edges)"; return false; }
@@ -262,6 +363,7 @@ public class RunMap
             case MapNodeType.Fight: return "F";
             case MapNodeType.Elite: return "E";
             case MapNodeType.Boss: return "B";
+            case MapNodeType.FinalBoss: return "X";
             default: return "?";
         }
     }

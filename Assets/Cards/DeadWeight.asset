@@ -17,6 +17,7 @@ MonoBehaviour:
     8 Shift. Recall throws it away.
   cardArt: {fileID: 6441538611088192299, guid: 4826b8a3ec1d911498cd29ae81170436, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 17
   actionValue: 8
   singleUse: 0

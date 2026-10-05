@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &8800461739205847163
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8800461739205847164}
+  - component: {fileID: 8800461739205847165}
+  m_Layer: 5
+  m_Name: BossHealthBar_Ninja
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &8800461739205847164
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8800461739205847163}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &8800461739205847165
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8800461739205847163}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7c2e9a14f6d4830ac5b1e8d2f9c0a63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bossName: 
+  nameFont: {fileID: 11400000, guid: 3ac13a9add857c243977de8d60555863, type: 2}
+  barWidth: 900
+  barHeight: 22
+  topOffset: 84
+  segmentCount: 22
+  segmentGap: 2
+  fillColor: {r: 0.74, g: 0.8, b: 0.88, a: 1}
+  delayedColor: {r: 0.902, g: 0.29, b: 0.29, a: 1}
+  warnColor: {r: 1, g: 0.36, b: 0.34, a: 1}
+  backgroundColor: {r: 0.05, g: 0.055, b: 0.07, a: 1}
+  frameColor: {r: 0.26, g: 0.28, b: 0.33, a: 1}
+  outlineColor: {r: 0.02, g: 0.02, b: 0.03, a: 1}
+  nameTopColor: {r: 0.94, g: 0.96, b: 1, a: 1}
+  nameBottomColor: {r: 0.55, g: 0.64, b: 0.78, a: 1}

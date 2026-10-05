@@ -108,6 +108,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 30
+  playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
   headBarOffset: {x: 0, y: 1}
@@ -116,6 +117,7 @@ MonoBehaviour:
   stunSkinnedRenderers:
   - {fileID: 5035948647671913198}
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
+  scrapDropOverride: -1
 --- !u!60 &3651907370775338661
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -353,6 +355,9 @@ MonoBehaviour:
   knockbackForce: 5
   hoverHeight: 0.3
   hoverSpeed: 2
+  windUpRecoil: 0.55
+  windUpTint: {r: 1, g: 0.42, b: 0.3, a: 1}
+  diveCooldown: 1.1
   alertIcon: {fileID: 9203713036358227354}
 --- !u!1 &67726237750741057
 GameObject:
@@ -24052,6 +24057,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shiftAmount: 1
   destroyOnCollect: 1
+  collectSound: {fileID: 8300000, guid: 138c318fa51a41d42a1a9bf05a201a5b, type: 3}
+  collectVolume: 1
 --- !u!70 &3582200400503744019
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -29236,6 +29243,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shiftAmount: 1
   destroyOnCollect: 1
+  collectSound: {fileID: 8300000, guid: 138c318fa51a41d42a1a9bf05a201a5b, type: 3}
+  collectVolume: 1
 --- !u!70 &8214422620754060923
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -40323,11 +40332,14 @@ MonoBehaviour:
   damage: 15
   damageDelay: 0.5
   knockbackPower: 5
+  attackHeight: 1.8
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
   edgeCheckOffsetX: 0.5
   edgeCheckDepth: 1
+  attackSound: {fileID: 8300000, guid: 60f3614752a0ae54b9fc2387eb58804b, type: 3}
+  attackVolume: 1
 --- !u!114 &5981684250647424371
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -40341,6 +40353,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 30
+  playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
   headBarOffset: {x: 0, y: 2.2}
@@ -40349,6 +40362,7 @@ MonoBehaviour:
   stunSkinnedRenderers:
   - {fileID: 5404308203607490524}
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
+  scrapDropOverride: -1
 --- !u!70 &8592400967599216984
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -40523,6 +40537,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shiftAmount: 1
   destroyOnCollect: 1
+  collectSound: {fileID: 8300000, guid: 138c318fa51a41d42a1a9bf05a201a5b, type: 3}
+  collectVolume: 1
 --- !u!70 &938911834009363797
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -41161,17 +41177,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c65d02a28a8a5cc4bb75517954457d25, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  commonRewards:
-  - {fileID: 11400000, guid: e3ed7c54e5cf12e40ba922beb90f774d, type: 2}
-  rareRewards:
-  - {fileID: 11400000, guid: de572fb6a583df144b6669a3cbee2bc9, type: 2}
-  epicRewards:
-  - {fileID: 11400000, guid: 455b2f54bc410fe41836ecf31c6ec249, type: 2}
-  legendaryRewards:
-  - {fileID: 11400000, guid: 34c0d3b79847909418b8d5012f5cac42, type: 2}
   animatorBoolParam: IsOpened
   openSound: {fileID: 0}
   prompt: {fileID: 0}
+  openVfxHeight: 0.6
 --- !u!61 &8690173539720576815
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -41502,17 +41511,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c65d02a28a8a5cc4bb75517954457d25, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  commonRewards:
-  - {fileID: 11400000, guid: e3ed7c54e5cf12e40ba922beb90f774d, type: 2}
-  rareRewards:
-  - {fileID: 11400000, guid: de572fb6a583df144b6669a3cbee2bc9, type: 2}
-  epicRewards:
-  - {fileID: 11400000, guid: 455b2f54bc410fe41836ecf31c6ec249, type: 2}
-  legendaryRewards:
-  - {fileID: 11400000, guid: 34c0d3b79847909418b8d5012f5cac42, type: 2}
   animatorBoolParam: IsOpened
   openSound: {fileID: 0}
   prompt: {fileID: 0}
+  openVfxHeight: 0.6
 --- !u!61 &4514571118126811373
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -46718,8 +46720,13 @@ MonoBehaviour:
   playerDamage: 20
   damagePadding: {x: 0.3, y: 0.6}
   slamSound: {fileID: 0}
+  slamVolume: 1.5
   shakeDuration: 0.25
   shakeIntensity: 0.35
+  shiftCrystalPrefab: {fileID: 0}
+  crystalSpawnPoints: []
+  crystalArcHeight: 3
+  crystalFlightTime: 0.6
 --- !u!1 &3125334216632443582
 GameObject:
   m_ObjectHideFlags: 0
@@ -52587,6 +52594,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shiftAmount: 1
   destroyOnCollect: 1
+  collectSound: {fileID: 8300000, guid: 138c318fa51a41d42a1a9bf05a201a5b, type: 3}
+  collectVolume: 1
 --- !u!70 &1543806531919534915
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -57701,6 +57710,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shiftAmount: 1
   destroyOnCollect: 1
+  collectSound: {fileID: 8300000, guid: 138c318fa51a41d42a1a9bf05a201a5b, type: 3}
+  collectVolume: 1
 --- !u!70 &2202775679400983728
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -98088,11 +98099,14 @@ MonoBehaviour:
   damage: 15
   damageDelay: 0.5
   knockbackPower: 5
+  attackHeight: 1.8
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
   edgeCheckOffsetX: 0.5
   edgeCheckDepth: 1
+  attackSound: {fileID: 8300000, guid: 60f3614752a0ae54b9fc2387eb58804b, type: 3}
+  attackVolume: 1
 --- !u!114 &3630728487897331565
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -98106,6 +98120,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 30
+  playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
   headBarOffset: {x: 0, y: 2.2}
@@ -98114,6 +98129,7 @@ MonoBehaviour:
   stunSkinnedRenderers:
   - {fileID: 1755498813367208226}
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
+  scrapDropOverride: -1
 --- !u!70 &7537915649574676567
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -98887,6 +98903,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shiftAmount: 1
   destroyOnCollect: 1
+  collectSound: {fileID: 8300000, guid: 138c318fa51a41d42a1a9bf05a201a5b, type: 3}
+  collectVolume: 1
 --- !u!70 &3441117615088006759
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -105075,6 +105093,11 @@ MonoBehaviour:
   attackRange: 7
   fireRate: 2.5
   yTolerance: 1.5
+  sightBlockers:
+    serializedVersion: 2
+    m_Bits: 0
+  shootSound: {fileID: 0}
+  shootVolume: 1
 --- !u!114 &8543751994127958983
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -105088,6 +105111,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 20
+  playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
   headBarOffset: {x: 0, y: 1}
@@ -105095,6 +105119,7 @@ MonoBehaviour:
   stunSkinnedRenderers:
   - {fileID: 8839215953883595158}
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
+  scrapDropOverride: -1
 --- !u!70 &7028737463017003252
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -105402,6 +105427,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 30
+  playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
   headBarOffset: {x: 0, y: 1}
@@ -105410,6 +105436,7 @@ MonoBehaviour:
   stunSkinnedRenderers:
   - {fileID: 876143874284119198}
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
+  scrapDropOverride: -1
 --- !u!60 &2960402634550317828
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -105647,6 +105674,9 @@ MonoBehaviour:
   knockbackForce: 5
   hoverHeight: 0.3
   hoverSpeed: 2
+  windUpRecoil: 0.55
+  windUpTint: {r: 1, g: 0.42, b: 0.3, a: 1}
+  diveCooldown: 1.1
   alertIcon: {fileID: 426165256093868032}
 --- !u!1 &7691941748231545226
 GameObject:

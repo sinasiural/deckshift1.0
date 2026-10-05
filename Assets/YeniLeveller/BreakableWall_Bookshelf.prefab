@@ -103,7 +103,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHP: 10
   breakVFX: {fileID: 0}
-  breakSound: {fileID: 0}
+  breakSound: {fileID: 8300000, guid: 0dc0f1a833ee01d47b2cca7837bca224, type: 3}
   healthBarPrefab: {fileID: 5647382910293847562, guid: 7a3f9b4c1d8e2f6b5c3d7e9f4a1b2c3d, type: 3}
   headBarOffset: 1
 --- !u!61 &8925514864136643500

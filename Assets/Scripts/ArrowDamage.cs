@@ -27,7 +27,11 @@ public class ArrowDamage : MonoBehaviour
             Destroy(gameObject);
         }
         // 2. Eğer duvara veya zemine çarparsa oku yok et (Eğer zeminlerinin tag'i farklıysa burayı güncelleyebilirsin)
-        else if (other.gameObject.layer == LayerMask.NameToLayer("Ground") || other.CompareTag("Ground"))
+        // ⚠️ By LAYER only. There is no "Ground" TAG in this project, so CompareTag("Ground") logged
+        // "Tag: Ground is not defined" as an ERROR every time an arrow touched anything else (an
+        // enemy, a bookshelf, a crystal) — and a release build keeps errors in every playtester's
+        // bug-report log.
+        else if (other.gameObject.layer == LayerMask.NameToLayer("Ground"))
         {
             Destroy(gameObject);
         }

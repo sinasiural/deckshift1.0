@@ -35,7 +35,8 @@ public static class ScrapEconomy
     {
         if (maxHealth <= 20f) return 1;    // fodder   — Shambler 12, Slime 10, Spitter 18
         if (maxHealth <= 30f) return 2;    // grunt    — Rotbrute 25, RangedEnemy 25, Mimic 30
-        if (maxHealth <= 60f) return 3;    // soldier  — MeleeEnemy 40
+        if (maxHealth <= 60f) return 3;    // soldier  — nothing here since MeleeEnemy went 40 → 30
+                                           //            (2026-10-02); it keeps 3 via scrapDropOverride
         if (maxHealth <= 150f) return 6;   // heavy    — nothing here yet; reserved for elites
         return 20;                         // boss     — MossKnight 300
     }
@@ -67,7 +68,7 @@ public static class ScrapEconomy
     public static int MissingCharges(RuntimeCard card)
     {
         if (card == null || card.cardData == null || card.isInfinite) return 0;
-        return Mathf.Max(0, card.cardData.maxUses - card.currentUses);
+        return Mathf.Max(0, card.MaxUses - card.currentUses);
     }
 
     // Charges a salvaged card comes back with: half its maximum, rounded up, and always at
@@ -75,7 +76,7 @@ public static class ScrapEconomy
     public static int SalvageCharges(RuntimeCard card)
     {
         if (card == null || card.cardData == null) return 1;
-        return Mathf.Max(1, Mathf.CeilToInt(card.cardData.maxUses * 0.5f));
+        return Mathf.Max(1, Mathf.CeilToInt(card.MaxUses * 0.5f));
     }
 
     // House colour for anything scrap-flavoured (HUD, pickups, forge UI) so the currency reads as

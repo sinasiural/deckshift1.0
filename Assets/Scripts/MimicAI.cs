@@ -27,8 +27,12 @@ public class MimicAI : MonoBehaviour
     [SerializeField] private float edgeCheckOffsetX = 0.5f;
     [SerializeField] private float edgeCheckDepth = 1f;
 
+    // A chest is low to the ground, so it looks out from lower down than a humanoid does.
+    private const float EyeHeight = 0.6f;
+
     private MimicState state = MimicState.Hidden;
     private float lastAttackTime;
+    private float lastSeen = -999f;
 
     private MonsterController controller;
     private PixelMonster pixelMonster;
@@ -44,6 +48,10 @@ public class MimicAI : MonoBehaviour
 
         if (pixelMonster != null)
             pixelMonster.IsHiding = true;
+
+        // A chest with a health bar over it is not a disguise.
+        if (enemyHealth != null)
+            enemyHealth.SetBarConcealed(true);
     }
 
     private void Start()
@@ -122,25 +130,38 @@ public class MimicAI : MonoBehaviour
 
         float distance = Vector2.Distance(transform.position, player.position);
 
-        if (distance < aggroRange)
-        {
-            if (distance <= attackRange)
-            {
-                controller.inputMove.x = 0f;
+        // ⚠️ Line of sight with a short memory. Deliberately applied only to CHASING — the reveal
+        // in UpdateHidden is a proximity trap and must still spring when you walk onto the chest,
+        // wall or no wall. See EnemySenses.
+        if (distance >= aggroRange
+            || !EnemySenses.IsAware(transform, player, groundLayer, ref lastSeen, EyeHeight))
+            return;
 
-                if (Time.time >= lastAttackTime + attackCooldown)
-                {
-                    controller.inputAttack = true;
-                    lastAttackTime = Time.time;
-                    StartCoroutine(DealDamageRoutine(player.position.x >= transform.position.x ? 1f : -1f));
-                }
-            }
-            else
+        // ⚠️ FACE THE PLAYER EVERY FRAME. MonsterController only updates facing while inputMove.x
+        // is non-zero (MonsterController.cs:226), and the attack branch below sets it to ZERO — so
+        // without this the mimic visibly bites BACKWARDS at a player who got behind it, while
+        // EnemyMelee still resolves the hit on the player's real side.
+        if (pixelMonster != null)
+            pixelMonster.Facing = player.position.x > transform.position.x
+                ? PixelMonster.FacingType.Right
+                : PixelMonster.FacingType.Left;
+
+        if (distance <= attackRange)
+        {
+            controller.inputMove.x = 0f;
+
+            if (Time.time >= lastAttackTime + attackCooldown)
             {
-                float dir = player.position.x > transform.position.x ? 1f : -1f;
-                if (!IsEdgeAhead(dir))
-                    controller.inputMove.x = dir;
+                controller.inputAttack = true;
+                lastAttackTime = Time.time;
+                StartCoroutine(DealDamageRoutine(player.position.x >= transform.position.x ? 1f : -1f));
             }
+        }
+        else
+        {
+            float dir = player.position.x > transform.position.x ? 1f : -1f;
+            if (!IsEdgeAhead(dir))
+                controller.inputMove.x = dir;
         }
     }
 
@@ -154,6 +175,7 @@ public class MimicAI : MonoBehaviour
     private IEnumerator RevealRoutine()
     {
         pixelMonster.IsHiding = false;
+        enemyHealth.SetBarConcealed(false);
         controller.inputMove = Vector2.zero;
         controller.inputAttack = false;
         yield return new WaitForSeconds(revealStunDuration);

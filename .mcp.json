@@ -1,8 +1,13 @@
 {
   "mcpServers": {
-    "UnityMCP": {
-      "type": "http",
-      "url": "http://127.0.0.1:8080/mcp"
+    "unity-editor-mcp": {
+      "type": "stdio",
+      "command": "C:\\Users\\pc\\AppData\\Local\\Unity\\bin\\unity.exe",
+      "args": [
+        "mcp",
+        "--project-path",
+        "C:\\Users\\pc\\roguelike platformer deck\\dekcshift\\deckshift1.0"
+      ]
     }
   }
 }

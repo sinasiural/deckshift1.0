@@ -7,8 +7,25 @@ public class RelicManager : MonoBehaviour
 
     // --- Slot-constrained loadout (see RelicRedesign.md) ---
     // The player owns at most MaxSlots relics; list index == slot index.
-    public const int MaxSlots = 5;
+    public const int BaseSlots = 5;
+
+    // ⚠️ WAS A const, NOW A PROPERTY — Estate Sale can earn a sixth slot. Kept STATIC and under the
+    // same name so all five existing `RelicManager.MaxSlots` call sites (the HUD, the manage panel,
+    // the swap screen, the pause readout) pick the change up untouched. A const would have been
+    // inlined into each of them at compile time and none would ever have grown.
+    public static int MaxSlots => BaseSlots + (instance != null ? instance.bonusSlots : 0);
+
     public bool IsFull => ownedRelics.Count >= MaxSlots;
+
+    // --- Estate Sale ---------------------------------------------------------
+    // Sell five relics in one run and keep a sixth slot for the rest of it.
+    public const int EstateSaleTarget = 5;
+    [System.NonSerialized] public int relicsSoldThisRun = 0;
+    private int bonusSlots = 0;
+
+    /// <summary>Progress toward Estate Sale's sixth slot, for its live readout.</summary>
+    public int EstateSaleProgress => Mathf.Min(relicsSoldThisRun, EstateSaleTarget);
+    public bool EstateSaleClaimed => bonusSlots > 0;
 
     // Oyuncunun şu anda sahip olduğu tüm pasif eşyaların (Relic) listesi
     private List<RelicData> ownedRelics = new List<RelicData>();
@@ -25,8 +42,23 @@ public class RelicManager : MonoBehaviour
     public int SellValueFor(RelicData relic)
     {
         if (relic == null) return 0;
+        // Pawnbroker doubles it. Applied HERE rather than in SellRelic so every surface that quotes
+        // a price — the tooltip, the manage panel, the swap screen, a declined chest's payout —
+        // quotes the one the player will actually be paid.
+        //
+        // It doubles its OWN sale too, since the value is read while it is still worn. That is the
+        // honest reading and it is a fine last move: cash out the pawnbroker last.
+        int mult = HasRelic("Pawnbroker") ? 2 : 1;
+        return BaseSellValue(relic) * mult;
+    }
+
+    private int BaseSellValue(RelicData relic)
+    {
         switch (relic.rarity)
         {
+            // A boss relic is still sellable, or a full loadout would make one unclaimable — the
+            // swap screen needs something to offer. Priced above Legendary because it cost a boss.
+            case Rarity.Boss:      return 200;
             case Rarity.Legendary: return 150;
             case Rarity.Epic:      return 90;
             case Rarity.Rare:      return 50;
@@ -46,6 +78,21 @@ public class RelicManager : MonoBehaviour
         if (GameManager.instance != null && GameManager.instance.player != null)
             GameManager.instance.player.AddGold(value);
 
+        // Estate Sale: five sales in a run buys a sixth slot.
+        //
+        // ⚠️ COUNTED ON EVERY SALE, not only while Estate Sale is worn — otherwise picking it up
+        // late would start you at zero and the contract would be unwinnable in practice. The relic
+        // is what CLAIMS the slot; the count is just the run's history.
+        //
+        // ⚠️ And the slot, once earned, is kept even if Estate Sale is sold. The description says
+        // "permanently", and a sixth slot that vanished would strand the relic sitting in it.
+        relicsSoldThisRun++;
+        if (bonusSlots == 0 && relicsSoldThisRun >= EstateSaleTarget && HasRelic("EstateSale"))
+        {
+            bonusSlots = 1;
+            Debug.Log($"🗝️ Estate Sale: {relicsSoldThisRun} relics sold — a sixth slot is yours for the run.");
+        }
+
         Debug.Log($"Relic sold: {relic.relicName} (+{value} gold)");
         OnRelicRemoved?.Invoke(relic);
 
@@ -60,6 +107,11 @@ public class RelicManager : MonoBehaviour
     // Per-room relic effects — called by LevelManager.SpawnNextRoom at the start of each room.
     public void OnRoomStart()
     {
+        // A recharge room (Foundry / Market / Well) is an attachment to a floor, not a floor: the
+        // per-room relics below already paid on the combat room it hangs off. Paying again here
+        // would make every recharge room a second +1 Shift / free card / +8 HP for nothing.
+        if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomRecharge()) return;
+
         PlayerController player = GameManager.instance != null ? GameManager.instance.player : null;
 
         // Pocket Battery: +1 Shift at the start of each room.
@@ -69,6 +121,11 @@ public class RelicManager : MonoBehaviour
         // Flux Regulator: the first card played this room is free.
         if (HasRelic("FluxRegulator") && DeckManager.instance != null)
             DeckManager.instance.isNextCardFree = true;
+
+        // Second Wind: sustain that can't be farmed. Per-kill healing rewards clearing rooms you
+        // could have walked past; this pays the same whether you fight or not.
+        int wind = 8 * Stacks("SecondWind");
+        if (player != null && wind > 0) player.Heal(wind);
     }
 
     // --- Stat passives -------------------------------------------------------
@@ -85,6 +142,7 @@ public class RelicManager : MonoBehaviour
 
         float flat = 0f;
         if (HasRelic("ReinforcedPlating")) flat += 15f;
+        flat += 8f * MatchedPairs() * Stacks("MatchedSet");
 
         float mult = 1f;
         if (HasRelic("GlassHeart")) mult *= 0.5f;
@@ -111,8 +169,33 @@ public class RelicManager : MonoBehaviour
         if (HasRelic("MidasRecoil") && GameManager.instance != null && GameManager.instance.player != null)
             dmg += GameManager.instance.player.currentGold / 25;
 
+        // Sharp Practice: a flat bonus on every hit. Deliberately unlike Whetstone, which pays once
+        // per enemy — this one scales with how OFTEN you hit rather than how many enemies exist.
+        // Every numeric relic below multiplies by Stacks(), which is what lets Stand-In copy it.
+        dmg += 2f * Stacks("SharpPractice");
+
+        // Running on Fumes: +1 per 2 Shift you are MISSING, so the emptier you are the harder you
+        // hit. Reads from max, which the player can raise (Nest Egg, quests), so the ceiling grows.
+        if (HasRelic("RunningOnFumes") && GameManager.instance != null && GameManager.instance.player != null)
+        {
+            PlayerController p = GameManager.instance.player;
+            dmg += (Mathf.Max(0, p.maxShift - p.GetCurrentShift()) / 2) * Stacks("RunningOnFumes");
+        }
+
+        // Matched Set: +2 per pair of relics sharing a rarity.
+        dmg += 2f * MatchedPairs() * Stacks("MatchedSet");
+
+        // --- multipliers below this line ---
+
         // Glass Heart: double damage (paid for with half max HP).
         if (HasRelic("GlassHeart")) dmg *= 2f;
+
+        // Odd Socket: every slot you DON'T fill makes what you do carry hit harder.
+        if (HasRelic("OddSocket")) dmg *= 1f + 0.15f * EmptySlots() * Stacks("OddSocket");
+
+        // Weight Class: heavier, so it lands harder. The jump/fall half lives on PlayerController.
+        // Applied once per stack so a copied Weight Class compounds rather than being ignored.
+        for (int i = 0; i < Stacks("WeightClass"); i++) dmg *= 1.4f;
 
         // Blompo's damage-time blessings. They live at this chokepoint rather than at the seven
         // damage call sites for the same reason the relics do — a damage source added later cannot
@@ -121,7 +204,172 @@ public class RelicManager : MonoBehaviour
         if (DeckManager.instance != null)
             dmg = CardEnhancements.ModifyDamage(DeckManager.instance.AttributedCard, dmg, target);
 
+        // Bloodlust: heals on the FINAL number, after every modifier above. Not a relic, but this is
+        // the one place every point of player damage passes, so it lives here for the same reason.
+        PlayerBloodlust.NoteDamage(dmg, target);
+
         return dmg;
+    }
+
+    // --- Incoming player damage ----------------------------------------------
+    // The mirror of ModifyPlayerDamage, and it exists for the same reason: one chokepoint, so a
+    // damage source added later cannot forget to honour a relic.
+    //
+    // ⚠️ CALLED FROM TakeDamage, NOT ApplyDamage. PayHealthCost routes through ApplyDamage too, and
+    // that is Stagger's bill — a price the player CHOSE to pay, not a hit taken. Scaling there
+    // would make Paper Skin quietly raise Stagger's cost by 50%, which its text does not say.
+    public float ModifyIncomingDamage(float damage)
+    {
+        float dmg = damage;
+
+        // Paper Skin: charges bought with fragility. NOT multiplied by Stacks — a copied Paper Skin
+        // would make you take 2.25x, which is a downside Stand-In should not be able to inflict on
+        // a player who parked it there for the charges.
+        if (HasRelic("PaperSkin")) dmg *= 1.5f;
+
+        // Odd Socket: an empty slot protects as well as it strikes.
+        if (HasRelic("OddSocket"))
+            dmg *= Mathf.Max(0f, 1f - 0.15f * EmptySlots() * Stacks("OddSocket"));
+
+        return dmg;
+    }
+
+    /// <summary>
+    /// How many times a relic's effect should apply: 0 if not owned, 1 normally, 2 while Stand-In
+    /// sits immediately to its right.
+    ///
+    /// ⚠️ THIS IS WHAT MAKES STAND-IN REAL. "Copies the relic to its left" cannot work through
+    /// HasRelic, because HasRelic is a yes/no — a second yes changes nothing. Numeric relics
+    /// multiply by this instead.
+    ///
+    /// ⚠️ AND IT ONLY MEANS ANYTHING ON NUMERIC RELICS. Doubling Crowbar or Air Brake does nothing,
+    /// because there is no number to double. That is the honest limit of the mechanic, and it is
+    /// why the slot ORDER matters: the player must be able to park Stand-In beside something worth
+    /// copying. Relic reordering is still unbuilt, so today the left-hand neighbour is whatever you
+    /// happened to pick up first — the relic works, but the player cannot yet aim it.
+    /// </summary>
+    public int Stacks(string relicID)
+    {
+        if (!HasRelic(relicID)) return 0;
+        if (relicID == "StandIn") return 1;          // never copies itself
+
+        int idx = ownedRelics.FindIndex(r => r != null && r.relicID == "StandIn");
+        if (idx > 0 && ownedRelics[idx - 1] != null && ownedRelics[idx - 1].relicID == relicID)
+            return 2;
+        return 1;
+    }
+
+    /// <summary>The relic Stand-In is currently copying, or null. For its live readout.</summary>
+    public RelicData StandInTarget
+    {
+        get
+        {
+            int idx = ownedRelics.FindIndex(r => r != null && r.relicID == "StandIn");
+            return (idx > 0) ? ownedRelics[idx - 1] : null;
+        }
+    }
+
+    /// <summary>
+    /// A relic's CURRENT effect as one short line ("Now +14 damage"), or null when there is nothing
+    /// live to say. Shown as a second line under the description on surfaces that show OWNED relics.
+    ///
+    /// ⚠️ A SEPARATE LINE, NEVER A HOLE IN THE DESCRIPTION. The swap screen, chests and the shop all
+    /// show relics the player does not own, where there is no value to substitute — so the
+    /// description stays the rule and this stays the reading. Returns null for anything not owned.
+    ///
+    /// ⚠️ EACH NUMBER IS COMPUTED BY THE SAME EXPRESSION THE EFFECT USES (above), so the readout
+    /// cannot drift from what the relic actually does. Change one, change the other.
+    /// </summary>
+    public string LiveReadout(RelicData relic)
+    {
+        if (relic == null || !HasRelic(relic.relicID)) return null;
+
+        PlayerController p = GameManager.instance != null ? GameManager.instance.player : null;
+        int stacks = Stacks(relic.relicID);
+        string line = null;
+
+        switch (relic.relicID)
+        {
+            case "MidasRecoil":
+                if (p != null) line = $"Now +{p.currentGold / 25} damage ({p.currentGold} gold)";
+                break;
+            case "RunningOnFumes":
+                if (p != null) line = $"Now +{Mathf.Max(0, p.maxShift - p.GetCurrentShift()) / 2 * stacks} damage";
+                break;
+            case "MatchedSet":
+            {
+                int pairs = MatchedPairs();
+                line = pairs == 0
+                    ? "No matching pair yet"
+                    : $"{pairs} pair{(pairs == 1 ? "" : "s")}: now +{2 * pairs * stacks} damage, +{8 * pairs * stacks} max HP";
+                break;
+            }
+            case "OddSocket":
+            {
+                int empty = EmptySlots();
+                int pct = Mathf.RoundToInt(15f * empty * stacks);
+                line = empty == 0
+                    ? "No empty slots, so no bonus right now"
+                    : $"{empty} empty slot{(empty == 1 ? "" : "s")}: now +{pct}% damage, -{Mathf.Min(100, pct)}% damage taken";
+                break;
+            }
+            case "EstateSale":
+                line = EstateSaleClaimed ? "Sixth slot earned" : $"Relics sold: {EstateSaleProgress} / {EstateSaleTarget}";
+                break;
+            case "StandIn":
+            {
+                RelicData target = StandInTarget;
+                line = target != null ? $"Copying {target.relicName}" : "Nothing to its left to copy yet";
+                break;
+            }
+            case "NestEgg":
+                if (p != null)
+                    line = $"Paid out on {p.nestEggRoomsBanked} room{(p.nestEggRoomsBanked == 1 ? "" : "s")} (+{p.nestEggRoomsBanked * PlayerController.NestEggReward} max Shift)";
+                break;
+            case "PhoenixCog":
+                line = phoenixUsed ? "Used this run" : "Ready";
+                break;
+            case "AceUpTheSleeve":
+                line = aceUsed ? "Used this run" : "Ready";
+                break;
+        }
+
+        // Stand-In doubling a relic is invisible otherwise, and it is the whole point of Stand-In.
+        // ⚠️ Only for relics whose effect actually multiplies by Stacks() — Stand-In beside Midas
+        // Recoil changes nothing, and saying "doubled" there would be a lie.
+        if (stacks > 1 && StackAware.Contains(relic.relicID))
+            line = string.IsNullOrEmpty(line) ? "Doubled by Stand-In" : line + "  (doubled by Stand-In)";
+
+        return line;
+    }
+
+    // Every relicID whose effect multiplies by Stacks(). Keep in step with the Stacks("…") calls.
+    private static readonly HashSet<string> StackAware = new HashSet<string>
+    {
+        "SecondWind", "MatchedSet", "SharpPractice", "RunningOnFumes", "OddSocket", "WeightClass",
+    };
+
+    /// <summary>Slots left unfilled. Odd Socket reads this, so it changes the moment you sell.</summary>
+    public int EmptySlots()
+    {
+        return Mathf.Max(0, MaxSlots - ownedRelics.Count);
+    }
+
+    /// <summary>
+    /// How many PAIRS of owned relics share a rarity — three Commons is one pair, four is two.
+    /// Counts Matched Set itself, which is intended: it needs a partner to do anything at all.
+    /// </summary>
+    public int MatchedPairs()
+    {
+        var byRarity = new Dictionary<Rarity, int>();
+        foreach (RelicData r in ownedRelics)
+        {
+            if (r == null) continue;
+            byRarity[r.rarity] = (byRarity.ContainsKey(r.rarity) ? byRarity[r.rarity] : 0) + 1;
+        }
+        int pairs = 0;
+        foreach (var kv in byRarity) pairs += kv.Value / 2;
+        return pairs;
     }
 
     // --- Phoenix Cog ---------------------------------------------------------
@@ -137,6 +385,19 @@ public class RelicManager : MonoBehaviour
     {
         if (phoenixUsed || !HasRelic("PhoenixCog")) return false;
         phoenixUsed = true;
+        return true;
+    }
+
+    // --- Ace Up the Sleeve ---------------------------------------------------
+    // Phoenix Cog for the OTHER death clock: the game has more than one way to lose and only
+    // running out of health had a miracle. Same once-per-run shape, same consume-on-use pattern.
+    private bool aceUsed = false;
+    public bool AceUpTheSleeveReady => !aceUsed && HasRelic("AceUpTheSleeve");
+
+    public bool TryConsumeAceUpTheSleeve()
+    {
+        if (aceUsed || !HasRelic("AceUpTheSleeve")) return false;
+        aceUsed = true;
         return true;
     }
 
@@ -259,6 +520,13 @@ public class RelicManager : MonoBehaviour
                 Debug.Log("⚡ Kinetic Capacitor: +2 Shift kazanıldı!");
             }
         }
+
+        // Quick Hands: a kill draws a card. This is the ONLY source of cards outside Recall, which
+        // is the point — it makes fighting the way you refill your hand instead of paying Shift for
+        // it. DrawCard is a no-op on a full hand and reshuffles the discard when the draw pile runs
+        // out, so it needs no guard of its own.
+        if (HasRelic("QuickHands") && DeckManager.instance != null)
+            DeckManager.instance.DrawCard();
     }
 
     // 2. Oyuncu hasar aldığında bu fonksiyon çağrılacak

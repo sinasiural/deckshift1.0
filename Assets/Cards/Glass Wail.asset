@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: Glass Wail
   m_EditorClassIdentifier: 
   cardName: Glass Wail
-  description: Scream. Enemiesi are frozen in place for 10 seconds.
+  description: Scream. Enemies are frozen in place for 10 seconds.
   cardArt: {fileID: -8024131544370953100, guid: d8b48ba556ef0c24ab4bfa1fbd51c3d0, type: 3}
   nameIsPaintedIntoArt: 1
+  rarity: 0
   actionType: 10
   actionValue: 10
   singleUse: 1

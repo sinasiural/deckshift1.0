@@ -152,6 +152,6 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   signalTarget: {fileID: 0}
-  paySound: {fileID: 0}
-  refuseSound: {fileID: 0}
+  paySound: {fileID: 8300000, guid: 0fa20e8138f09e04990378ad855e9f43, type: 3}
+  refuseSound: {fileID: 8300000, guid: dbccacd9b3c150c48b07e81dadc7c761, type: 3}
   labelHeight: 2

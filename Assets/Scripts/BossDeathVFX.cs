@@ -13,9 +13,15 @@ using UnityEngine;
 // (or hover in mid-air if the boss died airborne) — all grabbable by the player.
 public class BossDeathVFX : MonoBehaviour
 {
-    // Acid-boss palette: gold loot over a mossy green burst.
+    // Gold is the LOOT and never changes — it is the same gold the player picks up, in every boss
+    // room, and recolouring it per boss would make the reward read as a different substance.
     private static readonly Color Gold = new Color(1f, 0.82f, 0.28f);
+
+    // ⚠️ THE BURST COLOUR IS THE BOSS'S, NOT THIS CLASS'S. It was a hardcoded acid green, which is the
+    // Moss Knight's identity — the whole point of that boss — and firing it out of a ninja would say
+    // the wrong thing about what just died. It stays the default so the Moss Knight is untouched.
     private static readonly Color Acid = new Color(0.55f, 0.95f, 0.35f);
+    private Color accent = Acid;
 
     const int SORT = 40;   // above the world + the chest burst
 
@@ -33,9 +39,14 @@ public class BossDeathVFX : MonoBehaviour
     private static Sprite glowSprite, ringSprite, beamSprite;
 
     // Called by the boss right after it dies (center = this object's spawn position).
+    /// <param name="accent">
+    /// The burst colour. Omit for the acid green this was written with; pass the boss's own colour
+    /// for anything that is not made of moss.
+    /// </param>
     public void Play(float groundY, bool airborne, GameObject goldPrefab, GameObject shiftPrefab,
-                     AudioClip sound, float volume, int goldCount, int crystalCount)
+                     AudioClip sound, float volume, int goldCount, int crystalCount, Color? accent = null)
     {
+        if (accent.HasValue) this.accent = accent.Value;
         this.groundY = groundY;
         this.airborne = airborne;
         this.goldPrefab = goldPrefab;
@@ -52,12 +63,14 @@ public class BossDeathVFX : MonoBehaviour
         Vector3 center = transform.position;
 
         // --- Beat 1: the death punch. Freeze-frame + gold flash mask the boss vanishing. ---
-        if (sound != null)
+        // ⚠️ NEVER SILENT. All three bosses once passed an empty `deathSound` here, so every boss death
+        // in the game played to no sound at all. This is the one place every boss death passes
+        // through, so the fallback lives here and a boss added later cannot reintroduce the gap.
         {
             AudioSource src = gameObject.AddComponent<AudioSource>();
             src.playOnAwake = false;
             src.spatialBlend = 0f;                 // 2D — always clearly audible across the arena
-            SfxManager.PlayOn(src, sound, volume);
+            SfxManager.PlayOn(src, sound != null ? sound : ProcSfx.BossDeath, volume);
         }
 
         if (HitStop.instance != null) HitStop.instance.Stop(0.12f);
@@ -71,9 +84,9 @@ public class BossDeathVFX : MonoBehaviour
         StartCoroutine(BeamRoutine(center, 5f));
 
         // --- Beat 2: staggered shockwave rings + secondary eruptions ripple out. ---
-        StartCoroutine(RingRoutine(center, 0.0f, 4.5f, Acid));
+        StartCoroutine(RingRoutine(center, 0.0f, 4.5f, accent));
         StartCoroutine(RingRoutine(center, 0.12f, 3.2f, Gold));
-        StartCoroutine(RingRoutine(center, 0.26f, 5.5f, Acid));
+        StartCoroutine(RingRoutine(center, 0.26f, 5.5f, accent));
         StartCoroutine(SecondaryBurstsRoutine(center));
 
         // --- Beat 3: the loot. Real collectible gold + shift crystals erupt, arc out, and settle. ---
@@ -130,8 +143,8 @@ public class BossDeathVFX : MonoBehaviour
         {
             yield return new WaitForSeconds(Random.Range(0.06f, 0.18f));
             Vector3 p = center + new Vector3(Random.Range(-1.4f, 1.4f), Random.Range(-0.3f, 1.6f), 0f);
-            StartCoroutine(FlashRoutine(p, Random.Range(1.1f, 1.9f), Color.Lerp(Acid, Color.white, 0.4f), 0.25f));
-            StartCoroutine(RingRoutine(p, 0f, Random.Range(1.2f, 2.2f), Acid));
+            StartCoroutine(FlashRoutine(p, Random.Range(1.1f, 1.9f), Color.Lerp(accent, Color.white, 0.4f), 0.25f));
+            StartCoroutine(RingRoutine(p, 0f, Random.Range(1.2f, 2.2f), accent));
             if (CameraShake.instance != null) CameraShake.instance.Shake(0.18f, 0.5f);
         }
     }
@@ -217,7 +230,7 @@ public class BossDeathVFX : MonoBehaviour
     // A single glowing mote flung up-and-out, arcing down while it twinkles out.
     private IEnumerator MoteRoutine(Vector3 center)
     {
-        Color tint = Random.value < 0.6f ? Gold : Acid;
+        Color tint = Random.value < 0.6f ? Gold : accent;
         SpriteRenderer sr = MakeSprite("Mote", GetGlowSprite(), tint, center, SORT + 4);
         Transform tr = sr.transform;
         float ang = Mathf.Deg2Rad * Random.Range(40f, 140f);

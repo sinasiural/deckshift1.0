@@ -10,17 +10,18 @@ using UnityEngine;
 // on the prefab means it travels with the room, survives reordering, and can't drift out of sync
 // with a parallel list.
 //
-// UNTAGGED ROOMS ARE ELIGIBLE FOR EVERY TIER. That is deliberate: the 7 existing rooms predate
-// this system, and requiring all of them to be tagged before the map works would mean the map is
-// broken until a chore is finished. Tagging a room narrows it; not tagging it costs nothing. As
-// rooms get tagged the act's difficulty curve sharpens on its own.
+// UNTAGGED ROOMS ARE ELIGIBLE FOR EVERY TIER (at half the weight of a tagged room). That was
+// deliberate while the 7 original rooms predated this system. ⚠️ As of 2026-10-04 EVERY pool room
+// is tagged (designer-approved: efeslevel1 + EfeVrl4 Easy, the other five originals Medium), because
+// untagged rooms answered about 4 in 10 Hard nodes and made the label a coin flip. Tag new rooms.
 //
 // Only the three COMBAT tiers are meaningful here. Start is the hub (HubMarker) and Boss is
 // LevelManager's own bossRoomPrefab slot, so neither is chosen by tier.
 public class RoomTier : MonoBehaviour
 {
-    [Tooltip("Which node type this room is built for. Skirmish = simple layout, thin loot. " +
-             "Fight = harder layout, at least one chest. Elite = hardest layouts, uncomfortable to pick.")]
+    [Tooltip("Which node type this room is built for (the map calls them Easy / Medium / Hard). " +
+             "Skirmish (Easy) = simple layout, thin loot. Fight (Medium) = harder layout, at least one chest. " +
+             "Elite (Hard) = hardest layouts, uncomfortable to pick.")]
     public MapNodeType tier = MapNodeType.Skirmish;
 
     public bool Serves(MapNodeType nodeType)

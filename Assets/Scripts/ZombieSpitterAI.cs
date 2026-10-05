@@ -43,6 +43,7 @@ public class ZombieSpitterAI : MonoBehaviour
     private PixelMonster pm;
     private Transform player;
     private float lastAttackTime;
+    private float lastSeen = -999f;
 
     void Start()
     {
@@ -70,7 +71,12 @@ public class ZombieSpitterAI : MonoBehaviour
         float distance = Vector2.Distance(transform.position, player.position);
         float yDiff = Mathf.Abs(player.position.y - transform.position.y);
 
-        if (distance >= aggroRange) return;
+        // ⚠️ Line of sight with a short memory. Without it this lobbed acid through solid rock at a
+        // player it could not possibly see — the single worst offender, because a projectile coming
+        // out of a wall reads as a bug rather than as an enemy. See EnemySenses.
+        if (distance >= aggroRange
+            || !EnemySenses.IsAware(transform, player, groundLayer, ref lastSeen, mouthHeight))
+            return;
 
         // Face the player every frame (keeps working even while standing still to spit).
         if (pm != null)

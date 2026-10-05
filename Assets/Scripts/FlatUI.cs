@@ -28,7 +28,7 @@ public static class FlatUI
     private static Sprite softGlow, verticalFade, horizontalFade, bottomGlow, fadedRule, rivet, pixel;
     private static Sprite emberDot, fourPointStar, arcaneSigil, arcaneSeal;
     private static Sprite calibrationMark, sweepLine;
-    private static Sprite pinTack, waxSeal;
+    private static Sprite pinTack, waxSeal, ring;
     private static Sprite[] raritySigils;   // one glyph per Rarity — see RaritySigil
 
     // Solid chamfered plate. chamfer 10 = windows, 5 = cards and buttons.
@@ -509,6 +509,27 @@ public static class FlatUI
         return Mathf.Pow(Mathf.Clamp01(1f - d / reach), 1.4f);
     }
 
+    // A thin anti-aliased ring. A deadline you can see: scaled down around something until the
+    // moment it runs out (the Kagemusha's armed shadows).
+    public static Sprite Ring()
+    {
+        if (ring != null) return ring;
+        const int S = 128;
+        const float Thick = 6f;
+        Texture2D tex = NewTex(S);
+        float c = (S - 1) * 0.5f, rOut = c - 1f, rIn = rOut - Thick;
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float d = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c));
+                float a = Mathf.Clamp01(rOut - d + 0.5f) * Mathf.Clamp01(d - rIn + 0.5f);
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+        tex.Apply();
+        ring = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f);
+        return ring;
+    }
+
     // 1x1 white — flat fills and hard edges.
     public static Sprite Pixel()
     {
@@ -806,6 +827,65 @@ public static class FlatUI
         TextDisabled = new Color(0.267f, 0.337f, 0.333f, 1f),
     };
 
+    // INSTRUMENT — the settings screen, rebuilt 2026-08-20.
+    //
+    // ⚠️ IT REPLACES *APPARATUS*, WHICH THE DESIGNER REJECTED: "a modern type of cool UI, in a game
+    // that happens in a dungeon, where you fight zombies and orcs and slimes, using shift and cards.
+    // does not read well." That was right, and the fault was not the craft — Apparatus was smoked
+    // glass and arc-cyan, lit by its own content, with a travelling scan sweep and an iOS-style
+    // toggle pill. Every one of those signals SCI-FI INTERFACE. It was the only screen in the game
+    // made of a material that exists nowhere in the world.
+    //
+    // The standing note in the UI skill already diagnosed why this screen in particular drifted:
+    // Halt, Apparatus and Marquee are **the three screens that depict no place in the game**, so
+    // each had to invent its material from nothing — and inventing is exactly where "competent but
+    // generic" creeps back in.
+    //
+    // ⚠️ AND A MATERIAL ALONE IS NOT ENOUGH — the map proved that twice. So this is not "Apparatus
+    // in brass". Settings genuinely IS calibration, which was Apparatus's one good idea and is kept;
+    // what changes is that the calibrating thing is now a REAL OBJECT WITH A HISTORY: a brass
+    // surveying instrument that has been carried down into a dungeon. Tarnished, thumbed at the
+    // controls, dust settled in the engraving, lit from BEHIND through its own lens glass.
+    //
+    // ⚠️ THE VERDIGRIS HERE IS NOT THE VERDIGRIS THAT WAS REJECTED. The run map was built once as a
+    // verdigris-and-copper etched plate and thrown out — but that failed because a MAP must read as
+    // a document, not because aged brass is wrong. Here it is a crevice accent on an instrument,
+    // which is where tarnish actually collects, and brass is the dominant field rather than patina.
+    //
+    // INVERSIONS, against everything already claimed:
+    //   LIGHT      FROM BEHIND, through lens glass. Iron lights from below, Arcane from above, Halt
+    //              from the edges inward, Bulletin rakes from the left, Apparatus was lit by its own
+    //              content. Backlit is the one direction nobody had.
+    //   MOTION     NEEDLES SETTLE. No particle field and no sweep — the only movement is an index
+    //              coming to rest after you move it, which is what an instrument does and what a
+    //              scanline never did.
+    //   CONTROLS   THROWN, NOT SLID. The toggle is a lever standing proud of a slotted plate, not a
+    //              pill with a knob in it. That single widget was doing more to make this screen
+    //              read as an app than the palette was.
+    //   HUE        warm brass. The shop also owns warm/amber, so this is pushed GREEN-gold (aged
+    //              brass) against the shop's orange lamplight, and the shop is wood-and-canvas with
+    //              a person in it while this is metal and glass.
+    public static readonly Theme Instrument = new Theme
+    {
+        Backdrop = new Color(0.020f, 0.017f, 0.012f, 0.94f),
+        Surface = new Color(0.086f, 0.072f, 0.048f, 0.99f),   // tarnished brass plate
+        SurfaceRaised = new Color(0.128f, 0.107f, 0.070f, 1f),
+        Border = new Color(0.310f, 0.253f, 0.140f, 1f),
+        BorderSoft = new Color(0.196f, 0.163f, 0.098f, 1f),
+        EdgeLight = new Color(0.620f, 0.520f, 0.310f, 1f),    // polished where a thumb rests
+        Accent = new Color(0.949f, 0.769f, 0.365f, 1f),       // lamplight through the lens
+        TextBright = new Color(0.960f, 0.925f, 0.845f, 1f),
+        TextBody = new Color(0.792f, 0.741f, 0.620f, 1f),
+        TextMuted = new Color(0.510f, 0.463f, 0.365f, 1f),
+        TextDisabled = new Color(0.310f, 0.282f, 0.220f, 1f),
+    };
+
+    // The green that collects in an instrument's engraving. Used ONLY in crevices — see Instrument.
+    // ⚠️ Named Patina, not Verdigris: `FlatUI.Verdigris` is already taken by the run map's REJECTED
+    // etched-copper THEME, which still sits in this file. Two different kinds of thing sharing a
+    // name is how someone ends up assigning a whole Theme where a Color was meant.
+    public static readonly Color Patina = new Color(0.298f, 0.443f, 0.365f, 1f);
+
     // BULLETIN — the quest board.
     //
     // ⚠️ THIS THEME'S VALUE STRUCTURE IS INVERTED, AND THAT IS THE POINT. Every other screen here is
@@ -878,6 +958,9 @@ public static class FlatUI
     {
         switch (r)
         {
+            // Boss sits OUTSIDE the ascending ladder on purpose — it is a different acquisition
+            // channel, not a higher Legendary, so it takes the one hue nothing else uses.
+            case Rarity.Boss: return new Color(1.000f, 0.290f, 0.560f, 1f);        // crimson-magenta
             case Rarity.Legendary: return new Color(1.000f, 0.780f, 0.290f, 1f);   // amber, brightest
             case Rarity.Epic: return new Color(0.760f, 0.420f, 1.000f, 1f);        // violet, pushed off blue
             case Rarity.Rare: return new Color(0.290f, 0.850f, 0.520f, 1f);        // green — far from both
@@ -901,7 +984,9 @@ public static class FlatUI
     // it rather than as unrelated symbols.
     public static Sprite RaritySigil(Rarity r)
     {
-        if (r == Rarity.Legendary) return ArcaneSigil();
+        // ⚠️ Boss shares Legendary's sigil AND must be caught before the array index below — the
+        // cache is sized to the tiers that generate a sigil, and Boss's enum value sits past it.
+        if (r == Rarity.Legendary || r == Rarity.Boss) return ArcaneSigil();
 
         int idx = (int)r;
         if (raritySigils == null) raritySigils = new Sprite[4];

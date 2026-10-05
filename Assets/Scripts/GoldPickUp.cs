@@ -25,7 +25,14 @@ public class GoldPickup : MonoBehaviour
             // E�er oyuncu scripti varsa paray� ekle
             if (player != null)
             {
-                player.AddGold(goldAmount);
+                // Coin Purse: PICKED-UP gold only. Deliberately not inside AddGold, which also
+                // handles relic sales and quest payouts — the relic pays you for going and
+                // getting it, and a detour is what costs Shift. Paying out on a sale as well
+                // would turn it into a second Pawnbroker.
+                int amount = goldAmount;
+                if (RelicManager.instance != null && RelicManager.instance.HasRelic("CoinPurse"))
+                    amount = Mathf.RoundToInt(amount * 1.20f);
+                player.AddGold(amount);
             }
 
             // 2. Sesi �al (Obje yok olsa bile �alar)

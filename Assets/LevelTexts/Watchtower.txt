@@ -1,0 +1,78 @@
+// The Watchtower  (HARD, 40x50)  -  built 2026-09-28
+//
+// A prison watchtower, climbed from the gatehouse at its foot to the gallery at its top: ten ledges
+// on alternating walls, a rise of 4 each. Ten jumps, and three of the ledges you must land on sit
+// level with an ARCHER'S NEST cut into the tower wall.
+//
+// An archer only looses when you are within 1.5 tiles of its height (the Archery Range, Easy, is
+// where this is taught). So each nest ledge is a moment: land, and the archer beside you draws.
+// Jump on at once and you are out of its line before it fires twice - or turn into the nest and kill
+// it, because every nest keeps loot behind its archer: a crystal and gold, the card chest, and at the
+// top the relic chest.
+//
+// Between the nests: a spitter holding one ledge, a Rotbrute holding another (a fight on a 4-wide
+// ledge above a long drop), a bat in the open shaft. A fall costs every jump above the ledge you
+// land on, which is what makes a Hard room of a climb.
+//
+// SHIFT: 10 jumps up. 5 crystals, 2 of them behind archers: a clean, greedy climb nets -5; a careful
+//   one that skips the nests nets -7. Net-negative for the average player, as Elite should be.
+//
+// LAW 1: jumping only; the nests are off the line. LAW 2: every rise is 4, same-wall ledges 8 apart.
+//   LAW 7: spawn (4,4) to exit (35,43) is 70 apart through solid rock. LAW 8: the gatehouse stands a
+//   step above the tower floor (no zombie climbs it) and is roofed by 6 rows of rock, so nest 1's
+//   archer, the nearest, cannot see into it.
+!name: Watchtower
+!tier: hard
+!theme: prison
+!camera: tight
+
+########################################
+########################################
+########################################
+############..........................##
+############..........................##
+############..................+.......##
+############.......................X..##
+############..........##################
+####......................##############
+####......................##############
+####.C..r.................##############
+################..........##############
+############..............##############
+############..............##############
+############...........Z..##############
+############..........##################
+############..............##############
+############+.............##############
+############.......b......##############
+################..........##############
+############......................######
+############...................+..######
+############.................r..D.######
+############..........##################
+############..............##############
+############..............##############
+############..g...........##############
+################..........##############
+############..............##############
+############.............+##############
+############............s.##############
+############..........##################
+#####.....................##############
+#####.+...................##############
+#####g...r................##############
+################..........##############
+############..............##############
+############..............##############
+############..............##############
+############..........##################
+############..............##############
+##........##..............##############
+##........##..............##############
+##........######..........##############
+##........................##############
+##..S..g..................##############
+############........z.....##############
+########################################
+########################################
+########################################

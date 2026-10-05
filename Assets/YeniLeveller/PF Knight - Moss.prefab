@@ -16,6 +16,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PF Knight - Moss
       objectReference: {fileID: 0}
+    - target: {fileID: 5218067878039927586, guid: 59b4256d26973574fb30e9472bf3dabc, type: 3}
+      propertyPath: m_Mass
+      value: 500
+      objectReference: {fileID: 0}
     - target: {fileID: 6743556452622266024, guid: 59b4256d26973574fb30e9472bf3dabc, type: 3}
       propertyPath: m_RootOrder
       value: 0
@@ -92,12 +96,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 600
+  playerHasStruck: 0
   canBeHeadBounced: 1
   healthBarPrefab: {fileID: 0}
   headBarOffset: {x: 0, y: 1}
   stunSpriteRenderers: []
   stunSkinnedRenderers: []
   damagePopupPrefab: {fileID: 0}
+  scrapDropOverride: -1
 --- !u!114 &4611639633141467596
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -123,13 +129,87 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3e6a1c9d7f24805ab9c3e2d1f6a8b40, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  startDormant: 1
+  playAwakenEffect: 1
+  awakenWindup: 0.75
+  awakenFlashColor: {r: 0.45, g: 0.95, b: 0.35, a: 0.55}
+  awakenShockwaveScale: 1.7
+  awakenPushback: 5
+  awakenPounds: 2
+  poundHopVelocity: 6
   aggroRange: 40
   moveStopRange: 1.8
-  attackRange: 2.2
-  attackCooldown: 1.6
+  cleaveRange: 2.2
+  cleaveCooldown: 2
   cleaveDamage: 15
   cleaveDamageDelay: 0.3
   cleaveKnockback: 6
+  cleaveRecover: 0.3
+  chargeMinRange: 4
+  chargeMaxRange: 18
+  chargeCooldown: 5
+  chargeTelegraph: 0.55
+  chargeDuration: 1.4
+  chargeRecover: 0.7
+  chargeDamage: 18
+  chargeKnockback: 9
+  chargeHitRange: 1.6
+  chargeSpeed: 14
+  chargeAccel: 70
+  chargeOvershoot: 2
+  leapMinRange: 4
+  leapCooldown: 7
+  leapTelegraph: 0.5
+  leapApexHeight: 4
+  maxLeapDistance: 12
+  leapMaxAirTime: 3
+  slamRadius: 3
+  slamDamage: 22
+  slamKnockback: 11
+  leapRecover: 0.6
+  slamShockwaveEffect: {fileID: 0}
+  leapGravityMul: 2.2
+  leapFallMul: 1.4
+  slamDebrisSprite: {fileID: 0}
+  lobProjectile: {fileID: 0}
+  slimeEnemy: {fileID: 0}
+  lobMinRange: 6
+  lobMaxRange: 30
+  lobCooldown: 6
+  lobTelegraph: 0.45
+  lobRecover: 0.5
+  lobArcHeight: 6
+  lobTravelTime: 0.9
+  lobAboveThreshold: 2
+  bossHealthBarPrefab: {fileID: 0}
+  bossName: The Moss Knight
+  hurtAnimThreshold: 50
+  playDeathEffect: 1
+  deathSound: {fileID: 8300000, guid: cef1a7a889cbb034483e7ba4ba986eb0, type: 3}
+  deathVolume: 1.4
+  deathGoldPrefab: {fileID: 0}
+  deathShiftCrystalPrefab: {fileID: 0}
+  deathGoldCount: 14
+  deathCrystalCount: 5
+  offerBossRelic: 1
+  bossRelicChoices: 2
+  rewardDelay: 2.6
+  roarSound: {fileID: 0}
+  roarVolume: 1.4
+  poundSound: {fileID: 8300000, guid: e09b24172f8bca84a8f3cad13013fb22, type: 3}
+  poundVolume: 1
+  cleaveSound: {fileID: 0}
+  cleaveVolume: 1
+  chargeSound: {fileID: 0}
+  chargeVolume: 1
+  leapSound: {fileID: 8300000, guid: 4147dcb51b249244f80faf173ff846ae, type: 3}
+  leapVolume: 1
+  slamSound: {fileID: 0}
+  slamVolume: 1.3
+  lobSound: {fileID: 0}
+  lobVolume: 1
+  hurtSound: {fileID: 0}
+  hurtVolume: 1
   avoidLedges: 0
   groundLayer:
     serializedVersion: 2

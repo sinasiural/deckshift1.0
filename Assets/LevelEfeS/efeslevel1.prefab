@@ -5836,6 +5836,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3497257200661621401}
+  - component: {fileID: 3307834974954588878}
   m_Layer: 0
   m_Name: efeslevel1
   m_TagString: Untagged
@@ -5959,6 +5960,19 @@ Transform:
   - {fileID: 7507476260689318395}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3307834974954588878
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8878139818867148303}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 479bb133ad68d2a4baa2f8a837af8f90, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tier: 1
 --- !u!1001 &38032384876192128
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6721,7 +6735,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5782022400635495652, guid: d02cc9258c1aafd459931a5ac7ed4ae1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 71.72
+      value: 71.78
       objectReference: {fileID: 0}
     - target: {fileID: 5782022400635495652, guid: d02cc9258c1aafd459931a5ac7ed4ae1, type: 3}
       propertyPath: m_LocalPosition.z

@@ -25,7 +25,8 @@ public static class CardFace
     // ⚠️ **THE FREEFALL BLADE FRAME IS THE CANONICAL CARD FRAME (designer, 2026-08-17).** All new
     // card art uses it: the red ball for charges, the blue crystal for Shift cost, an empty name
     // plate, and — on cards that deal damage — a heart container. **`Gem` is therefore the layout
-    // to tune and trust; `Classic` is legacy** and exists only until the 14 old cards are re-cut.
+    // to tune and trust; `Classic` is legacy** and exists only until the last 2 old cards (Floor is
+    // Lava and Glass Wail — counted 2026-09-27) are re-cut.
     //
     // ⚠️ **THE TWO STYLES DO NOT PUT THEIR MEDALLIONS IN THE SAME PLACE.** This file used to carry
     // one position for both, on the assumption that "both styles put cost right / charges left, so
@@ -52,7 +53,21 @@ public static class CardFace
     // centre, so the peak row IS the answer — and it is immune to the rim, highlights and facets
     // that drag a centroid or inflate a bounding box. (Bounding box put the ball's x at 814 and the
     // centroid at 811.1; the mode of the row midpoints is 811, and the profile is symmetric there.)
+    //
+    // ⚠️ THERE ARE TWO CUTS OF THE CANONICAL FRAME, AND THE MEDALLIONS ARE NOT AT THE SAME FRACTION
+    // IN BOTH. The older 116-wide frame is cut 118x200; the current 118-wide frame (every card drawn
+    // since September, 15 of them on 2026-10-03) is cut 120x201. Using the old frame's numbers on the
+    // new cut put the charge 0.6% of a card width left of the ball's centre. Measured 2026-10-03 on
+    // the art itself with the same widest-row rule, rows and columns agreeing exactly.
     private static readonly Medallions Gem = new Medallions
+    {
+        Uses = new Vector2(0.2250f, 0.8806f),   // red ball, current 120x201 cut
+        Cost = new Vector2(0.8292f, 0.8756f),   // blue crystal, current 120x201 cut
+    };
+
+    // The older 116-wide frame, cut 118x200 (Adrenaline, Comet Dive, Dead Weight, Freefall Blade,
+    // Glass Parry as of 2026-10-03). These are the original values measured on Freefall Blade.
+    private static readonly Medallions Gem116 = new Medallions
     {
         Uses = new Vector2(0.2188f, 0.8796f),   // red ball — verified: true centre (0.2194, 0.8794)
         Cost = new Vector2(0.8330f, 0.8767f),   // blue crystal — widest row peaks here
@@ -70,7 +85,9 @@ public static class CardFace
     public static Medallions LayoutFor(Sprite art)
     {
         if (art == null || art.rect.height <= 0f) return Classic;
-        return (art.rect.width / art.rect.height) < 0.63f ? Gem : Classic;
+        if ((art.rect.width / art.rect.height) >= 0.63f) return Classic;
+        // The two canonical cuts are told apart by their documented pixel width (120 vs 118).
+        return art.rect.width >= 119.5f ? Gem : Gem116;
     }
 
     // ⚠️ The cost was authored at 30 and is now 34. Colour was the reported fault — a blue digit on
@@ -217,6 +234,11 @@ public static class CardFace
         // medallion — and these are prefab objects whose pivot this code does not own.
         rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = MedallionOffset(host, artImage.sprite, cost);
+        // ⚠️ And the MARGINS, for the same reason. CardUI_Template's Uses_Text carried uneven text
+        // margins (8.8 left, 19.2 right, 8.7 top), which moved the centred digit about 5 units left
+        // and 4 down inside a correctly placed box: every charge number in the hand sat left of its
+        // ball (designer-reported 2026-10-03). Cost_Text had none, which is why only charges drifted.
+        label.margin = Vector4.zero;
 
         label.enableWordWrapping = false;   // "10" has no break opportunity, but do not tempt it
         label.fontSize = FitNumberSize(label.text, (cost ? COST_SIZE : USES_SIZE) * drawn.x, drawn.x, cost);

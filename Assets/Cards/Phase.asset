@@ -15,8 +15,9 @@ MonoBehaviour:
   cardName: Phase
   description: Drift through walls and enemies for 2 seconds. You can't get more
     than 6 tiles from where you cast it.
-  cardArt: {fileID: 7381869878930933662, guid: 76bbeeaa923429049a514414b924aa13, type: 3}
-  nameIsPaintedIntoArt: 1
+  cardArt: {fileID: 7381869878930933662, guid: 951d62a4e6c56ad4da353b099aa17a97, type: 3}
+  nameIsPaintedIntoArt: 0
+  rarity: 2
   actionType: 11
   actionValue: 2
   singleUse: 0

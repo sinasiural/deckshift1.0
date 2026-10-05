@@ -1,0 +1,4 @@
+{
+    "dotnet.defaultSolution": "deckshift1.0.sln",
+    "dotnet.preferCSharpExtension": true
+}

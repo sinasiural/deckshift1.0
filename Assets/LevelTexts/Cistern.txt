@@ -1,0 +1,61 @@
+// The Cistern  (MEDIUM, 62x34)  -  built 2026-09-25
+//
+// A flooded hall crossed by aqueduct piers. SWIMMING COSTS NO SHIFT (PlayerController.EnterWater),
+// so the water is a whole route that is free - and that is what this room is about.
+//
+// THE DRY ROUTE: pier top to pier top, spawn shelf to exit shelf. Six 5-wide jumps = 6 Shift,
+//   two crystals on the piers refund two. Fast, and mostly out of the snipers' easy angles.
+// THE WET ROUTE: drop off the spawn shelf (free), swim under the piers' ARCHES (free), climb out
+//   onto the landing flush with the far surface (free), one rise-4 jump to the exit shelf. One
+//   Shift for the whole room. It is SLOW, and slow swimmers are what the spitter, the archer and
+//   the two bats are for: the wet route pays in HP what the dry route pays in Shift.
+// THE SUNKEN TREASURY: the card chest sits on the pool floor between two piers, with gold and two
+//   crystals around it and a spike pair guarding one pile. Only a swimmer can take it.
+//
+// ⚠️ The designer has said water "does not work great" (2026-09-25) and wants to fix it after
+//   judging these rooms. This room is the test bed for that: every water behaviour is on show.
+//
+// LAW 1: both routes are movement only (swimming is movement, not a card). LAW 2: every pier gap
+//   is 5 at the same height; the one rise is 4. LAW 3: nothing on the dry route drops you into
+//   anything worse than water, and the water is the other route. LAW 7: spawn (4,10) to exit
+//   (58,9) is 54 apart across open water - Phase has nothing to cut through, and there is no
+//   cost to skip that swimming doesn't already skip for free. LAW 8: the spawn shelf is empty;
+//   the nearest shooter is 31 tiles away.
+!name: Cistern
+!tier: medium
+!theme: cellar
+
+##############################################################
+##############################################################
+##..........................................................##
+##.................................s........................##
+##................................###.................r.....##
+##.................................................######...##
+##..........................................................##
+##..................................b.......................##
+##..........................................................##
+##........................................................X.##
+##..S..g................+.......g.......+..............#######
+##########.....###.....###.....###.....###.....###.....#######
+##########.....###.....###.....###.....###..b..###.....#######
+##.............###.....###.....###.....###.....###...z.#######
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~##########
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~##
+##~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
+##~~~~~~~~~~~~~###~~~~~###~~~~~###~~~~~###~~~~~###~~~~~~~~~~##
+##~~g~~~~~~~g~~###~~~~~###~~D~~###~~~~~###^^g~~###~~~~~~~~~~##
+##############################################################
+##############################################################

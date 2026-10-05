@@ -11,7 +11,9 @@ using Cainos.PixelArtMonster_Dungeon;
 // platform — same arc, different payload).
 // Still to come: phase transitions, the full acid system (flank pools → P3 rise), boss death/reward.
 [RequireComponent(typeof(EnemyHealth))]
-public class MossKnightBoss : MonoBehaviour
+// IBossFight is satisfied by the existing public StartFight() below — nothing else changed. It lets
+// the generic BossAwakenTrigger wake this boss too, so the two triggers can merge later.
+public class MossKnightBoss : MonoBehaviour, IBossFight
 {
     [Header("Fight Start")]
     [Tooltip("Sleep until a BossFightTrigger wakes him (place one over the arena platform). " +
@@ -145,6 +147,15 @@ public class MossKnightBoss : MonoBehaviour
     public int deathGoldCount = 14;
     [Tooltip("How many shift crystals erupt and scatter on death.")]
     public int deathCrystalCount = 5;
+
+    [Header("Death — the spoils")]
+    [Tooltip("Open the boss reward banner after the kill. Uncheck to drop loot only.")]
+    public bool offerBossRelic = true;
+    [Tooltip("How many boss relics the banner offers. Fewer than this are shown if fewer remain.")]
+    [Range(1, 4)] public int bossRelicChoices = 2;
+    [Tooltip("Seconds after the kill before the banner drops — long enough for the death " +
+             "celebration to land, short enough that it reads as one moment.")]
+    public float rewardDelay = 2.6f;
 
     [Header("Audio")]
     // All boss SFX play as 2D sound (always audible across the big arena); sliders go past 1 for headroom.
@@ -471,6 +482,8 @@ public class MossKnightBoss : MonoBehaviour
                                                  deathSound, deathVolume,
                                                  deathGoldCount, deathCrystalCount);
         }
+
+        if (offerBossRelic) BossRewardCue.Schedule(bossRelicChoices, rewardDelay);
     }
 
     // Casts down from the boss to find the floor loot should land on. Returns that floor's Y and sets

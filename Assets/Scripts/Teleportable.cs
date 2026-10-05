@@ -10,9 +10,14 @@ public class Teleportable : MonoBehaviour
     /// <summary>
     /// Bu fonksiyon Portal taraf�ndan �a�r�l�r.
     /// </summary>
-    public void TeleportTo(Vector3 targetPosition)
+    /// <returns>
+    /// True only if the teleport actually happened — false while on cooldown, which is most of the
+    /// frames an arrival spends standing inside the destination portal's trigger. Portal uses this
+    /// so its sound plays once per trip, not once per trigger contact.
+    /// </returns>
+    public bool TeleportTo(Vector3 targetPosition)
     {
-        if (!canTeleport) return;
+        if (!canTeleport) return false;
 
         // 1. Pozisyonu de�i�tir
         // Both the body and the transform: Physics2D.autoSyncTransforms is OFF, so a transform-only
@@ -29,6 +34,7 @@ public class Teleportable : MonoBehaviour
 
         // 2. Cooldown ba�lat (Hemen geri ���nlanmas�n)
         StartCoroutine(CooldownRoutine());
+        return true;
     }
 
     private IEnumerator CooldownRoutine()

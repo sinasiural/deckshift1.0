@@ -29,6 +29,9 @@ public class ScrapForgeScreen : MonoBehaviour
 
     private CanvasGroup group;
     private RectTransform window;
+    // The plank surface. Held because the window RESIZES to its content, and the board has to be
+    // re-cut rather than stretched — see SalvageScreen.ResizeBoard for why.
+    private Image boardFace;
     private Transform repairRow, salvageRow;
     private TMP_Text titleText, scrapText, repairLabel, salvageLabel, confirmLabel;
     private RectTransform confirmBar;
@@ -51,7 +54,11 @@ public class ScrapForgeScreen : MonoBehaviour
     // HEIGHT IS DYNAMIC (see LayoutSections): a section with no cards collapses to a single line
     // of explanatory text, and the window shrinks to match. Early in a run nothing is damaged and
     // nothing is exhausted, so the all-empty state is common and must not be a tall grey void.
-    private const float WIN_W = 1180f;
+    // ⚠️ 900, NOT 1180. The layout faults on this screen all came from one number: at 1180 a row of
+    // two cards occupied a third of the panel and the rest was bare planks, and the left iron strap
+    // (PlankBoard puts them at 5.5%% / 94.5%%) landed right where the first card column started.
+    // Narrowing fixes the emptiness AND moves the straps clear of the content in one change.
+    private const float WIN_W = 900f;
     private const float PAD = 44f;
     private const float ROW_W = WIN_W - PAD * 2f, ROW_H = 205f, EMPTY_ROW_H = 38f;
     // A chip is now THE CARD FACE plus a price strip under it, so the cost and charges the player
@@ -115,18 +122,31 @@ public class ScrapForgeScreen : MonoBehaviour
         Stretch(GetComponent<RectTransform>());
         group = gameObject.AddComponent<CanvasGroup>();
 
-        Image backdrop = AddImage(transform, "Backdrop", null, FlatUI.Backdrop, true);
+        Image backdrop = AddImage(transform, "Backdrop", null, new Color(0.020f, 0.017f, 0.015f, 1f), true);
         Stretch(backdrop.rectTransform);
         Button backBtn = backdrop.gameObject.AddComponent<Button>();
         backBtn.transition = Selectable.Transition.None;
         backBtn.onClick.AddListener(Hide);
 
+        // Just the wall the levels use. No room dressing: the hearth, anvil, hammers and stock were
+        // tried and cut (designer, 2026-08-21) — "no background images, only the same backwall we use
+        // for the levels would be enough. lets keep the forge screen simple enough for now."
+        SalvageScreen.BuildWall(transform);
+
+        // ⚠️ THE FORGE DOES NOT HANG. Pause and Settings are boards dropped in front of you on
+        // chains; a workbench is a thing you walk up to, and hanging an anvil would be absurd. This
+        // is the same plank-and-iron material standing on its own, which is exactly the variety the
+        // system is for — one material family, a different object per screen. Do not "unify" this by
+        // putting it on chains.
+        //
+        // The screen's own original idea survives intact and is the reason it needed the least
+        // changing: firelight from BELOW, embers rising. That is a forge, and it was right.
         window = AddPoint(transform, "Window", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(WIN_W, 600f));
-        Image winBg = window.gameObject.AddComponent<Image>();
-        winBg.sprite = FlatUI.Panel(10);
-        winBg.type = Image.Type.Sliced;
-        winBg.color = FlatUI.Surface;
-        winBg.raycastTarget = true;
+        boardFace = window.gameObject.AddComponent<Image>();
+        boardFace.sprite = SalvageSurfaces.PlankBoard(Salvage.Tex(WIN_W), Salvage.Tex(600f));
+        boardFace.type = Image.Type.Simple;
+        boardFace.color = Color.white;
+        boardFace.raycastTarget = true;
 
         // Forge fire under the bench: a warm wash rising off the BOTTOM edge. Flipped by scaling
         // Y negative about a centred pivot, so the fade's opaque end sits at the bottom.
@@ -137,7 +157,7 @@ public class ScrapForgeScreen : MonoBehaviour
         // reused VerticalFade inset from the sides, and because that sprite has hard left/right
         // ends it drew a visible vertical seam down both edges of the window.
         Image ember = AddImage(window, "Ember", FlatUI.BottomGlow(),
-            new Color(FlatUI.Ember.r, FlatUI.Ember.g, FlatUI.Ember.b, 0.055f), false);
+            new Color(Salvage.Torch.r, Salvage.Torch.g, Salvage.Torch.b, 0.055f), false);
         ember.rectTransform.anchorMin = new Vector2(0f, 0f);
         ember.rectTransform.anchorMax = new Vector2(1f, 0f);
         ember.rectTransform.pivot = new Vector2(0.5f, 0f);
@@ -148,13 +168,10 @@ public class ScrapForgeScreen : MonoBehaviour
         // here so it sits above the glow but beneath every label, card and button added later.
         UIEmberField.Attach(window, 18, new Color(1f, 0.62f, 0.30f, 1f), UIEmberField.Settings.Embers);
 
-        Image winFrame = AddImage(window, "Frame", FlatUI.Outline(10, 2), FlatUI.Border, false);
-        winFrame.type = Image.Type.Sliced;
-        Stretch(winFrame.rectTransform);
 
         // Light catches the TOP LIP only. A uniformly bright border reads as a UI widget; light
         // coming from one direction reads as a physical plate sitting on a bench.
-        Image lip = AddImage(window, "TopLip", FlatUI.Pixel(), FlatUI.EdgeLight, false);
+        Image lip = AddImage(window, "TopLip", FlatUI.Pixel(), Salvage.Lit(Salvage.Ramp("wood").Sample(1f), 1.7f), false);
         lip.rectTransform.anchorMin = new Vector2(0f, 1f);
         lip.rectTransform.anchorMax = new Vector2(1f, 1f);
         lip.rectTransform.pivot = new Vector2(0.5f, 1f);
@@ -165,7 +182,7 @@ public class ScrapForgeScreen : MonoBehaviour
         AddRivets();
 
         titleText = AddText(window, "Title", new Vector2(0f, 1f), new Vector2(PAD, -34f), new Vector2(600f, 52f),
-            "THE FORGE", 38f, FontStyles.Bold, FlatUI.TextBright, TextAlignmentOptions.TopLeft);
+            "THE FORGE", 38f, FontStyles.Bold, Salvage.TextBright, TextAlignmentOptions.TopLeft);
         titleText.characterSpacing = 6f;
 
         scrapText = AddText(window, "Scrap", new Vector2(1f, 1f), new Vector2(-PAD - 40f, -36f), new Vector2(420f, 46f),
@@ -176,16 +193,18 @@ public class ScrapForgeScreen : MonoBehaviour
         // Hairline under the header, so the title reads as a header rather than floating text.
         AddDivider(-HEADER_RULE_Y);
 
-        repairLabel = AddText(window, "RepairLabel", new Vector2(0f, 1f), new Vector2(PAD, 0f), new Vector2(ROW_W, 30f),
-            "", 19f, FontStyles.Bold, FlatUI.TextMuted, TextAlignmentOptions.TopLeft);
+        // ⚠️ BRIGHT AND CENTRED. These were TextMuted, left-aligned — mid-brown text on mid-brown
+        // planks, which on screen simply was not there.
+        repairLabel = AddText(window, "RepairLabel", new Vector2(0.5f, 1f), Vector2.zero, new Vector2(ROW_W, 30f),
+            "", 19f, FontStyles.Bold, Salvage.TextBright, TextAlignmentOptions.Top);
         repairLabel.characterSpacing = 4f;
         repairRowRT = BuildRow("RepairRow", 0f);
         repairRow = repairRowRT;
 
         sectionRule = AddDivider(0f);
 
-        salvageLabel = AddText(window, "SalvageLabel", new Vector2(0f, 1f), new Vector2(PAD, 0f), new Vector2(ROW_W, 30f),
-            "", 19f, FontStyles.Bold, FlatUI.TextMuted, TextAlignmentOptions.TopLeft);
+        salvageLabel = AddText(window, "SalvageLabel", new Vector2(0.5f, 1f), Vector2.zero, new Vector2(ROW_W, 30f),
+            "", 19f, FontStyles.Bold, Salvage.TextBright, TextAlignmentOptions.Top);
         salvageLabel.characterSpacing = 4f;
         salvageRowRT = BuildRow("SalvageRow", 0f);
         salvageRow = salvageRowRT;
@@ -198,7 +217,7 @@ public class ScrapForgeScreen : MonoBehaviour
     private RectTransform AddDivider(float y)
     {
         // Scored line that fades out at both ends, rather than a rule running edge to edge.
-        Image d = AddImage(window, "Divider", FlatUI.FadedRule(), FlatUI.BorderSoft, false);
+        Image d = AddImage(window, "Divider", FlatUI.FadedRule(), Salvage.Lit(Salvage.Ramp("wood").Sample(0.18f)), false);
         d.rectTransform.anchorMin = d.rectTransform.anchorMax = new Vector2(0.5f, 1f);
         d.rectTransform.pivot = new Vector2(0.5f, 1f);
         d.rectTransform.anchoredPosition = new Vector2(0f, y);
@@ -262,7 +281,7 @@ public class ScrapForgeScreen : MonoBehaviour
     private void LayoutSections(float repairH, float salvageH)
     {
         float y = HEADER_RULE_Y + LABEL_GAP;
-        repairLabel.rectTransform.anchoredPosition = new Vector2(PAD, -y);
+        repairLabel.rectTransform.anchoredPosition = new Vector2(0f, -y);
 
         y += ROW_GAP;
         repairRowRT.anchoredPosition = new Vector2(0f, -y);
@@ -272,7 +291,7 @@ public class ScrapForgeScreen : MonoBehaviour
         sectionRule.anchoredPosition = new Vector2(0f, -y);
 
         y += LABEL_GAP;
-        salvageLabel.rectTransform.anchoredPosition = new Vector2(PAD, -y);
+        salvageLabel.rectTransform.anchoredPosition = new Vector2(0f, -y);
 
         y += ROW_GAP;
         salvageRowRT.anchoredPosition = new Vector2(0f, -y);
@@ -281,7 +300,13 @@ public class ScrapForgeScreen : MonoBehaviour
         y += salvageH + BAR_GAP;
         confirmBarRT.anchoredPosition = new Vector2(0f, -y);
 
-        window.sizeDelta = new Vector2(WIN_W, y + BAR_H + BOTTOM_PAD);
+        float winH = y + BAR_H + BOTTOM_PAD;
+        window.sizeDelta = new Vector2(WIN_W, winH);
+        // ⚠️ RE-CUT, NOT STRETCHED. Letting the Image scale a generated plank texture smears the
+        // grain and skews the bolts, so the surface stops being 1:1 with the game.s pixels — the one
+        // thing Law 1 exists to guarantee. PlankBoard caches by size, so a height used before is free.
+        if (boardFace != null)
+            boardFace.sprite = SalvageSurfaces.PlankBoard(Salvage.Tex(WIN_W), Salvage.Tex(winH));
     }
 
     // A plain X in the corner. The old version was a red gem in an ornate setting, which drew more
@@ -292,7 +317,10 @@ public class ScrapForgeScreen : MonoBehaviour
         RectTransform rt = AddPoint(window, "Close", new Vector2(1f, 1f), new Vector2(-PAD * 0.5f, -PAD * 0.5f), new Vector2(sz, sz));
         rt.pivot = new Vector2(1f, 1f);
 
-        Image hit = AddImage(rt, "Hit", FlatUI.Panel(5), new Color(1f, 1f, 1f, 0.05f), true);
+        // ⚠️ IRON, NOT WHITE-AT-5%%. In linear colour space that white composited into a bright, cool
+        // grey plate — the only cold light object on a warm screen, so the eye went straight to the
+        // least important control on it.
+        Image hit = AddImage(rt, "Hit", FlatUI.Panel(5), Salvage.Lit(Salvage.Ramp("iron").Sample(0.10f), 0.75f), true);
         hit.type = Image.Type.Sliced;
         Stretch(hit.rectTransform);
 
@@ -302,7 +330,7 @@ public class ScrapForgeScreen : MonoBehaviour
         btn.onClick.AddListener(Hide);
 
         AddText(rt, "X", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(sz, sz),
-            "X", 20f, FontStyles.Bold, FlatUI.TextMuted, TextAlignmentOptions.Center);
+            "X", 20f, FontStyles.Bold, Salvage.TextMuted, TextAlignmentOptions.Center);
     }
 
     // ⚠️ ROWS WRAP. They used to be a single HorizontalLayoutGroup that shrank the cards to fit
@@ -323,8 +351,11 @@ public class ScrapForgeScreen : MonoBehaviour
         // Left-aligned, indented to line up under the section label. Centring the cards instead
         // left the whole left half of the window empty, which read as a broken layout when only
         // one or two cards were listed.
-        g.childAlignment = TextAnchor.UpperLeft;
-        g.padding = new RectOffset(4, 0, 0, 0);
+        // ⚠️ CENTRED. This was UpperLeft, with a comment saying centring "left the whole left half of
+        // the window empty" — true at 1180 wide, and the wrong fix for it. With the panel narrowed to
+        // 900 the row reads as deliberate at any count from one card to five.
+        g.childAlignment = TextAnchor.UpperCenter;
+        g.padding = new RectOffset(0, 0, 0, 0);
         g.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         g.constraintCount = 1;   // recomputed per refresh in BuildCards
         return rt;
@@ -366,15 +397,15 @@ public class ScrapForgeScreen : MonoBehaviour
         confirmBg = confirmBar.gameObject.AddComponent<Image>();
         confirmBg.sprite = FlatUI.Panel(5);
         confirmBg.type = Image.Type.Sliced;
-        confirmBg.color = FlatUI.SurfaceRaised;
+        confirmBg.color = Salvage.Lit(Salvage.Ramp("wood").Sample(0.62f));
         confirmBg.raycastTarget = true;
 
-        confirmOutline = AddImage(confirmBar, "Outline", FlatUI.Outline(5, 2), FlatUI.BorderSoft, false);
+        confirmOutline = AddImage(confirmBar, "Outline", FlatUI.Outline(5, 2), Salvage.Lit(Salvage.Ramp("wood").Sample(0.18f)), false);
         confirmOutline.type = Image.Type.Sliced;
         Stretch(confirmOutline.rectTransform);
 
         confirmLabel = AddText(confirmBar, "Label", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(596f, 54f),
-            "", 21f, FontStyles.Bold, FlatUI.TextDisabled, TextAlignmentOptions.Center);
+            "", 21f, FontStyles.Bold, Salvage.TextFaint, TextAlignmentOptions.Center);
 
         confirmButton = confirmBar.gameObject.AddComponent<Button>();
         confirmButton.transition = Selectable.Transition.None;
@@ -487,11 +518,13 @@ public class ScrapForgeScreen : MonoBehaviour
         GridLayoutGroup g = row.GetComponent<GridLayoutGroup>();
         if (g != null) g.enabled = false;
 
-        RectTransform rt = AddPoint(row, "Empty", new Vector2(0f, 1f), Vector2.zero, new Vector2(ROW_W - 8f, EMPTY_ROW_H));
-        rt.anchoredPosition = new Vector2(4f, 0f);
+        // ⚠️ Centred, to match the card rows and the section labels. Left-aligned it was the one
+        // ragged edge on an otherwise centred panel, and it is a COMMON state — early in a run
+        // nothing is damaged and nothing is exhausted, so this line is what the screen usually shows.
+        RectTransform rt = AddPoint(row, "Empty", new Vector2(0.5f, 1f), Vector2.zero, new Vector2(ROW_W - 8f, EMPTY_ROW_H));
 
-        TMP_Text t = AddText(rt, "Text", new Vector2(0f, 1f), new Vector2(2f, -4f), new Vector2(ROW_W - 12f, 28f),
-            message, 16f, FontStyles.Italic, FlatUI.TextDisabled, TextAlignmentOptions.TopLeft);
+        TMP_Text t = AddText(rt, "Text", new Vector2(0.5f, 1f), new Vector2(0f, -4f), new Vector2(ROW_W - 12f, 28f),
+            message, 16f, FontStyles.Italic, Salvage.TextMuted, TextAlignmentOptions.Top);
     }
 
     // Returns how tall the section ended up, so LayoutSections can place what follows it.
@@ -604,9 +637,9 @@ public class ScrapForgeScreen : MonoBehaviour
         if (selected == null)
         {
             confirmLabel.text = "SELECT A CARD";
-            confirmLabel.color = FlatUI.TextDisabled;
-            confirmBg.color = FlatUI.SurfaceRaised;
-            confirmOutline.color = FlatUI.BorderSoft;
+            confirmLabel.color = Salvage.TextFaint;
+            confirmBg.color = Salvage.Lit(Salvage.Ramp("wood").Sample(0.06f), 0.85f);
+            confirmOutline.color = Salvage.Lit(Salvage.Ramp("wood").Sample(0.18f));
             confirmButton.interactable = false;
             return;
         }
@@ -615,7 +648,7 @@ public class ScrapForgeScreen : MonoBehaviour
         int cost = selectedMode == Mode.Repair ? ScrapEconomy.RechargeCost(selected) : ScrapEconomy.SALVAGE_COST;
         bool canAfford = scrap >= cost;
 
-        int maxUses = selected.cardData != null ? selected.cardData.maxUses : 0;
+        int maxUses = selected.cardData != null ? selected.MaxUses : 0;
         if (selectedMode == Mode.Repair)
             confirmLabel.text = $"REPAIR {cardName} TO {maxUses}/{maxUses}   ·   {cost} SCRAP";
         else
@@ -625,7 +658,7 @@ public class ScrapForgeScreen : MonoBehaviour
         confirmLabel.color = canAfford ? accent : new Color(0.55f, 0.38f, 0.35f);
         // Actionable state is carried by an accent outline and a faint accent wash rather than a
         // loud filled button — reads as clearly clickable without shouting.
-        confirmBg.color = canAfford ? new Color(accent.r * 0.22f, accent.g * 0.18f, accent.b * 0.16f, 1f) : FlatUI.SurfaceRaised;
+        confirmBg.color = canAfford ? new Color(accent.r * 0.22f, accent.g * 0.18f, accent.b * 0.16f, 1f) : Salvage.Lit(Salvage.Ramp("wood").Sample(0.06f), 0.85f);
         confirmOutline.color = canAfford ? accent : new Color(0.34f, 0.26f, 0.25f, 1f);
         confirmButton.interactable = canAfford;
     }

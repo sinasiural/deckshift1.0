@@ -672,7 +672,8 @@ public static class ScreenGallery
     // Game View sizing
     // =====================================================================================
 
-    private static class GameViewSizer
+    // Internal (not private): TrailerWindow drives the Game View to 1920x1080 through it too.
+    internal static class GameViewSizer
     {
         private static readonly Assembly EdAsm = typeof(Editor).Assembly;
         private static Type TSizes { get { return EdAsm.GetType("UnityEditor.GameViewSizes"); } }

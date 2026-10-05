@@ -17,6 +17,7 @@ MonoBehaviour:
     it, and you cannot discard it.
   cardArt: {fileID: -3248299822247759194, guid: 8c6322ffe39e5cc4386d324a6a8eabba, type: 3}
   nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 14
   actionValue: 0
   singleUse: 0

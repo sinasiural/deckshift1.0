@@ -8,6 +8,63 @@ public class PlayerHealth : MonoBehaviour
     public float maxHealth = 100f;
     public bool isInvincible = false;
 
+    // ============================================================================================
+    // ARMOUR — a second pool that sits ON TOP of health and empties first.
+    //
+    // Introduced with the Samurai (whose "Full Plate" trait grants 5 on entering every combat room
+    // and lets it stack across rooms), but it is a GAME system, not a character one: relics, cards
+    // and blessings are expected to grant and spend it later. Rules, each load-bearing:
+    //
+    //  - No regeneration and no cap. Sources add; damage takes. Nothing refills it on its own —
+    //    the same philosophy as Shift.
+    //  - Damage order is ARMOUR -> HP, always, and it happens in ONE place (ApplyDamage) so no
+    //    future damage source can forget it.
+    //  - ⚠️ A HIT ABSORBED BY ARMOUR IS STILL A HIT. The hurt animation plays, OnDamaged fires with
+    //    the FULL incoming size, knockback applies, the flawless-clear payout is lost and oaths
+    //    break. Armour changes what a hit COSTS, never whether it happened — otherwise every
+    //    "took no damage" consumer in the project (tookDamageThisRoom, RelicManager.OnPlayerTakeDamage,
+    //    the NoDamageRoom quest type, Glass cards reading low HP) silently changes meaning the
+    //    moment anybody is holding 1 Armour.
+    //  - ⚠️ Stagger's blood price BYPASSES it — see PayHealthCost.
+    // ============================================================================================
+    [Header("Armour")]
+    [Tooltip("A hit that lands on Armour always absorbs up to the armour value. This decides what " +
+             "happens to the REMAINDER: off = chip (the rest survives, so it stacks across rooms " +
+             "for a player who is never touched); on = shatter (any hit at all empties it).")]
+    public bool armourShatters = false;
+
+    private float armour = 0f;
+    public float Armour => armour;
+
+    /// <summary>Fires whenever the armour pool changes, carrying the new total. Drives the HUD bar.</summary>
+    public event System.Action<float> OnArmourChanged;
+
+    /// <summary>Adds to the armour pool. The only way in; there is no setter and no maximum.</summary>
+    public void AddArmour(float amount)
+    {
+        if (isDead || amount <= 0f) return;
+        armour += amount;
+        OnArmourChanged?.Invoke(armour);
+    }
+
+    /// <summary>
+    /// Takes armour away WITHOUT it being a hit: no hurt, no OnDamaged. For armour that was only ever
+    /// temporary — Brace's block fades when the brace ends.
+    /// </summary>
+    public void RemoveArmour(float amount)
+    {
+        if (amount <= 0f || armour <= 0f) return;
+        armour = Mathf.Max(0f, armour - amount);
+        OnArmourChanged?.Invoke(armour);
+    }
+
+    /// <summary>
+    /// True only while PayHealthCost is running, i.e. while OnDamaged is reporting a price the player
+    /// CHOSE to pay (Stagger's bill) rather than a hit. Listeners that reward being hit — Brace pays
+    /// Shift per hit — must ignore it, or paying Stagger would pay you back.
+    /// </summary>
+    public bool IsPayingCost { get; private set; }
+
     [Header("Audio")]
     [SerializeField] AudioClip hurtSound;
     [SerializeField] AudioClip deathSound;
@@ -25,13 +82,67 @@ public class PlayerHealth : MonoBehaviour
     // The unmodified max HP, captured before any relic touches it. Relic passives are always
     // recomputed from THIS (see RelicManager.RecomputePassives) so selling a relic reverses it
     // exactly, regardless of what order relics were gained or sold in.
-    public float BaseMaxHealth => baseMaxHealth;
+    //
+    // It includes the CHARACTER's max-HP bonus (the Ninja's −20), read live off the character rather
+    // than baked into baseMaxHealth, so it sits under every relic and quest bonus the same way.
+    public float BaseMaxHealth => Mathf.Max(1f, baseMaxHealth + CharacterHealthBonus);
+
+    private float CharacterHealthBonus =>
+        playerController != null && playerController.character != null
+            ? playerController.character.maxHealthBonus : 0f;
 
     // --- Glass Parry window (opened by PlayerController.GlassParryRoutine) ---
     // The first hit that lands inside the window is negated entirely and flips
     // ParryTriggered instead of dealing damage; the routine watches that flag.
     private bool parryWindowActive = false;
     public bool ParryTriggered { get; private set; }
+
+    // ============================================================================================
+    // THE NINJA'S "OLD LOG TRICK" (designer, 2026-10-02)
+    //
+    // The first hit he would take in each room misses: he vanishes in a puff of smoke, leaves a log
+    // where he stood, and for VANISH_SECONDS nothing can hurt him and no enemy can see him.
+    //
+    //  - ⚠️ A DODGED HIT IS A MISS, NOT A HIT — the same ruling as Glass Parry: no damage, no hurt
+    //    animation, no knockback, no OnDamaged, so it does not cost a flawless clear or break an oath.
+    //    Armour is the opposite case on purpose: armour changes what a hit COSTS, this decides that
+    //    there was no hit.
+    //  - It is checked AFTER the parry window, so a parry still gets its payoff and the trick is kept.
+    //  - Stagger's bill can never spend it: that goes through PayHealthCost, not TakeDamage.
+    //  - ⚠️ ITS OWN TIMER, NOT isInvincible. That bool is shared by the dash, Phoenix Cog and the
+    //    tutorial, each of which sets it and clears it; whichever ended first would cut the others
+    //    short.
+    // ============================================================================================
+    public const float VANISH_SECONDS = 1.5f;
+    private bool logTrickReady;
+    private float vanishedUntil = -1f;
+
+    // Enemies hold the player's Transform, not this component, so they ask through these statics
+    // (see EnemySenses). Reset in Awake: a static outlives a scene load, and Time.time starts again
+    // at zero in a new play session, so a stale value could otherwise hide the player at startup.
+    private static Transform hiddenPlayer;
+    private static float hiddenUntil = -1f;
+
+    public static bool IsHidden(Transform t) => t != null && t == hiddenPlayer && Time.time < hiddenUntil;
+    public bool IsVanished => Time.time < vanishedUntil;
+
+    /// <summary>Arms the trick for this room. PlayerController.OnNewRoomEnter calls it for a
+    /// character that has it.</summary>
+    public void ReadyLogTrick() { logTrickReady = true; }
+
+    private void Vanish()
+    {
+        logTrickReady = false;
+        vanishedUntil = Time.time + VANISH_SECONDS;
+        hiddenPlayer = transform;
+        hiddenUntil = vanishedUntil;
+
+        CharacterData who = playerController != null ? playerController.character : null;
+        VanishVFX.Play(transform.position, who != null ? who.vanishDecoy : null);
+        if (playerController != null) playerController.PlayVanish(VANISH_SECONDS);
+        SfxManager.PlayOn(audioSource, ProcSfx.NinjaBlink);
+        RunStats.Note("Old Log Trick: a hit missed");
+    }
 
     public void BeginParryWindow() { parryWindowActive = true; ParryTriggered = false; }
 
@@ -57,6 +168,8 @@ public class PlayerHealth : MonoBehaviour
         audioSource = GetComponent<AudioSource>();
         playerController = GetComponent<PlayerController>();
         baseMaxHealth = maxHealth;
+        hiddenPlayer = null;
+        hiddenUntil = -1f;
     }
 
     // Applied by relic passives (RelicManager.RecomputePassives). Clamp-only, deliberately:
@@ -90,12 +203,18 @@ public class PlayerHealth : MonoBehaviour
 
     void Start()
     {
+        // The bar starts at the character's max (the Ninja's 80), with any relics on top. In Start,
+        // not Awake: PlayerController.Awake is what picks the character, and the order of Awakes on
+        // one GameObject is not defined.
+        SetMaxHealth(BaseMaxHealth);
+        if (RelicManager.instance != null) RelicManager.instance.RecomputePassives();
         currentHealth = maxHealth;
     }
 
     public void TakeDamage(float damage)
     {
         if (isInvincible || isDead) return;
+        if (IsVanished) return;   // still in the smoke: everything misses
 
         // Glass Parry: the hit shatters on the glass — no damage, no hurt anim,
         // no OnDamaged. One hit per window; the parry routine handles the payoff.
@@ -104,6 +223,22 @@ public class PlayerHealth : MonoBehaviour
             ParryTriggered = true;
             return;
         }
+
+        // The Old Log Trick: the first real hit of the room finds only a log. See Vanish.
+        if (logTrickReady && damage > 0f)
+        {
+            Vanish();
+            return;
+        }
+
+        // Relic scaling on damage TAKEN (Paper Skin, Odd Socket).
+        //
+        // ⚠️ HERE, NOT IN ApplyDamage. PayHealthCost also routes through ApplyDamage, and that is
+        // Stagger's bill — a price the player CHOSE to pay, not a hit. Scaling it there would make
+        // Paper Skin quietly raise the cost of Stagger by 50%, which is not what it says it does.
+        // Sitting after the invincibility and parry returns also means a hit that deals nothing
+        // stays nothing.
+        if (RelicManager.instance != null) damage = RelicManager.instance.ModifyIncomingDamage(damage);
 
         ApplyDamage(damage);
     }
@@ -118,15 +253,36 @@ public class PlayerHealth : MonoBehaviour
     //
     // It can still kill, and Phoenix Cog can still save you from it: paying more than you have is
     // exactly the fail state Stagger is supposed to be.
+    // ⚠️ AND IT BYPASSES ARMOUR, for the same family of reason. Stagger's bill is the fail state —
+    // the price of having spent Shift you did not have. Paying it out of armour would make Stagger
+    // free for exactly the character who stacks armour, and "sometimes free" is worse than either.
     public void PayHealthCost(float amount)
     {
         if (isDead || amount <= 0f) return;
-        ApplyDamage(amount);
+        IsPayingCost = true;
+        try { ApplyDamage(amount, ignoreArmour: true); }
+        finally { IsPayingCost = false; }
     }
 
-    private void ApplyDamage(float damage)
+    private void ApplyDamage(float damage, bool ignoreArmour = false)
     {
+        // Captured before armour eats any of it — this is what OnDamaged reports.
+        float incoming = damage;
+
+        // ARMOUR FIRST. The absorbed part never reaches health; only the remainder does.
+        // Both modes absorb identically — they differ only in what happens to what is LEFT.
+        if (!ignoreArmour && armour > 0f && damage > 0f)
+        {
+            float absorbed = Mathf.Min(armour, damage);
+            damage -= absorbed;
+            armour = armourShatters ? 0f : armour - absorbed;
+            OnArmourChanged?.Invoke(armour);
+        }
+
+        float before = currentHealth;
         currentHealth = Mathf.Max(currentHealth - damage, 0f);
+        // ignoreArmour is only ever set by PayHealthCost, i.e. Stagger's bill.
+        RunStats.NoteDamage(before - currentHealth, ignoreArmour, currentHealth);
 
         SfxManager.PlayOn(audioSource, hurtSound);
 
@@ -134,10 +290,24 @@ public class PlayerHealth : MonoBehaviour
 
         Debug.Log($"Hasar Alındı! Kalan Can: {currentHealth}");
 
-        OnDamaged?.Invoke(damage);
+        // ⚠️ Fires even when armour ate the whole hit, and carries the hit's FULL size. See the
+        // Armour header: a hit is a hit. Every consumer of this event is asking "was the player
+        // struck", not "did the health number move".
+        OnDamaged?.Invoke(incoming);
 
         if (currentHealth <= 0)
         {
+            // The tutorial has no game over: a lethal hit (or an unaffordable Stagger bill) puts the
+            // player back at the last sign they passed, healed. Losing the whole tutorial to one
+            // zombie would teach nothing except that the tutorial is a chore.
+            if (LevelManager.instance != null && LevelManager.instance.IsCurrentRoomTutorial())
+            {
+                currentHealth = maxHealth;
+                FallAndRespawn();
+                StartCoroutine(GrantInvincibility(1f));
+                return;
+            }
+
             // Phoenix Cog: once per run, a lethal hit leaves you at 1 HP and erupts instead.
             if (RelicManager.instance != null && RelicManager.instance.TryConsumePhoenixCog())
             {
@@ -194,7 +364,12 @@ public class PlayerHealth : MonoBehaviour
     private IEnumerator WaitAndReload()
     {
         yield return new WaitForSeconds(1.5f);
-        SceneManager.LoadScene("GameOverScene");
+        RunStats.Note("Died");
+
+        // The run summary drops in over the room where it happened. The old GameOverScene is kept
+        // only as the fallback for a scene with no canvas to build it on.
+        if (!RunSummaryScreen.ShowDefeat())
+            SceneManager.LoadScene("GameOverScene");
     }
 
     public void ApplyKnockback(Vector2 knockbackForce)
@@ -203,6 +378,8 @@ public class PlayerHealth : MonoBehaviour
         // doesn't get shoved — a parried hit that still knocked you into spikes
         // would make the negation feel like a lie.
         if (parryWindowActive || ParryTriggered) return;
+        // Same for the Old Log Trick: the shove belongs to the hit, and the hit hit a log.
+        if (IsVanished) return;
 
         OnKnockback?.Invoke(knockbackForce);
         StartCoroutine(KnockbackRoutine(knockbackForce));

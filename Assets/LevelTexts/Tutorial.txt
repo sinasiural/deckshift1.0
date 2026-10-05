@@ -1,0 +1,59 @@
+// TUTORIAL - the first room a new player sees. Built by Deckshift > Build Tutorial Room, which
+// imports this file AND dresses the result (signs, checkpoints, the kill-gates, the Shift drain).
+// Re-run that menu item after editing; do not hand-edit the built prefab, the builder replaces it.
+//
+// Digits are SIGN ANCHORS ('1'-'9' = signs 1-9, '0' = sign 10): the importer treats them as air,
+// the builder puts a chalk sign there (and a checkpoint). Each !signN line is "KEYS | caption";
+// KEYS may be empty. A run of '%' is the Shift drain (TutorialShiftDrain), lying on that floor.
+//
+// TUTORIAL-ONLY EXCEPTION TO LAW 1 (designer, 2026-09-24): the two kill-gates and the tall wall
+// require a card. The 2-wide trenches keep each zombie in its own section: MeleeEnemyAI will not
+// step off a drop deeper than ~1 tile, but a Fireball flies straight across.
+//
+// Layout, left to right: 1 walk / 2 jump (hill) / 3 crystal / 4 cast a card (zombie + gate) /
+// 5 recall, then a movement card (8-tall wall) / 6 what a card's numbers mean (two zombies + gate) /
+// 7 altar + gate / 8 look ahead / drop into 10 the Stagger pit (the drain takes all Shift, Stagger
+// appears, +2 Shift jumps you out) / crystals / 9 exit.
+//
+// !deck is "opening hand | held back", dealt in that order and never shuffled (2026-10-02). Played
+// cards stay in the hand, so the Wizard holds her whole 4-card deck and a Recall would show nothing;
+// holding Create Platform back is what makes the wall at sign 5 the Recall lesson. Nothing in the
+// opening hand may be able to climb that wall (no Leap), or the lesson can be skipped.
+//
+// Keep sign anchors >= 5 tiles from a gate: an open gate's arch is wider than its one-tile cell and
+// draws over the chalk (sign 7 lost its first word that way). Walls above gates are two tiles thick
+// so the importer paints them as masonry; one tile thick reads as a thin brick chimney.
+
+!name: Tutorial
+// Built before automatic dressing and stepped corners existed (2026-09-25). Keep it exactly as designed.
+!dress: off
+!chamfer: off
+!deck: Fireball, Fireball, Dash, Shuriken | Create Platform
+!sign1: A D | Walk. Take your time: nothing in here bites yet.
+!sign2: SPACE | Jump. Every jump costs 1 SHIFT, the counter at the top left. Shift does NOT come back on its own.
+!sign3: | Grab the crystal. Crystals give Shift back, and so do wells.
+!sign4: 1 2 3 4 L-CLICK R-CLICK | Pick a card with 1-4, left-click to cast it, right-click to put it back. That zombie is holding the gate shut.
+!sign5: R | Too tall to jump, and the card that climbs it is still in your deck. RECALL swaps your hand for new cards (it costs Shift). Then cast CREATE PLATFORM beside the wall.
+!sign6: | Cards stay in your hand. The RED number is a card's CHARGES: each cast spends one, and at zero the card burns out. The BLUE number is its SHIFT cost.
+!sign7: E | Use things. This altar opens the gate, for a price in Shift.
+!sign8: CTRL | Hold and aim the mouse to look around. Look down before you drop: something is waiting.
+!sign10: | This crack drinks Shift. At zero, a STAGGER card appears in your hand: it buys 2 Shift with your health, and costs more each time. Play it, then jump out.
+!sign9: E M ESC | Leave through the arch. In a real run, M shows your route and ESC pauses.
+################################################################################################################################################################################
+#.....................................................................##................................##...........##........................................................#
+#.....................................................................##................................##...........##........................................................#
+#.....................................................................##................................G............G.........................................................#
+#.....................................................................##................................G............G.........................................................#
+#.....................................................................##................................G............G.........................................................#
+#.....................................................................##.............6.........z..z.....G.....7...A..G....8....................................................#
+#.....................................................................##........##########..#####################################..............................................#
+#.....................................................................##........##########..#####################################..............................................#
+#.....................................................................##........#################################################..............................................#
+#.....................................................................##........#################################################...................+.+.+......................#
+#...........................######............+.......................G.........#################################################...........................g.....9.......X....#
+#...........................######....................................G.........#################################################................###############################
+#......................##############.................................G.........#################################################................###############################
+#..S...1.........2.....##############.....3.......4.............z.....G.....5...#################################################....0.%%%%%%%%..###############################
+#########################################################..#####################################################################################################################
+#########################################################..#####################################################################################################################
+################################################################################################################################################################################

@@ -1,0 +1,53 @@
+// The Gallows  (MEDIUM, 80x26)  -  built 2026-09-28
+//
+// A prison gallery: a walkway of stone slabs and GALLOWS TRAPDOORS hung by chains over the
+// OUBLIETTE. A trapdoor holds while you walk across it and drops you 0.4s after you stop on it
+// (Trapdoor.cs; it only counts the player). So the walkway is the cheapest road in the room -
+// zero Shift, end to end - for as long as you never stand still.
+//
+// WHAT MAKES YOU STOP: every slab past the first holds a prisoner (shambler, Rotbrute, skeleton)
+//   who walks out onto the trapdoors to meet you, and enemy bodies block the player (mass 500).
+//   Meet one on a span and you stop. So: kill it at range (a card charge), hop over it (1 Shift),
+//   or drop. A bat and a spitter on the far landing add knockback to the nerves. Trapdoors are on
+//   the Ground layer and zombies have gravity, so a prisoner standing on YOUR trapdoor when it opens
+//   goes down with you.
+// THE OUBLIETTE: a long dungeon floor full of prisoners, with the RELIC CHEST in the middle. The
+//   only way out is the climb at the east end: 3 jumps, two crystals on the way (net 1 Shift). A
+//   fall is a detour, never a death - and a player who wants the chest drops in on purpose.
+//
+// LAW 1: the validator reads every trapdoor as a hole; the exit is still reachable by jumping
+//   slab to slab (the spans are 6-9 wide, inside the 12-tile reach) and through the oubliette's
+//   climb. LAW 2: the climb is rises of 4, 4 and 3. LAW 3: the oubliette holds no hazard. LAW 7:
+//   spawn (4,14) to exit (69,14) is 65 apart. LAW 8: the spawn landing and the first slab are
+//   empty; the nearest prisoner is 27 tiles out, the spitter 68.
+!name: Gallows
+!tier: medium
+!theme: prison
+!camera: tight
+
+################################################################################
+################################################################################
+##########..............####....................#####.............########....##
+##########..............####....................#####.............########....##
+##................................................................########....##
+##............................................................................##
+##...................................b........................................##
+##............................................................................##
+##............................................................................##
+##............................................................................##
+##.......................+.......................+............................##
+##..S...g...TTTTTT.g.TTTTTTTTT.z.TTTTTTTTT.Z.TTTTTTTTT.m.TTTTTTTTT...X..s.....##
+############......###.........###.........###.........###.........########....##
+############......................................................########..+.##
+############..................................................................##
+############..............................................................##..##
+############..................................................................##
+############..................................................................##
+############..................................................................##
+############................................................................####
+############...............................................................+..##
+############..................................................................##
+############..........l...........z.....g.....C...g..Z........l.....g.........##
+################################################################################
+################################################################################
+################################################################################

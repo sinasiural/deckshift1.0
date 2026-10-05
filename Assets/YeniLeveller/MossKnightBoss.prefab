@@ -8,6 +8,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 335611492191618670, guid: ebdad00539a4bc54c9683d7deb6d5c26, type: 3}
+      propertyPath: m_Mass
+      value: 500
+      objectReference: {fileID: 0}
     - target: {fileID: 1249736889808393188, guid: ebdad00539a4bc54c9683d7deb6d5c26, type: 3}
       propertyPath: m_LocalScale.x
       value: 1.3536
@@ -285,12 +289,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 300
+  playerHasStruck: 0
   canBeHeadBounced: 0
   healthBarPrefab: {fileID: 0}
   headBarOffset: {x: 0, y: 1}
   stunSpriteRenderers: []
   stunSkinnedRenderers: []
   damagePopupPrefab: {fileID: 2036397937272019125, guid: c4cd6b8e18cb9d141b1b0f9fa894bc1f, type: 3}
+  scrapDropOverride: -1
 --- !u!114 &4550592593290889996
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -359,21 +365,24 @@ MonoBehaviour:
   bossName: The Moss Knight
   hurtAnimThreshold: 50
   playDeathEffect: 1
-  deathSound: {fileID: 0}
+  deathSound: {fileID: 8300000, guid: cef1a7a889cbb034483e7ba4ba986eb0, type: 3}
   deathVolume: 1.4
   deathGoldPrefab: {fileID: 36429608721029561, guid: 2d3e20ebe97aafe4cb7d40cea6f64c78, type: 3}
   deathShiftCrystalPrefab: {fileID: 8096823719252344264, guid: 738e8751a02a1344eb634cdabe172263, type: 3}
   deathGoldCount: 8
   deathCrystalCount: 6
+  offerBossRelic: 1
+  bossRelicChoices: 2
+  rewardDelay: 2.6
   roarSound: {fileID: 8300000, guid: 09b96d19aac9020419e4eb3766104457, type: 3}
   roarVolume: 0.6
-  poundSound: {fileID: 0}
+  poundSound: {fileID: 8300000, guid: e09b24172f8bca84a8f3cad13013fb22, type: 3}
   poundVolume: 1
   cleaveSound: {fileID: 8300000, guid: 95798448d1097054cb27617aad2c68b2, type: 3}
   cleaveVolume: 1
   chargeSound: {fileID: 8300000, guid: 26e9afbfe4abf4941bf6def61960ab51, type: 3}
   chargeVolume: 1
-  leapSound: {fileID: 0}
+  leapSound: {fileID: 8300000, guid: 4147dcb51b249244f80faf173ff846ae, type: 3}
   leapVolume: 1
   slamSound: {fileID: 8300000, guid: de1b23a504c36db42a79349ea11200e1, type: 3}
   slamVolume: 0.83

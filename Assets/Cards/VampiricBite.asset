@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardName: Vampiric Bite
   description: Bite an enemy close to you for 20 damage and heal 10.
-  cardArt: {fileID: 2141060765154517041, guid: 2151a52b9719a1748a80969f2937012c, type: 3}
-  nameIsPaintedIntoArt: 1
+  cardArt: {fileID: 8720286550229680937, guid: 73d32346760234347b4e43bb4df72675, type: 3}
+  nameIsPaintedIntoArt: 0
+  rarity: 0
   actionType: 9
   actionValue: 20
   singleUse: 0

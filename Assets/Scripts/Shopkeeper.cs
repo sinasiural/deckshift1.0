@@ -32,6 +32,11 @@ public class Shopkeeper : MonoBehaviour
 
     private bool isInitialized = false;
 
+    // Blank Cheque: one free item at EVERY distinct shop, so it shapes how the map is routed rather
+    // than being a single moment. Tracked per shopkeeper, which is what makes "distinct shop" mean
+    // something — the flag lives and dies with this instance.
+    [System.NonSerialized] public bool blankChequeUsed = false;
+
     private void Start()
     {
         if (interactionPopup != null) interactionPopup.SetActive(false);
@@ -62,7 +67,7 @@ public class Shopkeeper : MonoBehaviour
             myInventory.Add(new ShopSlotData
             {
                 itemType = ShopItemType.Card, cardReference = card, itemName = card.cardName,
-                price = Random.Range(40, 70), isSold = false
+                price = ShopPricing.ForCard(card), isSold = false
             });
         }
 
@@ -82,7 +87,7 @@ public class Shopkeeper : MonoBehaviour
                 myInventory.Add(new ShopSlotData
                 {
                     itemType = ShopItemType.Relic, relicReference = relic, itemName = relic.relicName,
-                    price = Random.Range(100, 150), isSold = false
+                    price = ShopPricing.ForRelic(relic), isSold = false
                 });
             }
         }

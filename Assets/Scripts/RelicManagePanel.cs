@@ -314,6 +314,11 @@ public class RelicManagePanel : GameScreen
         detailName.color = FlatUI.RarityColor(selected.rarity);
         detailDesc.text = string.IsNullOrEmpty(selected.description) ? "-" : selected.description;
 
+        // The relic's live reading, as its own line under the rule — same source as the bar tooltip.
+        string live = RelicManager.instance != null ? RelicManager.instance.LiveReadout(selected) : null;
+        if (!string.IsNullOrEmpty(live))
+            detailDesc.text += "\n<color=#" + ColorUtility.ToHtmlStringRGB(FlatUI.Loadout.TextBright) + "><b>" + live + "</b></color>";
+
         int value = RelicManager.instance != null ? RelicManager.instance.SellValueFor(selected) : 0;
         if (sellLabel != null) sellLabel.text = $"SELL: {value} GOLD";
         if (sellButtonGo != null) sellButtonGo.SetActive(true);
